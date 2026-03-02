@@ -176,15 +176,33 @@ struct MangaDetailView: View {
             Text("Genres")
                 .font(.headline)
 
-            FlowLayout(spacing: 6) {
-                ForEach(genres, id: \.self) { genre in
-                    Text(genre)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.accentColor.opacity(0.15))
-                        .cornerRadius(6)
+            if #available(iOS 16.0, macOS 13.0, *) {
+                FlowLayout(spacing: 6) {
+                    ForEach(genres, id: \.self) { genre in
+                        genreTag(genre)
+                    }
                 }
+            } else {
+                wrappedGenres(genres)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func genreTag(_ genre: String) -> some View {
+        Text(genre)
+            .font(.caption)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.accentColor.opacity(0.15))
+            .cornerRadius(6)
+    }
+
+    @ViewBuilder
+    private func wrappedGenres(_ genres: [String]) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 6)], spacing: 6) {
+            ForEach(genres, id: \.self) { genre in
+                genreTag(genre)
             }
         }
     }
@@ -395,6 +413,7 @@ struct AutoMatchDestination: View {
 
 // MARK: - Flow Layout
 
+@available(iOS 16.0, macOS 13.0, *)
 struct FlowLayout: Layout {
     var spacing: CGFloat = 6
 
