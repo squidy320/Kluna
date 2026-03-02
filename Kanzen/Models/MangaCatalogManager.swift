@@ -30,8 +30,6 @@ class MangaCatalogManager: ObservableObject {
             MangaCatalog(id: "popularManhwa", name: "Popular Manhwa", isEnabled: true, order: 5),
             MangaCatalog(id: "trendingManhwa", name: "Trending Manhwa", isEnabled: false, order: 6),
             MangaCatalog(id: "topRatedManhwa", name: "Top Rated Manhwa", isEnabled: false, order: 7),
-            MangaCatalog(id: "popularLightNovels", name: "Popular Light Novels", isEnabled: false, order: 8),
-            MangaCatalog(id: "topRatedLightNovels", name: "Top Rated Light Novels", isEnabled: false, order: 9),
         ]
 
         if let data = userDefaults.data(forKey: catalogsKey),

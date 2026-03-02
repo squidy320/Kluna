@@ -165,12 +165,6 @@ final class AniListMangaService {
             topRatedManhwa: Page(perPage: \(limit)) {
                 media(type: MANGA, format_not: NOVEL, sort: [SCORE_DESC], countryOfOrigin: "KR") { \(mediaFragment) }
             }
-            popularLightNovels: Page(perPage: \(limit)) {
-                media(type: MANGA, format: NOVEL, sort: [POPULARITY_DESC]) { \(mediaFragment) }
-            }
-            topRatedLightNovels: Page(perPage: \(limit)) {
-                media(type: MANGA, format: NOVEL, sort: [SCORE_DESC]) { \(mediaFragment) }
-            }
             recentlyUpdated: Page(perPage: \(limit)) {
                 media(type: MANGA, format_not: NOVEL, sort: [UPDATED_AT_DESC], status: RELEASING) { \(mediaFragment) }
             }
@@ -188,8 +182,6 @@ final class AniListMangaService {
                 let popularManhwa: PageData
                 let trendingManhwa: PageData
                 let topRatedManhwa: PageData
-                let popularLightNovels: PageData
-                let topRatedLightNovels: PageData
                 let recentlyUpdated: PageData
             }
         }
@@ -205,8 +197,6 @@ final class AniListMangaService {
             "popularManhwa": decoded.data.popularManhwa.media,
             "trendingManhwa": decoded.data.trendingManhwa.media,
             "topRatedManhwa": decoded.data.topRatedManhwa.media,
-            "popularLightNovels": decoded.data.popularLightNovels.media,
-            "topRatedLightNovels": decoded.data.topRatedLightNovels.media,
             "recentlyUpdated": decoded.data.recentlyUpdated.media,
         ]
 

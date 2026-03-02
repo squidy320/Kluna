@@ -13,11 +13,33 @@ struct MangaDetailView: View {
     let manga: AniListManga
     @EnvironmentObject var moduleManager: ModuleManager
     @StateObject private var sourceFinder = MangaSourceFinder()
+    @ObservedObject private var libraryManager = MangaLibraryManager.shared
     @AppStorage("kanzenAutoMode") private var autoModeEnabled: Bool = false
+
+    // UI state
     @State private var expandedDescription: Bool = false
-    @State private var navigateToAutoMatch: Bool = false
+    @State private var showAddToCollection: Bool = false
+
+    // Source / chapter state
+    @State private var selectedSource: SourceMatch?
+    @State private var chapterEngine = KanzenEngine()
+    @State private var loadingChapters: Bool = false
+    @State private var loadedChapters: [Chapters]?
+    @State private var chapterLanguageIdx: Int = 0
+    @State private var reverseChapters: Bool = false
+    @State private var selectedChapterData: Chapter?
+    @State private var chapterLoadError: String?
 
     private let coverWidth: CGFloat = isIPad ? 150 * iPadScaleSmall : 150
+
+    private var libraryItem: MangaLibraryItem {
+        MangaLibraryItem(
+            aniListId: manga.id,
+            title: manga.displayTitle,
+            coverURL: manga.coverURL,
+            format: manga.format
+        )
+    }
 
     var body: some View {
         ScrollView {
@@ -38,42 +60,56 @@ struct MangaDetailView: View {
 
                 Divider()
 
-                sourcesSection
+                // Show chapters if a source was selected, otherwise show source picker
+                if selectedSource != nil {
+                    chaptersSection
+                } else {
+                    sourcesSection
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
         }
         .navigationTitle(manga.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showAddToCollection = true
+                } label: {
+                    Image(systemName: libraryManager.isBookmarked(libraryItem) ? "bookmark.fill" : "bookmark")
+                }
+            }
+        }
+        .sheet(isPresented: $showAddToCollection) {
+            MangaAddToCollectionView(item: libraryItem)
+                .environmentObject(libraryManager)
+        }
+        .fullScreenCover(item: $selectedChapterData) { chapter in
+            if let chapters = loadedChapters, chapterLanguageIdx < chapters.count {
+                readerManagerView(
+                    chapters: chapters[chapterLanguageIdx].chapters,
+                    selectedChapter: chapter,
+                    kanzen: chapterEngine
+                )
+            }
+        }
         .task {
             guard !moduleManager.modules.isEmpty else { return }
             sourceFinder.searchAllModules(for: manga)
         }
         .onChange(of: sourceFinder.hasFinished) { finished in
             guard finished, autoModeEnabled else { return }
-            // In auto mode, refine top matches with chapter counts then navigate
             sourceFinder.refineTopMatchesWithChapterCounts(for: manga)
         }
         .onChange(of: sourceFinder.autoPickedMatch?.id) { _ in
-            // After refinement, if auto mode auto-navigate
-            if autoModeEnabled, sourceFinder.hasFinished, sourceFinder.autoPickedMatch != nil {
-                // Small delay so the user briefly sees what was picked
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    navigateToAutoMatch = true
-                }
+            guard autoModeEnabled, sourceFinder.hasFinished,
+                  let pick = sourceFinder.autoPickedMatch else { return }
+            // Auto mode: select the best source and load chapters inline
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                selectSource(pick)
             }
         }
-        .background(
-            Group {
-                if let match = sourceFinder.autoPickedMatch {
-                    NavigationLink(
-                        destination: AutoMatchDestination(match: match),
-                        isActive: $navigateToAutoMatch
-                    ) { EmptyView() }
-                    .hidden()
-                }
-            }
-        )
     }
 
     // MARK: - Header
@@ -110,31 +146,43 @@ struct MangaDetailView: View {
                         .foregroundColor(.secondary)
                 }
 
-                HStack(spacing: 12) {
-                    if let chapters = manga.chapters {
-                        Label("\(chapters) ch", systemImage: "book.pages")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    if let volumes = manga.volumes {
-                        Label("\(volumes) vol", systemImage: "books.vertical")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    if let score = manga.averageScore {
-                        Label("\(score)%", systemImage: "star.fill")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    if let year = manga.startYear {
-                        Label("\(String(year))", systemImage: "calendar")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+                // Stats in a 2-column grid to avoid cramping
+                statsGrid
             }
             .frame(maxHeight: .infinity, alignment: .top)
         }
+    }
+
+    @ViewBuilder
+    private var statsGrid: some View {
+        let stats = buildStats()
+        if !stats.isEmpty {
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8)
+            ], alignment: .leading, spacing: 4) {
+                ForEach(stats, id: \.label) { stat in
+                    Label(stat.label, systemImage: stat.icon)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    private struct StatItem {
+        let label: String
+        let icon: String
+    }
+
+    private func buildStats() -> [StatItem] {
+        var items: [StatItem] = []
+        if let ch = manga.chapters { items.append(StatItem(label: "\(ch) ch", icon: "book.pages")) }
+        if let vol = manga.volumes { items.append(StatItem(label: "\(vol) vol", icon: "books.vertical")) }
+        if let score = manga.averageScore { items.append(StatItem(label: "\(score)%", icon: "star.fill")) }
+        if let year = manga.startYear { items.append(StatItem(label: "\(year)", icon: "calendar")) }
+        return items
     }
 
     // MARK: - Description
@@ -260,7 +308,7 @@ struct MangaDetailView: View {
                 .padding(.vertical, 12)
             } else {
                 ForEach(sourceFinder.matches) { match in
-                    NavigationLink(destination: AutoMatchDestination(match: match)) {
+                    Button { selectSource(match) } label: {
                         sourceMatchRow(match)
                     }
                     .buttonStyle(.plain)
@@ -286,25 +334,15 @@ struct MangaDetailView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(match.manga.title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-
-                    confidenceBadge(match.confidence)
-                }
+                Text(match.manga.title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
 
                 HStack(spacing: 8) {
                     Text(match.module.moduleData.sourceName)
                         .font(.caption)
                         .foregroundColor(.secondary)
-
-                    if let ch = match.chapterCount {
-                        Text("·  \(ch) ch")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
 
                     Text("·  \(Int(match.titleScore * 100))% match")
                         .font(.caption2)
@@ -321,23 +359,192 @@ struct MangaDetailView: View {
         .padding(.vertical, 6)
     }
 
-    @ViewBuilder
-    private func confidenceBadge(_ confidence: SourceMatch.SourceMatchConfidence) -> some View {
-        let (text, color): (String, Color) = {
-            switch confidence {
-            case .high: return ("High", .green)
-            case .medium: return ("Med", .orange)
-            case .low: return ("Low", .red)
-            }
-        }()
+    // MARK: - Chapters Section (inline after source selection)
 
-        Text(text)
-            .font(.system(size: 9, weight: .bold))
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(color.opacity(0.2))
-            .foregroundColor(color)
-            .cornerRadius(3)
+    @ViewBuilder
+    private var chaptersSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Selected source header with change button
+            if let source = selectedSource {
+                HStack {
+                    if let iconURL = URL(string: source.module.moduleData.iconURL) {
+                        KFImage(iconURL)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                            .cornerRadius(6)
+                    }
+                    Text(source.module.moduleData.sourceName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("· \(Int(source.titleScore * 100))%")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button {
+                        withAnimation {
+                            selectedSource = nil
+                            loadedChapters = nil
+                            chapterLoadError = nil
+                            loadingChapters = false
+                            chapterLanguageIdx = 0
+                        }
+                    } label: {
+                        Text("Change")
+                            .font(.caption)
+                            .foregroundColor(.accentColor)
+                    }
+                }
+            }
+
+            Divider()
+
+            if loadingChapters {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Loading chapters…")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            } else if let error = chapterLoadError {
+                VStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.title2)
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            } else if let chapters = loadedChapters, !chapters.isEmpty {
+                chapterListView(chapters)
+            } else if loadedChapters != nil {
+                VStack(spacing: 8) {
+                    Image(systemName: "doc.text")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                    Text("No chapters found from this source")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func chapterListView(_ allChapters: [Chapters]) -> some View {
+        let selected = allChapters[chapterLanguageIdx]
+        let displayed: [Chapter] = reverseChapters ? selected.chapters.reversed() : selected.chapters
+
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("\(selected.chapters.count) Chapters")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.accentColor)
+                Spacer()
+
+                if allChapters.count > 1 {
+                    Menu {
+                        ForEach(Array(allChapters.enumerated()), id: \.offset) { idx, lang in
+                            Button(lang.language) { chapterLanguageIdx = idx }
+                        }
+                    } label: {
+                        Image(systemName: "globe")
+                            .foregroundColor(.accentColor)
+                    }
+                }
+
+                Button {
+                    reverseChapters.toggle()
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .foregroundColor(.accentColor)
+                }
+            }
+
+            Divider().padding(.vertical, 4)
+
+            ForEach(displayed) { chapter in
+                Button {
+                    selectedChapterData = chapter
+                } label: {
+                    HStack {
+                        Text(chapter.chapterNumber)
+                            .font(.subheadline)
+                            .foregroundColor(.accentColor)
+
+                        if let data = chapter.chapterData, let first = data.first, !first.scanlationGroup.isEmpty {
+                            Text("· \(first.scanlationGroup)")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                Divider()
+            }
+        }
+    }
+
+    // MARK: - Source Selection & Chapter Loading
+
+    private func selectSource(_ match: SourceMatch) {
+        selectedSource = match
+        loadingChapters = true
+        loadedChapters = nil
+        chapterLoadError = nil
+        chapterLanguageIdx = 0
+
+        let engine = KanzenEngine()
+        do {
+            let script = try ModuleManager.shared.getModuleScript(module: match.module)
+            try engine.loadScript(script)
+        } catch {
+            loadingChapters = false
+            chapterLoadError = "Failed to load module: \(error.localizedDescription)"
+            return
+        }
+
+        // Store engine for the reader to use later
+        chapterEngine = engine
+
+        engine.extractChapters(params: match.manga.mangaId) { result in
+            DispatchQueue.main.async {
+                if let result = result {
+                    var parsed: [Chapters] = []
+                    for (key, value) in result {
+                        var chapterList: [Chapter] = []
+                        if let chapters = value as? [Any?] {
+                            for (idx, chapter) in chapters.enumerated() {
+                                if let chapter = chapter as? [Any?],
+                                   let name = chapter[0] as? String,
+                                   let rawData = chapter[1] as? [[String: Any]],
+                                   let data = rawData.compactMap({ ChapterData(dict: $0) }) as? [ChapterData] {
+                                    chapterList.append(Chapter(chapterNumber: name, idx: idx, chapterData: data))
+                                }
+                            }
+                        }
+                        if !chapterList.isEmpty {
+                            parsed.append(Chapters(language: key, chapters: chapterList))
+                        }
+                    }
+                    self.loadedChapters = parsed
+                } else {
+                    self.loadedChapters = []
+                }
+                self.loadingChapters = false
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -345,7 +552,6 @@ struct MangaDetailView: View {
     private func formatLabel(_ format: String) -> String {
         switch format {
         case "MANGA": return "Manga"
-        case "NOVEL": return "Light Novel"
         case "ONE_SHOT": return "One Shot"
         default: return format.capitalized
         }
@@ -370,43 +576,6 @@ struct MangaDetailView: View {
         case "CANCELLED": return "xmark.circle"
         case "HIATUS": return "pause.circle"
         default: return "questionmark.circle"
-        }
-    }
-}
-
-// MARK: - Auto Match Destination
-
-/// Loads a module and navigates directly to the content view for a matched manga.
-struct AutoMatchDestination: View {
-    let match: SourceMatch
-    @StateObject private var kanzen = KanzenEngine()
-    @EnvironmentObject var moduleManager: ModuleManager
-    @State private var moduleLoaded = false
-
-    var body: some View {
-        Group {
-            if moduleLoaded {
-                contentView(
-                    parentModule: match.module,
-                    title: match.manga.title,
-                    imageURL: match.manga.imageURL,
-                    params: match.manga.mangaId
-                )
-                .environmentObject(kanzen)
-            } else {
-                ProgressView("Loading module…")
-                    .task { loadModule() }
-            }
-        }
-    }
-
-    private func loadModule() {
-        do {
-            let content = try ModuleManager.shared.getModuleScript(module: match.module)
-            try kanzen.loadScript(content)
-            moduleLoaded = true
-        } catch {
-            Logger.shared.log("AutoMatchDestination: Failed to load module: \(error.localizedDescription)", type: "Error")
         }
     }
 }
@@ -452,39 +621,6 @@ struct FlowLayout: Layout {
             subview.place(at: CGPoint(x: x, y: y), proposal: .unspecified)
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
-        }
-    }
-}
-
-// MARK: - Module Search Bridge (kept for per-module search fallback)
-
-struct ModuleSearchBridge: View {
-    let module: ModuleDataContainer
-    let searchQuery: String
-    @StateObject private var kanzen = KanzenEngine()
-    @EnvironmentObject var moduleManager: ModuleManager
-    @State private var moduleLoaded = false
-
-    var body: some View {
-        Group {
-            if moduleLoaded {
-                KanzenSearchView(module: module, searchText: searchQuery)
-                    .environmentObject(kanzen)
-                    .environmentObject(moduleManager)
-            } else {
-                ProgressView("Loading module…")
-                    .task { loadModule() }
-            }
-        }
-    }
-
-    private func loadModule() {
-        do {
-            let content = try ModuleManager.shared.getModuleScript(module: module)
-            try kanzen.loadScript(content)
-            moduleLoaded = true
-        } catch {
-            Logger.shared.log("ModuleSearchBridge: Failed to load module: \(error.localizedDescription)", type: "Error")
         }
     }
 }

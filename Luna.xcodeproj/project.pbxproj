@@ -146,6 +146,12 @@
 		FF6666662F30000000FF6666 /* KanzenGlobalSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6666602F30000000FF6660 /* KanzenGlobalSearchView.swift */; };
 		FF7777712F30000000FF7771 /* MangaDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7777702F30000000FF7770 /* MangaDetailView.swift */; };
 		FF8888812F30000000FF8881 /* MangaCatalogSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF8888802F30000000FF8880 /* MangaCatalogSettingsView.swift */; };
+		FAA111012F40000000FAA111 /* MangaLibraryItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAA111002F40000000FAA110 /* MangaLibraryItem.swift */; };
+		FBB222012F40000000FBB221 /* MangaLibraryCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBB222002F40000000FBB220 /* MangaLibraryCollection.swift */; };
+		FCC333012F40000000FCC331 /* MangaLibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC333002F40000000FCC330 /* MangaLibraryManager.swift */; };
+		FDD444012F40000000FDD441 /* MangaAddToCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD444002F40000000FDD440 /* MangaAddToCollectionView.swift */; };
+		FEE555012F40000000FEE551 /* MangaCreateCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEE555002F40000000FEE550 /* MangaCreateCollectionView.swift */; };
+		FFF666012F40000000FFF661 /* MangaCollectionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF666002F40000000FFF660 /* MangaCollectionDetailView.swift */; };
 
 /* Begin PBXCopyFilesBuildPhase section */
 		12F745372EB539F000889684 /* Embed Frameworks */ = {
@@ -300,6 +306,12 @@
 		FF6666602F30000000FF6660 /* KanzenGlobalSearchView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KanzenGlobalSearchView.swift; sourceTree = "<group>"; };
 		FF7777702F30000000FF7770 /* MangaDetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaDetailView.swift; sourceTree = "<group>"; };
 		FF8888802F30000000FF8880 /* MangaCatalogSettingsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaCatalogSettingsView.swift; sourceTree = "<group>"; };
+		FAA111002F40000000FAA110 /* MangaLibraryItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaLibraryItem.swift; sourceTree = "<group>"; };
+		FBB222002F40000000FBB220 /* MangaLibraryCollection.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaLibraryCollection.swift; sourceTree = "<group>"; };
+		FCC333002F40000000FCC330 /* MangaLibraryManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaLibraryManager.swift; sourceTree = "<group>"; };
+		FDD444002F40000000FDD440 /* MangaAddToCollectionView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaAddToCollectionView.swift; sourceTree = "<group>"; };
+		FEE555002F40000000FEE550 /* MangaCreateCollectionView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaCreateCollectionView.swift; sourceTree = "<group>"; };
+		FFF666002F40000000FFF660 /* MangaCollectionDetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaCollectionDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -421,6 +433,9 @@
 				FF2222202F30000000FF2220 /* MangaCatalogManager.swift */,
 				FF3333302F30000000FF3330 /* MangaHomeViewModel.swift */,
 				FF4444402F30000000FF4440 /* MangaSourceFinder.swift */,
+				FAA111002F40000000FAA110 /* MangaLibraryItem.swift */,
+				FBB222002F40000000FBB220 /* MangaLibraryCollection.swift */,
+				FCC333002F40000000FCC330 /* MangaLibraryManager.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -565,6 +580,9 @@
 			isa = PBXGroup;
 			children = (
 				13E1EDCB2ED9E65F00087629 /* Library.swift */,
+				FDD444002F40000000FDD440 /* MangaAddToCollectionView.swift */,
+				FEE555002F40000000FEE550 /* MangaCreateCollectionView.swift */,
+				FFF666002F40000000FFF660 /* MangaCollectionDetailView.swift */,
 			);
 			path = Library;
 			sourceTree = "<group>";
@@ -1094,6 +1112,12 @@
 				FF6666662F30000000FF6666 /* KanzenGlobalSearchView.swift in Sources */,
 				FF7777712F30000000FF7771 /* MangaDetailView.swift in Sources */,
 				FF8888812F30000000FF8881 /* MangaCatalogSettingsView.swift in Sources */,
+				FAA111012F40000000FAA111 /* MangaLibraryItem.swift in Sources */,
+				FBB222012F40000000FBB221 /* MangaLibraryCollection.swift in Sources */,
+				FCC333012F40000000FCC331 /* MangaLibraryManager.swift in Sources */,
+				FDD444012F40000000FDD441 /* MangaAddToCollectionView.swift in Sources */,
+				FEE555012F40000000FEE551 /* MangaCreateCollectionView.swift in Sources */,
+				FFF666012F40000000FFF661 /* MangaCollectionDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

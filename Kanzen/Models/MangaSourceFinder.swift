@@ -146,17 +146,10 @@ final class MangaSourceFinder: ObservableObject {
                     JaroWinklerSimilarity.calculateSimilarity(original: candidate, result: result.title)
                 }.max() ?? 0.0
 
-                // Skip very low matches
-                guard bestScore >= 0.5 else { return nil }
+                // Only show 85%+ matches
+                guard bestScore >= 0.85 else { return nil }
 
-                let confidence: SourceMatch.SourceMatchConfidence
-                if bestScore >= 0.88 {
-                    confidence = .high
-                } else if bestScore >= 0.70 {
-                    confidence = .medium
-                } else {
-                    confidence = .low
-                }
+                let confidence: SourceMatch.SourceMatchConfidence = .high
 
                 return SourceMatch(
                     module: module,
