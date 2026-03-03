@@ -102,7 +102,8 @@ struct MangaDetailView: View {
                 progressManager.markChapterRead(
                     mangaId: manga.id,
                     chapterNumber: chapter.chapterNumber,
-                    mangaTitle: manga.displayTitle
+                    mangaTitle: manga.displayTitle,
+                    coverURL: manga.coverURL
                 )
             }
         }) { chapter in
@@ -112,7 +113,8 @@ struct MangaDetailView: View {
                     selectedChapter: chapter,
                     kanzen: chapterEngine,
                     mangaId: manga.id,
-                    mangaTitle: manga.displayTitle
+                    mangaTitle: manga.displayTitle,
+                    mangaCoverURL: manga.coverURL ?? ""
                 )
             }
         }
@@ -571,7 +573,7 @@ struct MangaDetailView: View {
                         }
                     } else {
                         Button {
-                            progressManager.markChapterRead(mangaId: manga.id, chapterNumber: chapter.chapterNumber)
+                            progressManager.markChapterRead(mangaId: manga.id, chapterNumber: chapter.chapterNumber, coverURL: manga.coverURL)
                         } label: {
                             Label("Mark as Read", systemImage: "eye")
                         }

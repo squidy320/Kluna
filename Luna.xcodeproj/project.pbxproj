@@ -143,6 +143,7 @@
 		FF3333332F30000000FF3333 /* MangaHomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3333302F30000000FF3330 /* MangaHomeViewModel.swift */; };
 		FF4444442F30000000FF4444 /* MangaSourceFinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4444402F30000000FF4440 /* MangaSourceFinder.swift */; };
 		FF5555552F30000000FF5555 /* KanzenHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF5555502F30000000FF5550 /* KanzenHomeView.swift */; };
+		FF5555562F30000000FF5556 /* KanzenHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF5555512F30000000FF5551 /* KanzenHistoryView.swift */; };
 		FF6666662F30000000FF6666 /* KanzenGlobalSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6666602F30000000FF6660 /* KanzenGlobalSearchView.swift */; };
 		FF7777712F30000000FF7771 /* MangaDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7777702F30000000FF7770 /* MangaDetailView.swift */; };
 		FF8888812F30000000FF8881 /* MangaCatalogSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF8888802F30000000FF8880 /* MangaCatalogSettingsView.swift */; };
@@ -304,6 +305,7 @@
 		FF3333302F30000000FF3330 /* MangaHomeViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaHomeViewModel.swift; sourceTree = "<group>"; };
 		FF4444402F30000000FF4440 /* MangaSourceFinder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaSourceFinder.swift; sourceTree = "<group>"; };
 		FF5555502F30000000FF5550 /* KanzenHomeView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KanzenHomeView.swift; sourceTree = "<group>"; };
+		FF5555512F30000000FF5551 /* KanzenHistoryView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KanzenHistoryView.swift; sourceTree = "<group>"; };
 		FF6666602F30000000FF6660 /* KanzenGlobalSearchView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = KanzenGlobalSearchView.swift; sourceTree = "<group>"; };
 		FF7777702F30000000FF7770 /* MangaDetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaDetailView.swift; sourceTree = "<group>"; };
 		FF8888802F30000000FF8880 /* MangaCatalogSettingsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MangaCatalogSettingsView.swift; sourceTree = "<group>"; };
@@ -612,6 +614,7 @@
 			isa = PBXGroup;
 			children = (
 				FF5555502F30000000FF5550 /* KanzenHomeView.swift */,
+				FF5555512F30000000FF5551 /* KanzenHistoryView.swift */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -1112,6 +1115,7 @@
 				FF3333332F30000000FF3333 /* MangaHomeViewModel.swift in Sources */,
 				FF4444442F30000000FF4444 /* MangaSourceFinder.swift in Sources */,
 				FF5555552F30000000FF5555 /* KanzenHomeView.swift in Sources */,
+				FF5555562F30000000FF5556 /* KanzenHistoryView.swift in Sources */,
 				FF6666662F30000000FF6666 /* KanzenGlobalSearchView.swift in Sources */,
 				FF7777712F30000000FF7771 /* MangaDetailView.swift in Sources */,
 				FF8888812F30000000FF8881 /* MangaCatalogSettingsView.swift in Sources */,

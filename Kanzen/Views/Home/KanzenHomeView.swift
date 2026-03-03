@@ -19,10 +19,7 @@ struct KanzenHomeView: View {
 
     var body: some View {
         NavigationView {
-            ZStack {
-                Color(UIColor.systemBackground)
-                    .ignoresSafeArea()
-
+            Group {
                 if homeViewModel.isLoading && homeViewModel.catalogResults.isEmpty {
                     ProgressView("Loading manga…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -44,7 +41,7 @@ struct KanzenHomeView: View {
                     .padding()
                 } else {
                     ScrollView {
-                        VStack(spacing: 0) {
+                        LazyVStack(spacing: 0) {
                             ForEach(enabledCatalogs) { catalog in
                                 if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
                                     MangaCatalogSection(
@@ -53,8 +50,8 @@ struct KanzenHomeView: View {
                                     )
                                 }
                             }
-                            Spacer(minLength: 50)
                         }
+                        .padding(.bottom, 30)
                     }
                     .refreshable {
                         homeViewModel.resetContent()
@@ -62,6 +59,7 @@ struct KanzenHomeView: View {
                     }
                 }
             }
+            .background(Color(UIColor.systemBackground).ignoresSafeArea())
             .navigationTitle("Home")
             .navigationBarTitleDisplayMode(.large)
         }

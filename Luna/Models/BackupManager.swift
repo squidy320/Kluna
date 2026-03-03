@@ -42,10 +42,17 @@ struct BackupData: Codable {
     // Services (custom JS modules)
     var services: [BackupService] = []
 
+    // Manga / Kanzen data
+    var mangaCollections: [BackupMangaCollection] = []
+    var mangaReadingProgress: [String: MangaProgress] = []
+    var mangaCatalogs: [MangaCatalog] = []
+    var kanzenModules: [BackupKanzenModule] = []
+
     enum CodingKeys: String, CodingKey {
         case version, createdDate
         case accentColor, tmdbLanguage, selectedAppearance, enableSubtitlesByDefault, defaultSubtitleLanguage, enableVLCSubtitleEditMenu, preferredAnimeAudioLanguage, playerChoice, showScheduleTab, showLocalScheduleTime
         case collections, progressData, trackerState, catalogs, services
+        case mangaCollections, mangaReadingProgress, mangaCatalogs, kanzenModules
     }
 
     init(from decoder: Decoder) throws {
@@ -69,6 +76,10 @@ struct BackupData: Codable {
         trackerState = try container.decodeIfPresent(TrackerState.self, forKey: .trackerState) ?? TrackerState()
         catalogs = try container.decodeIfPresent([Catalog].self, forKey: .catalogs) ?? []
         services = try container.decodeIfPresent([BackupService].self, forKey: .services) ?? []
+        mangaCollections = try container.decodeIfPresent([BackupMangaCollection].self, forKey: .mangaCollections) ?? []
+        mangaReadingProgress = try container.decodeIfPresent([String: MangaProgress].self, forKey: .mangaReadingProgress) ?? [:]
+        mangaCatalogs = try container.decodeIfPresent([MangaCatalog].self, forKey: .mangaCatalogs) ?? []
+        kanzenModules = try container.decodeIfPresent([BackupKanzenModule].self, forKey: .kanzenModules) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -91,6 +102,10 @@ struct BackupData: Codable {
         try container.encode(trackerState, forKey: .trackerState)
         try container.encode(catalogs, forKey: .catalogs)
         try container.encode(services, forKey: .services)
+        try container.encode(mangaCollections, forKey: .mangaCollections)
+        try container.encode(mangaReadingProgress, forKey: .mangaReadingProgress)
+        try container.encode(mangaCatalogs, forKey: .mangaCatalogs)
+        try container.encode(kanzenModules, forKey: .kanzenModules)
     }
     
     init(
@@ -111,7 +126,11 @@ struct BackupData: Codable {
         progressData: ProgressData = ProgressData(),
         trackerState: TrackerState = TrackerState(),
         catalogs: [Catalog] = [],
-        services: [BackupService] = []
+        services: [BackupService] = [],
+        mangaCollections: [BackupMangaCollection] = [],
+        mangaReadingProgress: [String: MangaProgress] = [:],
+        mangaCatalogs: [MangaCatalog] = [],
+        kanzenModules: [BackupKanzenModule] = []
     ) {
         self.version = version
         self.createdDate = createdDate
@@ -131,6 +150,10 @@ struct BackupData: Codable {
         self.trackerState = trackerState
         self.catalogs = catalogs
         self.services = services
+        self.mangaCollections = mangaCollections
+        self.mangaReadingProgress = mangaReadingProgress
+        self.mangaCatalogs = mangaCatalogs
+        self.kanzenModules = kanzenModules
     }
 
 }
@@ -143,6 +166,23 @@ struct BackupService: Codable {
     let jsScript: String
     let isActive: Bool
     let sortIndex: Int64
+}
+
+// Codable wrapper for MangaLibraryCollection
+struct BackupMangaCollection: Codable {
+    let id: UUID
+    let name: String
+    let items: [MangaLibraryItem]
+    let description: String?
+}
+
+// Codable wrapper for Kanzen modules
+struct BackupKanzenModule: Codable {
+    let id: UUID
+    let moduleData: ModuleData
+    let localPath: String
+    let moduleurl: String
+    let isActive: Bool
 }
 
 // Codable wrapper for LibraryCollection
@@ -249,6 +289,38 @@ class BackupManager {
             let metadataString = String(data: metadataData, encoding: .utf8) ?? "{}"
             return BackupService(id: service.id, url: service.url, jsonMetadata: metadataString, jsScript: service.jsScript, isActive: service.isActive, sortIndex: service.sortIndex)
         }
+
+        // Get manga library collections
+        let mangaLibraryManager = MangaLibraryManager.shared
+        let mangaCollections = mangaLibraryManager.collections.map { collection in
+            BackupMangaCollection(
+                id: collection.id,
+                name: collection.name,
+                items: collection.items,
+                description: collection.description
+            )
+        }
+
+        // Get manga reading progress
+        let mangaProgressManager = MangaReadingProgressManager.shared
+        let mangaReadingProgress = Dictionary(
+            uniqueKeysWithValues: mangaProgressManager.progressMap.map { ("\($0.key)", $0.value) }
+        )
+
+        // Get manga catalogs
+        let mangaCatalogManager = MangaCatalogManager.shared
+        let mangaCatalogs = mangaCatalogManager.catalogs
+
+        // Get Kanzen modules
+        let kanzenModules = ModuleManager.shared.modules.map { mod in
+            BackupKanzenModule(
+                id: mod.id,
+                moduleData: mod.moduleData,
+                localPath: mod.localPath,
+                moduleurl: mod.moduleurl,
+                isActive: mod.isActive
+            )
+        }
         
         let backup = BackupData(
             createdDate: Date(),
@@ -267,7 +339,11 @@ class BackupManager {
             progressData: progressData,
             trackerState: trackerState,
             catalogs: catalogs,
-            services: services
+            services: services,
+            mangaCollections: mangaCollections,
+            mangaReadingProgress: mangaReadingProgress,
+            mangaCatalogs: mangaCatalogs,
+            kanzenModules: kanzenModules
         )
         
         return backup
@@ -395,6 +471,47 @@ class BackupManager {
                 }
             }
         }
+
+        // Manga data
+        var mangaCollections: [BackupMangaCollection] = []
+        if let mangaColData = json["mangaCollections"] as? [[String: Any]] {
+            for dict in mangaColData {
+                if let data = try? JSONSerialization.data(withJSONObject: dict) {
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+                    if let col = try? decoder.decode(BackupMangaCollection.self, from: data) {
+                        mangaCollections.append(col)
+                    }
+                }
+            }
+        }
+
+        var mangaReadingProgress: [String: MangaProgress] = [:]
+        if let progressDict = json["mangaReadingProgress"] as? [String: Any],
+           let progressJSON = try? JSONSerialization.data(withJSONObject: progressDict),
+           let decoded = try? JSONDecoder().decode([String: MangaProgress].self, from: progressJSON) {
+            mangaReadingProgress = decoded
+        }
+
+        var mangaCatalogs: [MangaCatalog] = []
+        if let catalogsData = json["mangaCatalogs"] as? [[String: Any]] {
+            for dict in catalogsData {
+                if let data = try? JSONSerialization.data(withJSONObject: dict),
+                   let cat = try? JSONDecoder().decode(MangaCatalog.self, from: data) {
+                    mangaCatalogs.append(cat)
+                }
+            }
+        }
+
+        var kanzenModules: [BackupKanzenModule] = []
+        if let modulesData = json["kanzenModules"] as? [[String: Any]] {
+            for dict in modulesData {
+                if let data = try? JSONSerialization.data(withJSONObject: dict),
+                   let mod = try? JSONDecoder().decode(BackupKanzenModule.self, from: data) {
+                    kanzenModules.append(mod)
+                }
+            }
+        }
         
         return BackupData(
             version: version,
@@ -413,7 +530,11 @@ class BackupManager {
             progressData: progressData,
             trackerState: trackerState,
             catalogs: catalogs,
-            services: services
+            services: services,
+            mangaCollections: mangaCollections,
+            mangaReadingProgress: mangaReadingProgress,
+            mangaCatalogs: mangaCatalogs,
+            kanzenModules: kanzenModules
         )
     }
     
@@ -475,6 +596,50 @@ class BackupManager {
         existingServices.forEach { serviceStore.remove($0) }
         for svc in backup.services {
             serviceStore.storeService(id: svc.id, url: svc.url, jsonMetadata: svc.jsonMetadata, jsScript: svc.jsScript, isActive: svc.isActive)
+        }
+
+        // Restore manga library collections
+        let mangaLibraryManager = MangaLibraryManager.shared
+        if !backup.mangaCollections.isEmpty {
+            mangaLibraryManager.collections = backup.mangaCollections.map { bc in
+                MangaLibraryCollection(id: bc.id, name: bc.name, items: bc.items, description: bc.description)
+            }
+        }
+
+        // Restore manga reading progress
+        if !backup.mangaReadingProgress.isEmpty {
+            let mangaProgressMap = Dictionary(uniqueKeysWithValues:
+                backup.mangaReadingProgress.compactMap { key, value -> (Int, MangaProgress)? in
+                    guard let id = Int(key) else { return nil }
+                    return (id, value)
+                }
+            )
+            MangaReadingProgressManager.shared.replaceProgressMapForRestore(mangaProgressMap)
+        }
+
+        // Restore manga catalogs
+        if !backup.mangaCatalogs.isEmpty {
+            let mangaCatalogManager = MangaCatalogManager.shared
+            mangaCatalogManager.catalogs = backup.mangaCatalogs
+            mangaCatalogManager.saveCatalogs()
+        }
+
+        // Restore Kanzen modules
+        if !backup.kanzenModules.isEmpty {
+            let kanzenModuleManager = ModuleManager.shared
+            for mod in backup.kanzenModules {
+                if !kanzenModuleManager.modules.contains(where: { $0.id == mod.id }) {
+                    let container = ModuleDataContainer(
+                        id: mod.id,
+                        moduleData: mod.moduleData,
+                        localPath: mod.localPath,
+                        moduleurl: mod.moduleurl,
+                        isActive: mod.isActive
+                    )
+                    kanzenModuleManager.modules.append(container)
+                }
+            }
+            kanzenModuleManager.saveModules()
         }
         
         Logger.shared.log("Backup restored successfully", type: "Info")

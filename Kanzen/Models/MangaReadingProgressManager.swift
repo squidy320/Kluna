@@ -15,6 +15,11 @@ struct MangaProgress: Codable {
     var lastReadDate: Date?
     /// Page index keyed by chapter number, so reader can resume mid-chapter.
     var pagePositions: [String: Int] = [:]
+    // Display metadata for history
+    var title: String?
+    var coverURL: String?
+    var format: String?
+    var totalChapters: Int?
 }
 
 // MARK: - Progress Manager
@@ -49,11 +54,13 @@ final class MangaReadingProgressManager: ObservableObject {
         progressMap[mangaId]?.pagePositions[chapterNumber] ?? 0
     }
 
-    func savePagePosition(mangaId: Int, chapterNumber: String, page: Int) {
+    func savePagePosition(mangaId: Int, chapterNumber: String, page: Int, mangaTitle: String? = nil, coverURL: String? = nil) {
         var progress = progressMap[mangaId] ?? MangaProgress()
         progress.pagePositions[chapterNumber] = page
         progress.lastReadChapter = chapterNumber
         progress.lastReadDate = Date()
+        if let t = mangaTitle { progress.title = t }
+        if let c = coverURL { progress.coverURL = c }
         progressMap[mangaId] = progress
         save()
     }
@@ -61,14 +68,27 @@ final class MangaReadingProgressManager: ObservableObject {
     // MARK: - Mutations
 
     /// Mark a chapter as read and optionally sync to AniList.
-    func markChapterRead(mangaId: Int, chapterNumber: String, mangaTitle: String? = nil) {
+    func markChapterRead(mangaId: Int, chapterNumber: String, mangaTitle: String? = nil, coverURL: String? = nil, format: String? = nil, totalChapters: Int? = nil) {
         var progress = progressMap[mangaId] ?? MangaProgress()
 
-        guard !progress.readChapterNumbers.contains(chapterNumber) else { return }
+        guard !progress.readChapterNumbers.contains(chapterNumber) else {
+            // Still update metadata if provided even for already-read chapters
+            var changed = false
+            if let t = mangaTitle, progress.title != t { progress.title = t; changed = true }
+            if let c = coverURL, progress.coverURL != c { progress.coverURL = c; changed = true }
+            if let f = format, progress.format != f { progress.format = f; changed = true }
+            if let tc = totalChapters, progress.totalChapters != tc { progress.totalChapters = tc; changed = true }
+            if changed { progressMap[mangaId] = progress; save() }
+            return
+        }
 
         progress.readChapterNumbers.insert(chapterNumber)
         progress.lastReadChapter = chapterNumber
         progress.lastReadDate = Date()
+        if let t = mangaTitle { progress.title = t }
+        if let c = coverURL { progress.coverURL = c }
+        if let f = format { progress.format = f }
+        if let tc = totalChapters { progress.totalChapters = tc }
         progressMap[mangaId] = progress
         save()
 
@@ -128,6 +148,22 @@ final class MangaReadingProgressManager: ObservableObject {
         if let data = try? JSONEncoder().encode(progressMap) {
             UserDefaults.standard.set(data, forKey: storageKey)
         }
+    }
+
+    // MARK: - History
+
+    /// Returns all manga IDs that have reading progress, sorted by most recently read.
+    func recentlyReadMangaIds() -> [(id: Int, progress: MangaProgress)] {
+        progressMap
+            .filter { $0.value.lastReadDate != nil }
+            .sorted { ($0.value.lastReadDate ?? .distantPast) > ($1.value.lastReadDate ?? .distantPast) }
+            .map { (id: $0.key, progress: $0.value) }
+    }
+
+    /// Bulk-replace progress map (used during backup restore).
+    func replaceProgressMapForRestore(_ newMap: [Int: MangaProgress]) {
+        progressMap = newMap
+        save()
     }
 
     // MARK: - Helpers

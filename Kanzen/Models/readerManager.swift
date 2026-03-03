@@ -27,6 +27,7 @@ class readerManager: ObservableObject {
      var kanzen : KanzenEngine
     var mangaId: Int = 0
     var mangaTitle: String = ""
+    var mangaCoverURL: String = ""
     // Cached controllers - only recreated when data changes
  var currControllers: [UIViewController]?
   var prevControllers: [UIViewController]?
@@ -48,7 +49,7 @@ var nextControllers: [UIViewController]?
         }
     }
     
-    init(index: Int = 0, currChapter: [PageData] = [], prevChapter: [PageData] = [], nextChapter: [PageData] = [], shiftChapterLeft: @escaping () -> Void = {}, shiftChapterRight: @escaping () -> Void = {}, fetchPrev: @escaping () -> Void = {}, fetchNext: @escaping () -> Void = {}, kanzen: KanzenEngine,chapters: [Chapter]?, selectedChapter: Chapter?, mangaId: Int = 0, mangaTitle: String = "") {
+    init(index: Int = 0, currChapter: [PageData] = [], prevChapter: [PageData] = [], nextChapter: [PageData] = [], shiftChapterLeft: @escaping () -> Void = {}, shiftChapterRight: @escaping () -> Void = {}, fetchPrev: @escaping () -> Void = {}, fetchNext: @escaping () -> Void = {}, kanzen: KanzenEngine,chapters: [Chapter]?, selectedChapter: Chapter?, mangaId: Int = 0, mangaTitle: String = "", mangaCoverURL: String = "") {
         self.index = index
         self.currChapter = currChapter
         self.prevChapter = prevChapter
@@ -58,6 +59,7 @@ var nextControllers: [UIViewController]?
         self.selectedChapter = selectedChapter
         self.mangaId = mangaId
         self.mangaTitle = mangaTitle
+        self.mangaCoverURL = mangaCoverURL
     }
     func initChapters(){
         // resetState
@@ -131,7 +133,9 @@ var nextControllers: [UIViewController]?
             MangaReadingProgressManager.shared.savePagePosition(
                 mangaId: mangaId,
                 chapterNumber: chapter.chapterNumber,
-                page: index
+                page: index,
+                mangaTitle: mangaTitle,
+                coverURL: mangaCoverURL
             )
         }
     }
@@ -217,7 +221,8 @@ var nextControllers: [UIViewController]?
             MangaReadingProgressManager.shared.markChapterRead(
                 mangaId: mangaId,
                 chapterNumber: chapter.chapterNumber,
-                mangaTitle: mangaTitle
+                mangaTitle: mangaTitle,
+                coverURL: mangaCoverURL
             )
         }
         
@@ -256,7 +261,8 @@ var nextControllers: [UIViewController]?
             MangaReadingProgressManager.shared.markChapterRead(
                 mangaId: mangaId,
                 chapterNumber: chapter.chapterNumber,
-                mangaTitle: mangaTitle
+                mangaTitle: mangaTitle,
+                coverURL: mangaCoverURL
             )
         }
         
@@ -423,7 +429,8 @@ var nextControllers: [UIViewController]?
             MangaReadingProgressManager.shared.markChapterRead(
                 mangaId: mangaId,
                 chapterNumber: chapter.chapterNumber,
-                mangaTitle: mangaTitle
+                mangaTitle: mangaTitle,
+                coverURL: mangaCoverURL
             )
         }
         selectedChapter = chapters?[chapter.idx - 1]
@@ -436,7 +443,8 @@ var nextControllers: [UIViewController]?
             MangaReadingProgressManager.shared.markChapterRead(
                 mangaId: mangaId,
                 chapterNumber: chapter.chapterNumber,
-                mangaTitle: mangaTitle
+                mangaTitle: mangaTitle,
+                coverURL: mangaCoverURL
             )
         }
         selectedChapter = chapters[chapter.idx + 1]

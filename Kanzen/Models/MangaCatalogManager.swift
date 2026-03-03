@@ -34,8 +34,10 @@ class MangaCatalogManager: ObservableObject {
 
         if let data = userDefaults.data(forKey: catalogsKey),
            let savedCatalogs = try? JSONDecoder().decode([MangaCatalog].self, from: data) {
-            var merged = savedCatalogs.sorted { $0.order < $1.order }
-            let existingIds = Set(savedCatalogs.map { $0.id })
+            let validIds = Set(defaultCatalogs.map { $0.id })
+            // Remove stale catalogs that no longer exist in defaults (e.g. removed light novel catalogs)
+            var merged = savedCatalogs.filter { validIds.contains($0.id) }.sorted { $0.order < $1.order }
+            let existingIds = Set(merged.map { $0.id })
             let missingDefaults = defaultCatalogs.filter { !existingIds.contains($0.id) }
             merged.append(contentsOf: missingDefaults)
 

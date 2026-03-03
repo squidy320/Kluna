@@ -30,9 +30,9 @@ struct KanzenMenu: View {
                     Label("Search", systemImage: "magnifyingglass")
                 }
 
-            BrowseView()
+            KanzenHistoryView()
                 .tabItem {
-                    Label("Services", systemImage: "list.bullet")
+                    Label("History", systemImage: "clock")
                 }
 
             KanzenSettingsView()
