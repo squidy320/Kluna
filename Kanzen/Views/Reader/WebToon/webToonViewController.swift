@@ -27,6 +27,7 @@ struct WebtoonView: UIViewRepresentable {
         collectionView.delegate = context.coordinator
         collectionView.register(ChapterCollectionViewCell.self, forCellWithReuseIdentifier: ChapterCollectionViewCell.reuseIdentifier)
         
+        #if !os(tvOS)
         // Pinch-to-zoom gesture
         let pinch = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
         collectionView.addGestureRecognizer(pinch)
@@ -35,6 +36,7 @@ struct WebtoonView: UIViewRepresentable {
         let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
         doubleTap.numberOfTapsRequired = 2
         collectionView.addGestureRecognizer(doubleTap)
+        #endif
         
         context.coordinator.collectionView = collectionView
         
@@ -104,6 +106,7 @@ struct WebtoonView: UIViewRepresentable {
         
         // MARK: - Zoom Gestures
         
+        #if !os(tvOS)
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
             guard let view = gesture.view else { return }
             
@@ -143,6 +146,7 @@ struct WebtoonView: UIViewRepresentable {
                 currentZoomScale = targetScale
             }
         }
+        #endif
         
         func getCurrentpagePath(collectionView: UICollectionView, position: ScreenPosition = .mid) -> IndexPath? {
             let value : CGFloat = switch position
