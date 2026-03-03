@@ -167,7 +167,7 @@ struct SettingsView: View {
             }
             
             Section{
-                Text("Switch to Kanzen")
+                Text("Switch to Reader Mode")
                     .onTapGesture {
                         showKanzen = true
                     }
