@@ -362,7 +362,9 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     private var autoSkippedSegments: Set<String> = []
     private var currentActiveSkipSegment: SkipSegment?
     private var nextEpisodeButtonShown = false
+#if !os(tvOS)
     private var skip85sButtonShown = false
+#endif
 
 #if !os(tvOS)
     private lazy var skipButton: UIButton = {
@@ -1862,12 +1864,14 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
 
             if segments.isEmpty {
                 Logger.shared.log("SkipData: No skip data found from any source for tmdbId=\(tmdbId)", type: "Skip")
+#if !os(tvOS)
                 await MainActor.run {
                     let skip85sEnabled = UserDefaults.standard.bool(forKey: "skip85sEnabled")
                     if skip85sEnabled {
                         self.showSkip85sButton()
                     }
                 }
+#endif
                 return
             }
 
@@ -3044,9 +3048,11 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
 #endif
             } completion: { _ in
                 self.controlsOverlayView.isHidden = true
+#if !os(tvOS)
                 if self.skip85sButtonShown {
                     self.skip85sButton.isHidden = true
                 }
+#endif
             }
         }
 
