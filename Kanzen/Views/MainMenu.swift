@@ -40,6 +40,7 @@ struct KanzenMenu: View {
                     Label("Settings", systemImage: "gear")
                 }
         }
+        .environmentObject(kanzen)
         .task {
             await moduleManager.autoUpdateModulesIfNeeded()
         }

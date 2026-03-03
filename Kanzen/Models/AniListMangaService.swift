@@ -212,7 +212,7 @@ final class AniListMangaService {
         let query = """
         query {
             Page(page: \(page), perPage: \(perPage)) {
-                media(search: "\(sanitized)", type: MANGA, sort: [POPULARITY_DESC]) {
+                media(search: "\(sanitized)", type: MANGA, format_not: NOVEL, sort: [POPULARITY_DESC]) {
                     \(mediaFragment)
                 }
             }
