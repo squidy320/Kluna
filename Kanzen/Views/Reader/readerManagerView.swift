@@ -112,8 +112,7 @@ struct readerManagerView:View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.body)
-                            .fontWeight(.semibold)
+                            .font(.body.bold())
                             .foregroundColor(.white)
                             .frame(width: 30, height: 30)
                             .background(Color.white.opacity(0.2))
@@ -171,8 +170,7 @@ struct readerManagerView:View {
                             reader_manager.goToPreviousChapter()
                         } label: {
                             Image(systemName: "chevron.left")
-                                .font(.callout)
-                                .fontWeight(.semibold)
+                                .font(.callout.bold())
                                 .foregroundColor(reader_manager.selectedChapter?.idx ?? 0 > 0 ? .white : .white.opacity(0.3))
                         }
                         .disabled(reader_manager.selectedChapter?.idx == 0)
@@ -187,8 +185,7 @@ struct readerManagerView:View {
                             reader_manager.goToNextChapter()
                         } label: {
                             Image(systemName: "chevron.right")
-                                .font(.callout)
-                                .fontWeight(.semibold)
+                                .font(.callout.bold())
                                 .foregroundColor((reader_manager.selectedChapter?.idx ?? 0) < (reader_manager.chapters?.count ?? 1) - 1 ? .white : .white.opacity(0.3))
                         }
                         .disabled(reader_manager.selectedChapter?.idx == (reader_manager.chapters?.count ?? 1) - 1)
