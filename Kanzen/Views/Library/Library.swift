@@ -11,7 +11,6 @@ import Kingfisher
 #if !os(tvOS)
 struct KanzenLibraryView: View {
     @ObservedObject private var libraryManager = MangaLibraryManager.shared
-    @ObservedObject private var progressManager = MangaReadingProgressManager.shared
     @EnvironmentObject var moduleManager: ModuleManager
     @State private var showCreateCollection = false
 
@@ -191,9 +190,6 @@ struct KanzenLibraryView: View {
                 .frame(height: 180)
                 .clipped()
                 .cornerRadius(8)
-                .overlay(alignment: .topTrailing) {
-                    unreadBadge(for: item)
-                }
 
             Text(item.title)
                 .font(.caption)
@@ -247,21 +243,6 @@ struct KanzenLibraryView: View {
     }
 
     // MARK: - Helpers
-
-    @ViewBuilder
-    private func unreadBadge(for item: MangaLibraryItem) -> some View {
-        let readCount = progressManager.readChapters(for: item.aniListId).count
-        if readCount > 0 {
-            Text("\(readCount)")
-                .font(.caption2.bold())
-                .foregroundColor(.white)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Color.accentColor)
-                .clipShape(Capsule())
-                .padding(4)
-        }
-    }
 
     @ViewBuilder
     private func mangaDestination(for item: MangaLibraryItem) -> some View {

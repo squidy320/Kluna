@@ -12,7 +12,6 @@ import Kingfisher
 struct MangaCollectionDetailView: View {
     @ObservedObject var collection: MangaLibraryCollection
     @ObservedObject var libraryManager: MangaLibraryManager
-    @ObservedObject private var progressManager = MangaReadingProgressManager.shared
 
     private let columns = [GridItem(.adaptive(minimum: 120), spacing: 12)]
 
@@ -62,9 +61,6 @@ struct MangaCollectionDetailView: View {
                 .frame(width: 120, height: 180)
                 .clipped()
                 .cornerRadius(8)
-                .overlay(alignment: .topTrailing) {
-                    unreadBadge(for: item)
-                }
 
             Text(item.title)
                 .font(.caption)
@@ -72,21 +68,6 @@ struct MangaCollectionDetailView: View {
                 .foregroundColor(.primary)
         }
         .frame(width: 120)
-    }
-
-    @ViewBuilder
-    private func unreadBadge(for item: MangaLibraryItem) -> some View {
-        let readCount = progressManager.readChapters(for: item.aniListId).count
-        if readCount > 0 {
-            Text("\(readCount)")
-                .font(.caption2.bold())
-                .foregroundColor(.white)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Color.accentColor)
-                .clipShape(Capsule())
-                .padding(4)
-        }
     }
 
     @ViewBuilder
