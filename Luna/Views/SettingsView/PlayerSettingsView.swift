@@ -75,6 +75,10 @@ final class PlayerSettingsStore: ObservableObject {
         didSet { UserDefaults.standard.set(aniSkipAutoSkip, forKey: "aniSkipAutoSkip") }
     }
 
+    @Published var skip85sEnabled: Bool {
+        didSet { UserDefaults.standard.set(skip85sEnabled, forKey: "skip85sEnabled") }
+    }
+
     @Published var showNextEpisodeButton: Bool {
         didSet { UserDefaults.standard.set(showNextEpisodeButton, forKey: "showNextEpisodeButton") }
     }
@@ -98,6 +102,8 @@ final class PlayerSettingsStore: ObservableObject {
         self.vlcSubtitleEditMenuEnabled = UserDefaults.standard.bool(forKey: "enableVLCSubtitleEditMenu")
 
         self.aniSkipAutoSkip = UserDefaults.standard.bool(forKey: "aniSkipAutoSkip")
+
+        self.skip85sEnabled = UserDefaults.standard.bool(forKey: "skip85sEnabled")
 
         // Default to true if key has never been set
         if UserDefaults.standard.object(forKey: "showNextEpisodeButton") == nil {
@@ -479,6 +485,24 @@ struct PlayerSettingsView: View {
                         Spacer()
 
                         Toggle("", isOn: $store.aniSkipAutoSkip)
+                            .tint(accentColorManager.currentAccentColor)
+                    }
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Skip 85s Fallback")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+
+                            Text("Show a skip 85 seconds button when AniSkip and TheIntroDB don't return any skip data for the current episode.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.leading)
+                        }
+
+                        Spacer()
+
+                        Toggle("", isOn: $store.skip85sEnabled)
                             .tint(accentColorManager.currentAccentColor)
                     }
                 }

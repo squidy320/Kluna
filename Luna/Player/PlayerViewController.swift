@@ -362,6 +362,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     private var autoSkippedSegments: Set<String> = []
     private var currentActiveSkipSegment: SkipSegment?
     private var nextEpisodeButtonShown = false
+    private var skip85sButtonShown = false
 
 #if !os(tvOS)
     private lazy var skipButton: UIButton = {
@@ -393,6 +394,26 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         config.imagePadding = 6
         config.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 18)
         config.title = "Next Episode"
+        let btn = UIButton(configuration: config)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.alpha = 0
+        btn.isHidden = true
+        btn.layer.shadowColor = UIColor.black.cgColor
+        btn.layer.shadowOpacity = 0.3
+        btn.layer.shadowOffset = CGSize(width: 0, height: 2)
+        btn.layer.shadowRadius = 4
+        return btn
+    }()
+
+    private lazy var skip85sButton: UIButton = {
+        var config = UIButton.Configuration.filled()
+        config.cornerStyle = .capsule
+        config.baseBackgroundColor = UIColor.white.withAlphaComponent(0.2)
+        config.baseForegroundColor = UIColor.white
+        config.image = UIImage(systemName: "forward.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
+        config.imagePadding = 6
+        config.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 18)
+        config.title = "Skip 85s"
         let btn = UIButton(configuration: config)
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.alpha = 0
@@ -1035,6 +1056,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         if isVLCPlayer {
             videoContainer.addSubview(skipButton)
             videoContainer.addSubview(nextEpisodeButton)
+            videoContainer.addSubview(skip85sButton)
         }
     #endif
 
@@ -1146,7 +1168,10 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
                 skipButton.bottomAnchor.constraint(equalTo: subtitleButton.topAnchor, constant: -12),
 
                 nextEpisodeButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
-                nextEpisodeButton.bottomAnchor.constraint(equalTo: skipButton.topAnchor, constant: -10)
+                nextEpisodeButton.bottomAnchor.constraint(equalTo: skipButton.topAnchor, constant: -10),
+
+                skip85sButton.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+                skip85sButton.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -12),
             ])
         }
 #endif
@@ -1183,6 +1208,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         if isVLCPlayer {
             skipButton.addTarget(self, action: #selector(skipButtonTapped), for: .touchUpInside)
             nextEpisodeButton.addTarget(self, action: #selector(nextEpisodeButtonTapped), for: .touchUpInside)
+            skip85sButton.addTarget(self, action: #selector(skip85sButtonTapped), for: .touchUpInside)
         }
 #endif
         if isVLCPlayer {
@@ -1836,6 +1862,12 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
 
             if segments.isEmpty {
                 Logger.shared.log("SkipData: No skip data found from any source for tmdbId=\(tmdbId)", type: "Skip")
+                await MainActor.run {
+                    let skip85sEnabled = UserDefaults.standard.bool(forKey: "skip85sEnabled")
+                    if skip85sEnabled {
+                        self.showSkip85sButton()
+                    }
+                }
                 return
             }
 
@@ -2008,6 +2040,33 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
             self.skipButton.alpha = 0
         } completion: { _ in
             self.skipButton.isHidden = true
+        }
+    }
+
+    @objc private func skip85sButtonTapped() {
+        let currentPosition = cachedPosition
+        let targetPosition = currentPosition + 85.0
+        Logger.shared.log("Skip85s: User tapped skip 85s at \(Int(currentPosition))s → seeking to \(Int(targetPosition))s", type: "Skip")
+        rendererSeek(to: targetPosition)
+    }
+
+    private func showSkip85sButton() {
+        skip85sButtonShown = true
+        guard controlsVisible else { return }
+        skip85sButton.isHidden = false
+        videoContainer.bringSubviewToFront(skip85sButton)
+        UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseOut]) {
+            self.skip85sButton.alpha = 1.0
+        }
+    }
+
+    private func hideSkip85sButton() {
+        guard skip85sButtonShown else { return }
+        skip85sButtonShown = false
+        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseIn]) {
+            self.skip85sButton.alpha = 0
+        } completion: { _ in
+            self.skip85sButton.isHidden = true
         }
     }
 
@@ -2915,6 +2974,9 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         }
 #if !os(tvOS)
         videoContainer.bringSubviewToFront(brightnessContainer)
+        if skip85sButtonShown {
+            videoContainer.bringSubviewToFront(skip85sButton)
+        }
 #endif
         
         DispatchQueue.main.async {
@@ -2940,6 +3002,10 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
                 if self.isBrightnessControlEnabled {
                     self.brightnessContainer.isHidden = false
                     self.brightnessContainer.alpha = 1.0
+                }
+                if self.skip85sButtonShown {
+                    self.skip85sButton.isHidden = false
+                    self.skip85sButton.alpha = 1.0
                 }
 #endif
             }
@@ -2972,9 +3038,15 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
                 }
 #if !os(tvOS)
                 self.brightnessContainer.alpha = 0.0
+                if self.skip85sButtonShown {
+                    self.skip85sButton.alpha = 0.0
+                }
 #endif
             } completion: { _ in
                 self.controlsOverlayView.isHidden = true
+                if self.skip85sButtonShown {
+                    self.skip85sButton.isHidden = true
+                }
             }
         }
 
