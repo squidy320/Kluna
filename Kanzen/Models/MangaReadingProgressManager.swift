@@ -78,6 +78,43 @@ final class MangaReadingProgressManager: ObservableObject {
         }
     }
 
+    /// Mark a chapter as unread.
+    func markChapterUnread(mangaId: Int, chapterNumber: String) {
+        guard var progress = progressMap[mangaId] else { return }
+        progress.readChapterNumbers.remove(chapterNumber)
+        progressMap[mangaId] = progress
+        save()
+    }
+
+    /// Mark multiple chapters as read and sync the highest chapter to AniList.
+    func markAllRead(mangaId: Int, chapterNumbers: [String]) {
+        var progress = progressMap[mangaId] ?? MangaProgress()
+        for ch in chapterNumbers {
+            progress.readChapterNumbers.insert(ch)
+        }
+        if let last = chapterNumbers.last {
+            progress.lastReadChapter = last
+            progress.lastReadDate = Date()
+        }
+        progressMap[mangaId] = progress
+        save()
+
+        // Sync highest chapter number to AniList
+        let highest = chapterNumbers.compactMap { extractChapterNumber(from: $0) }.max()
+        if let highest = highest {
+            TrackerManager.shared.syncMangaProgress(aniListId: mangaId, chapterNumber: highest)
+        }
+    }
+
+    /// Mark all chapters as unread.
+    func markAllUnread(mangaId: Int) {
+        guard var progress = progressMap[mangaId] else { return }
+        progress.readChapterNumbers.removeAll()
+        progress.lastReadChapter = nil
+        progressMap[mangaId] = progress
+        save()
+    }
+
     // MARK: - Persistence
 
     private func load() {

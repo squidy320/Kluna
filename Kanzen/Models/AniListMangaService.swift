@@ -230,6 +230,36 @@ final class AniListMangaService {
         return decoded.data.Page.media
     }
 
+    // MARK: - Random
+
+    /// Fetch a random manga by picking a random page from AniList's popularity-sorted results.
+    func fetchRandomManga() async throws -> AniListManga {
+        let randomPage = Int.random(in: 1...300)
+        let query = """
+        query {
+            Page(page: \(randomPage), perPage: 20) {
+                media(type: MANGA, format_not: NOVEL, sort: [POPULARITY_DESC]) {
+                    \(mediaFragment)
+                }
+            }
+        }
+        """
+
+        struct RandomResponse: Codable {
+            let data: DataWrapper
+            struct DataWrapper: Codable { let Page: PageData }
+            struct PageData: Codable { let media: [AniListManga] }
+        }
+
+        let data = try await executeGraphQLQuery(query)
+        let decoded = try JSONDecoder().decode(RandomResponse.self, from: data)
+        let results = decoded.data.Page.media
+        guard let pick = results.randomElement() else {
+            throw NSError(domain: "AniListManga", code: -1, userInfo: [NSLocalizedDescriptionKey: "No manga found"])
+        }
+        return pick
+    }
+
     // MARK: - Detail
 
     /// Fetch full details for a single manga by AniList ID.

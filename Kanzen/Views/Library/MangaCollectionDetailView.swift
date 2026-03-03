@@ -12,6 +12,7 @@ import Kingfisher
 struct MangaCollectionDetailView: View {
     @ObservedObject var collection: MangaLibraryCollection
     @ObservedObject var libraryManager: MangaLibraryManager
+    @ObservedObject private var progressManager = MangaReadingProgressManager.shared
 
     private let columns = [GridItem(.adaptive(minimum: 120), spacing: 12)]
 
@@ -61,6 +62,9 @@ struct MangaCollectionDetailView: View {
                 .frame(width: 120, height: 180)
                 .clipped()
                 .cornerRadius(8)
+                .overlay(alignment: .topTrailing) {
+                    unreadBadge(for: item)
+                }
 
             Text(item.title)
                 .font(.caption)
@@ -71,11 +75,29 @@ struct MangaCollectionDetailView: View {
     }
 
     @ViewBuilder
+    private func unreadBadge(for item: MangaLibraryItem) -> some View {
+        let readCount = progressManager.readChapters(for: item.aniListId).count
+        if let total = item.totalChapters, total > 0 {
+            let unread = max(total - readCount, 0)
+            if unread > 0 {
+                Text("\(unread)")
+                    .font(.caption2.bold())
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor)
+                    .clipShape(Capsule())
+                    .padding(4)
+            }
+        }
+    }
+
+    @ViewBuilder
     private func mangaDestination(for item: MangaLibraryItem) -> some View {
         let manga = AniListManga(
             id: item.aniListId,
             title: AniListManga.AniListMangaTitle(romaji: item.title, english: nil, native: nil),
-            chapters: nil,
+            chapters: item.totalChapters,
             volumes: nil,
             status: nil,
             coverImage: item.coverURL.map { AniListManga.AniListMangaCover(large: $0, medium: nil) },

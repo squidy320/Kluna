@@ -14,6 +14,7 @@ struct MangaLibraryItem: Codable, Identifiable, Equatable {
     let title: String
     let coverURL: String?
     let format: String?
+    let totalChapters: Int?
     var dateAdded: Date = Date()
 
     static func == (lhs: MangaLibraryItem, rhs: MangaLibraryItem) -> Bool {

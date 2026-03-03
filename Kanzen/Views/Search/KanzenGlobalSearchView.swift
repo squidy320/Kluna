@@ -14,6 +14,9 @@ struct KanzenGlobalSearchView: View {
     @State private var searchResults: [AniListManga] = []
     @State private var isSearching: Bool = false
     @State private var hasSearched: Bool = false
+    @State private var randomManga: AniListManga?
+    @State private var isLoadingRandom: Bool = false
+    @State private var showRandomManga: Bool = false
 
     private let cellWidth: CGFloat = isIPad ? 150 * iPadScaleSmall : 150
     private var columnCount: Int {
@@ -24,8 +27,8 @@ struct KanzenGlobalSearchView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Search bar
-                HStack {
+                // Search bar + Random button
+                HStack(spacing: 10) {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.secondary)
@@ -46,6 +49,21 @@ struct KanzenGlobalSearchView: View {
                     .padding(8)
                     .background(Color(.systemGray6))
                     .cornerRadius(10)
+
+                    Button {
+                        fetchRandomManga()
+                    } label: {
+                        Group {
+                            if isLoadingRandom {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "dice.fill")
+                                    .font(.title3)
+                            }
+                        }
+                        .frame(width: 32, height: 32)
+                    }
+                    .disabled(isLoadingRandom)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -98,6 +116,35 @@ struct KanzenGlobalSearchView: View {
             }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.large)
+            .background(
+                NavigationLink(destination: Group {
+                    if let manga = randomManga {
+                        MangaDetailView(manga: manga)
+                    }
+                }, isActive: $showRandomManga) {
+                    EmptyView()
+                }
+                .hidden()
+            )
+        }
+    }
+
+    private func fetchRandomManga() {
+        isLoadingRandom = true
+        Task {
+            do {
+                let manga = try await AniListMangaService.shared.fetchRandomManga()
+                await MainActor.run {
+                    self.randomManga = manga
+                    self.showRandomManga = true
+                    self.isLoadingRandom = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoadingRandom = false
+                }
+                Logger.shared.log("Random manga error: \(error.localizedDescription)", type: "Error")
+            }
         }
     }
 

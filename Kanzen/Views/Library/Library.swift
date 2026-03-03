@@ -11,6 +11,7 @@ import Kingfisher
 #if !os(tvOS)
 struct KanzenLibraryView: View {
     @ObservedObject private var libraryManager = MangaLibraryManager.shared
+    @ObservedObject private var progressManager = MangaReadingProgressManager.shared
     @EnvironmentObject var moduleManager: ModuleManager
     @State private var showCreateCollection = false
 
@@ -168,6 +169,9 @@ struct KanzenLibraryView: View {
                 .frame(width: 120, height: 180)
                 .clipped()
                 .cornerRadius(8)
+                .overlay(alignment: .topTrailing) {
+                    unreadBadge(for: item)
+                }
 
             Text(item.title)
                 .font(.caption)
@@ -187,6 +191,9 @@ struct KanzenLibraryView: View {
                 .frame(height: 180)
                 .clipped()
                 .cornerRadius(8)
+                .overlay(alignment: .topTrailing) {
+                    unreadBadge(for: item)
+                }
 
             Text(item.title)
                 .font(.caption)
@@ -242,11 +249,29 @@ struct KanzenLibraryView: View {
     // MARK: - Helpers
 
     @ViewBuilder
+    private func unreadBadge(for item: MangaLibraryItem) -> some View {
+        let readCount = progressManager.readChapters(for: item.aniListId).count
+        if let total = item.totalChapters, total > 0 {
+            let unread = max(total - readCount, 0)
+            if unread > 0 {
+                Text("\(unread)")
+                    .font(.caption2.bold())
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor)
+                    .clipShape(Capsule())
+                    .padding(4)
+            }
+        }
+    }
+
+    @ViewBuilder
     private func mangaDestination(for item: MangaLibraryItem) -> some View {
         let manga = AniListManga(
             id: item.aniListId,
             title: AniListManga.AniListMangaTitle(romaji: item.title, english: nil, native: nil),
-            chapters: nil,
+            chapters: item.totalChapters,
             volumes: nil,
             status: nil,
             coverImage: item.coverURL.map { AniListManga.AniListMangaCover(large: $0, medium: nil) },

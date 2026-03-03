@@ -47,7 +47,8 @@ struct MangaDetailView: View {
             aniListId: manga.id,
             title: manga.displayTitle,
             coverURL: manga.coverURL,
-            format: manga.format
+            format: manga.format,
+            totalChapters: manga.chapters
         )
     }
 
@@ -561,12 +562,47 @@ struct MangaDetailView: View {
                     .opacity(isRead ? 0.6 : 1.0)
                 }
                 .buttonStyle(.plain)
-                Divider()
-            }
-        }
-    }
+                .contextMenu {
+                    if isRead {
+                        Button {
+                            progressManager.markChapterUnread(mangaId: manga.id, chapterNumber: chapter.chapterNumber)
+                        } label: {
+                            Label("Mark as Unread", systemImage: "eye.slash")
+                        }
+                    } else {
+                        Button {
+                            progressManager.markChapterRead(mangaId: manga.id, chapterNumber: chapter.chapterNumber)
+                        } label: {
+                            Label("Mark as Read", systemImage: "eye")
+                        }
+                    }
 
-    // MARK: - Read / Continue Button
+                    Divider()
+
+                    Button {
+                        let allNums = selected.chapters.map { $0.chapterNumber }
+                        if let idx = allNums.firstIndex(of: chapter.chapterNumber) {
+                            let toMark = Array(allNums[...idx])
+                            progressManager.markAllRead(mangaId: manga.id, chapterNumbers: toMark)
+                        }
+                    } label: {
+                        Label("Mark This & Previous as Read", systemImage: "checkmark.circle")
+                    }
+
+                    Button {
+                        let allNums = selected.chapters.map { $0.chapterNumber }
+                        progressManager.markAllRead(mangaId: manga.id, chapterNumbers: allNums)
+                    } label: {
+                        Label("Mark All as Read", systemImage: "checkmark.circle.fill")
+                    }
+
+                    Button(role: .destructive) {
+                        progressManager.markAllUnread(mangaId: manga.id)
+                    } label: {
+                        Label("Mark All as Unread", systemImage: "xmark.circle")
+                    }
+                }
+                Divider()
 
     @ViewBuilder
     private func readButton(chapters: [Chapter]) -> some View {
@@ -581,8 +617,8 @@ struct MangaDetailView: View {
                     return ch
                 }
             }
-            // No progress — start from first chapter (lowest index)
-            return chapters.last
+            // No progress — start from first chapter
+            return chapters.first
         }()
 
         if let target = targetChapter {

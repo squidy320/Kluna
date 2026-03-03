@@ -32,7 +32,7 @@ struct KanzenMenu: View {
 
             BrowseView()
                 .tabItem {
-                    Label("Browse", systemImage: "list.bullet")
+                    Label("Services", systemImage: "list.bullet")
                 }
 
             KanzenSettingsView()
