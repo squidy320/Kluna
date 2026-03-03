@@ -44,7 +44,7 @@ struct BackupData: Codable {
 
     // Manga / Kanzen data
     var mangaCollections: [BackupMangaCollection] = []
-    var mangaReadingProgress: [String: MangaProgress] = []
+    var mangaReadingProgress: [String: MangaProgress] = [:]
     var mangaCatalogs: [MangaCatalog] = []
     var kanzenModules: [BackupKanzenModule] = []
 
