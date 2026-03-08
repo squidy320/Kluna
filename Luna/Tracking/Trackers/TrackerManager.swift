@@ -681,29 +681,33 @@ final class TrackerManager: NSObject, ObservableObject {
             return
         }
 
-        // Determine status: COMPLETED if >= 85%, otherwise CURRENT for in-progress
-        let status = progress >= 85 ? "COMPLETED" : "CURRENT"
+        // Determine status: COMPLETED if >= 85% watch progress, otherwise CURRENT
+        let status = progress >= 0.85 ? "COMPLETED" : "CURRENT"
+
+        // Only include completedAt when marking as COMPLETED
+        let completedAtClause: String
+        if status == "COMPLETED" {
+            completedAtClause = """
+            , completedAt: {
+                        year: \(Calendar.current.component(.year, from: Date()))
+                        month: \(Calendar.current.component(.month, from: Date()))
+                        day: \(Calendar.current.component(.day, from: Date()))
+                    }
+            """
+        } else {
+            completedAtClause = ""
+        }
 
         let mutation = """
         mutation {
             SaveMediaListEntry(
                 mediaId: \(anilistId),
                 progress: \(episodeNumber),
-                status: \(status),
-                completedAt: {
-                    year: \(Calendar.current.component(.year, from: Date()))
-                    month: \(Calendar.current.component(.month, from: Date()))
-                    day: \(Calendar.current.component(.day, from: Date()))
-                }
+                status: \(status)\(completedAtClause)
             ) {
                 id
                 progress
                 status
-                completedAt {
-                    year
-                    month
-                    day
-                }
             }
         }
         """
