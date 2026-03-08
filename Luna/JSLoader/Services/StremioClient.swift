@@ -93,34 +93,30 @@ final class StremioClient {
     ///   - season: Season number (for series only)
     ///   - episode: Episode number (for series only)
     ///   - addon: The addon to build the ID for (checks idPrefixes)
-    /// - Returns: Array of possible IDs to try, ordered by preference
-    func buildContentIds(tmdbId: Int, imdbId: String?, type: String, season: Int?, episode: Int?, addon: StremioAddon) -> [String] {
-        var ids: [String] = []
-
+    /// - Returns: The single best content ID to use for this addon
+    func buildContentId(tmdbId: Int, imdbId: String?, type: String, season: Int?, episode: Int?, addon: StremioAddon) -> String? {
         let prefixes = addon.manifest.idPrefixes ?? []
         let supportsTMDB = prefixes.isEmpty || prefixes.contains("tmdb") || prefixes.contains("tmdb:")
         let supportsIMDB = prefixes.isEmpty || prefixes.contains("tt")
 
-        // Prefer tmdb: prefix when supported
-        if supportsTMDB {
-            if type == "series", let s = season, let e = episode {
-                ids.append("tmdb:\(tmdbId):\(s):\(e)")
-            } else {
-                ids.append("tmdb:\(tmdbId)")
-            }
-        }
-
-        // Fall back to IMDB when available
+        // Prefer IMDB — it is the universal Stremio standard and avoids extra requests
         if supportsIMDB, let imdb = imdbId, !imdb.isEmpty {
             let ttId = imdb.hasPrefix("tt") ? imdb : "tt\(imdb)"
             if type == "series", let s = season, let e = episode {
-                ids.append("\(ttId):\(s):\(e)")
-            } else {
-                ids.append(ttId)
+                return "\(ttId):\(s):\(e)"
             }
+            return ttId
         }
 
-        return ids
+        // Fall back to tmdb: only when no IMDB ID is available
+        if supportsTMDB {
+            if type == "series", let s = season, let e = episode {
+                return "tmdb:\(tmdbId):\(s):\(e)"
+            }
+            return "tmdb:\(tmdbId)"
+        }
+
+        return nil
     }
 
     // MARK: - Helpers

@@ -158,44 +158,34 @@ class StremioAddonManager: ObservableObject {
         }
 
         let client = StremioClient.shared
+        let maxConcurrent = 2
 
         await withTaskGroup(of: (StremioAddon, [StremioStream])?.self) { group in
-            for addon in active {
+            var nextIndex = 0
+
+            // Seed the group with the first batch
+            while nextIndex < active.count && nextIndex < maxConcurrent {
+                let addon = active[nextIndex]
                 group.addTask {
-                    let ids = client.buildContentIds(
-                        tmdbId: tmdbId,
-                        imdbId: imdbId,
-                        type: type,
-                        season: season,
-                        episode: episode,
-                        addon: addon
-                    )
-
-                    for contentId in ids {
-                        do {
-                            let streams = try await client.fetchStreams(
-                                baseURL: addon.configuredURL,
-                                type: type,
-                                id: contentId
-                            )
-                            if !streams.isEmpty {
-                                return (addon, streams)
-                            }
-                        } catch {
-                            Logger.shared.log("Stremio: \(addon.manifest.name) failed with id '\(contentId)': \(error.localizedDescription)", type: "Stremio")
-                            continue
-                        }
-                    }
-
-                    return (addon, [])
+                    await Self.fetchStreamsForAddon(addon, client: client, tmdbId: tmdbId, imdbId: imdbId, type: type, season: season, episode: episode)
                 }
+                nextIndex += 1
             }
 
+            // As each completes, report it and start the next one
             for await result in group {
                 if let (addon, streams) = result {
                     await MainActor.run {
                         onResult(addon, streams)
                     }
+                }
+
+                if nextIndex < active.count {
+                    let addon = active[nextIndex]
+                    group.addTask {
+                        await Self.fetchStreamsForAddon(addon, client: client, tmdbId: tmdbId, imdbId: imdbId, type: type, season: season, episode: episode)
+                    }
+                    nextIndex += 1
                 }
             }
         }
@@ -204,6 +194,40 @@ class StremioAddonManager: ObservableObject {
     }
 
     // MARK: - Helpers
+
+    private static func fetchStreamsForAddon(
+        _ addon: StremioAddon,
+        client: StremioClient,
+        tmdbId: Int,
+        imdbId: String?,
+        type: String,
+        season: Int?,
+        episode: Int?
+    ) async -> (StremioAddon, [StremioStream])? {
+        guard let contentId = client.buildContentId(
+            tmdbId: tmdbId,
+            imdbId: imdbId,
+            type: type,
+            season: season,
+            episode: episode,
+            addon: addon
+        ) else {
+            Logger.shared.log("Stremio: No valid content ID for \(addon.manifest.name)", type: "Stremio")
+            return (addon, [])
+        }
+
+        do {
+            let streams = try await client.fetchStreams(
+                baseURL: addon.configuredURL,
+                type: type,
+                id: contentId
+            )
+            return (addon, streams)
+        } catch {
+            Logger.shared.log("Stremio: \(addon.manifest.name) failed with id '\(contentId)': \(error.localizedDescription)", type: "Stremio")
+            return (addon, [])
+        }
+    }
 
     private func generateAddonUUID(manifest: StremioManifest) -> UUID {
         let input = manifest.id
