@@ -1028,14 +1028,20 @@ final class TrackerManager: NSObject, ObservableObject {
                 }
 
                 let library = LibraryManager.shared
-                let mapping: [(name: String, items: [TMDBSearchResult])] = [
+                let mapping: [(name: String, items: [AniListService.AniListImportEntry])] = [
                     ("Watching",  lists.watching),
                     ("Planning",  lists.planning),
                     ("Completed", lists.completed),
+                    ("Paused",    lists.paused),
+                    ("Dropped",   lists.dropped),
+                    ("Repeating", lists.repeating),
                 ]
 
+                // Suppress tracker sync during import to avoid syncing back to AniList
+                setBackupRestoreSyncSuppressed(true)
+
                 await MainActor.run {
-                    for (collectionName, tmdbItems) in mapping where !tmdbItems.isEmpty {
+                    for (collectionName, importEntries) in mapping where !importEntries.isEmpty {
                         // Find or create the collection
                         let collection: LibraryCollection
                         if let existing = library.collections.first(where: { $0.name == collectionName }) {
@@ -1046,14 +1052,23 @@ final class TrackerManager: NSObject, ObservableObject {
                         }
 
                         var added = 0
-                        for result in tmdbItems {
-                            let item = LibraryItem(searchResult: result)
+                        for entry in importEntries {
+                            let item = LibraryItem(searchResult: entry.tmdbResult)
                             if !library.isItemInCollection(collection.id, item: item) {
                                 library.addItem(to: collection.id, item: item)
                                 added += 1
                             }
+
+                            // Import episode watch progress into ProgressManager
+                            if entry.episodesWatched > 0 {
+                                ProgressManager.shared.bulkMarkEpisodesAsWatched(
+                                    showId: entry.tmdbResult.id,
+                                    seasonNumber: 1,
+                                    throughEpisode: entry.episodesWatched
+                                )
+                            }
                         }
-                        Logger.shared.log("AniList import: Added \(added) new items to '\(collectionName)' (\(tmdbItems.count) total matched)", type: "Tracker")
+                        Logger.shared.log("AniList import: Added \(added) new items to '\(collectionName)' (\(importEntries.count) total matched)", type: "Tracker")
                     }
 
                     let totalImported = mapping.reduce(0) { $0 + $1.items.count }
@@ -1062,7 +1077,10 @@ final class TrackerManager: NSObject, ObservableObject {
                     aniListImportError = nil
                     Logger.shared.log("AniList import completed: \(totalImported) total items across \(mapping.filter { !$0.items.isEmpty }.count) collections", type: "Tracker")
                 }
+
+                setBackupRestoreSyncSuppressed(false)
             } catch {
+                setBackupRestoreSyncSuppressed(false)
                 await MainActor.run {
                     isImportingAniList = false
                     aniListImportProgress = nil

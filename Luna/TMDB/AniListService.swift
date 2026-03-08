@@ -1265,24 +1265,38 @@ final class AniListService {
 
     // MARK: - User List Import
 
-    /// Represents a categorized set of AniList user anime lists mapped to TMDB results.
-    struct AniListUserListImport {
-        var watching: [TMDBSearchResult] = []
-        var planning: [TMDBSearchResult] = []
-        var completed: [TMDBSearchResult] = []
+    /// An imported entry carrying both the TMDB result and the user's AniList progress.
+    struct AniListImportEntry {
+        let tmdbResult: TMDBSearchResult
+        /// Number of episodes the user has watched on AniList.
+        let episodesWatched: Int
     }
 
-    /// Fetch the authenticated user's anime lists (CURRENT/watching, PLANNING, COMPLETED)
-    /// and map each entry to a TMDBSearchResult using the standard matching system.
+    /// Represents a categorized set of AniList user anime lists mapped to TMDB results.
+    struct AniListUserListImport {
+        var watching: [AniListImportEntry] = []
+        var planning: [AniListImportEntry] = []
+        var completed: [AniListImportEntry] = []
+        var paused: [AniListImportEntry] = []
+        var dropped: [AniListImportEntry] = []
+        var repeating: [AniListImportEntry] = []
+    }
+
+    /// A raw list entry carrying both the anime metadata and user's watch progress.
+    private struct AniListListEntry {
+        let anime: AniListAnime
+        let progress: Int
+    }
+
+    /// Fetch the authenticated user's anime lists and map each entry to a TMDBSearchResult using the standard matching system.
     func fetchUserAnimeListsForImport(
         token: String,
         userId: Int,
         tmdbService: TMDBService
     ) async throws -> AniListUserListImport {
-        // Fetch all three status lists in a single paginated query using aliases
         // AniList caps perPage at 50 so we paginate per status
-        func fetchList(status: String, token: String) async throws -> [AniListAnime] {
-            var allAnime: [AniListAnime] = []
+        func fetchList(status: String, token: String) async throws -> [AniListListEntry] {
+            var entries: [AniListListEntry] = []
             var page = 1
             var hasNext = true
 
@@ -1292,6 +1306,7 @@ final class AniListService {
                     Page(page: \(page), perPage: 50) {
                         pageInfo { hasNextPage }
                         mediaList(userId: \(userId), type: ANIME, status: \(status)) {
+                            progress
                             media {
                                 id
                                 title { romaji english native }
@@ -1315,50 +1330,81 @@ final class AniListService {
                         let mediaList: [MediaListEntry]
                     }
                     struct PageInfo: Codable { let hasNextPage: Bool }
-                    struct MediaListEntry: Codable { let media: AniListAnime }
+                    struct MediaListEntry: Codable {
+                        let progress: Int?
+                        let media: AniListAnime
+                    }
                 }
 
                 let data = try await executeGraphQLQuery(query, token: token)
                 let decoded = try JSONDecoder().decode(Response.self, from: data)
-                allAnime.append(contentsOf: decoded.data.Page.mediaList.map(\.media))
+                entries.append(contentsOf: decoded.data.Page.mediaList.map {
+                    AniListListEntry(anime: $0.media, progress: $0.progress ?? 0)
+                })
                 hasNext = decoded.data.Page.pageInfo.hasNextPage
                 page += 1
             }
 
-            return allAnime
+            return entries
         }
 
         Logger.shared.log("AniListService: Fetching user anime lists for import (userId: \(userId))", type: "AniList")
 
-        // Fetch all three lists concurrently
-        async let watchingAnime = fetchList(status: "CURRENT", token: token)
-        async let planningAnime = fetchList(status: "PLANNING", token: token)
-        async let completedAnime = fetchList(status: "COMPLETED", token: token)
+        // Fetch all six AniList statuses concurrently
+        async let watchingEntries = fetchList(status: "CURRENT", token: token)
+        async let planningEntries = fetchList(status: "PLANNING", token: token)
+        async let completedEntries = fetchList(status: "COMPLETED", token: token)
+        async let pausedEntries = fetchList(status: "PAUSED", token: token)
+        async let droppedEntries = fetchList(status: "DROPPED", token: token)
+        async let repeatingEntries = fetchList(status: "REPEATING", token: token)
 
-        let watching = try await watchingAnime
-        let planning = try await planningAnime
-        let completed = try await completedAnime
+        let watching = try await watchingEntries
+        let planning = try await planningEntries
+        let completed = try await completedEntries
+        let paused = try await pausedEntries
+        let dropped = try await droppedEntries
+        let repeating = try await repeatingEntries
 
-        Logger.shared.log("AniListService: User lists - Watching: \(watching.count), Planning: \(planning.count), Completed: \(completed.count)", type: "AniList")
+        Logger.shared.log("AniListService: User lists - Watching: \(watching.count), Planning: \(planning.count), Completed: \(completed.count), Paused: \(paused.count), Dropped: \(dropped.count), Repeating: \(repeating.count)", type: "AniList")
 
         // Dedupe all anime across all lists and batch-map to TMDB
+        let allLists = watching + planning + completed + paused + dropped + repeating
         var allAnime: [AniListAnime] = []
         var seenIds = Set<Int>()
-        for anime in watching + planning + completed {
-            if seenIds.insert(anime.id).inserted {
-                allAnime.append(anime)
+        for entry in allLists {
+            if seenIds.insert(entry.anime.id).inserted {
+                allAnime.append(entry.anime)
             }
         }
 
         let tmdbMap = await batchMapAniListToTMDB(allAnime, tmdbService: tmdbService)
 
-        // Re-assemble per-list results
-        var result = AniListUserListImport()
-        result.watching = watching.compactMap { tmdbMap[$0.id] }
-        result.planning = planning.compactMap { tmdbMap[$0.id] }
-        result.completed = completed.compactMap { tmdbMap[$0.id] }
+        // Build progress lookup: anilistId -> episodes watched
+        var progressMap: [Int: Int] = [:]
+        for entry in allLists {
+            progressMap[entry.anime.id] = entry.progress
+        }
 
-        Logger.shared.log("AniListService: Mapped to TMDB - Watching: \(result.watching.count), Planning: \(result.planning.count), Completed: \(result.completed.count)", type: "AniList")
+        // Helper to convert list entries to import entries
+        func toImportEntries(_ list: [AniListListEntry]) -> [AniListImportEntry] {
+            list.compactMap { entry in
+                guard let tmdb = tmdbMap[entry.anime.id] else { return nil }
+                return AniListImportEntry(tmdbResult: tmdb, episodesWatched: entry.progress)
+            }
+        }
+
+        var result = AniListUserListImport()
+        result.watching = toImportEntries(watching)
+        result.planning = toImportEntries(planning)
+        result.completed = toImportEntries(completed)
+        result.paused = toImportEntries(paused)
+        result.dropped = toImportEntries(dropped)
+        result.repeating = toImportEntries(repeating)
+
+        let totalFetched = allLists.count
+        let totalMapped = result.watching.count + result.planning.count + result.completed.count + result.paused.count + result.dropped.count + result.repeating.count
+        let unmapped = totalFetched - totalMapped
+        Logger.shared.log("AniListService: Mapped \(totalMapped)/\(totalFetched) to TMDB (\(unmapped) unmapped) - Watching: \(result.watching.count), Planning: \(result.planning.count), Completed: \(result.completed.count), Paused: \(result.paused.count), Dropped: \(result.dropped.count), Repeating: \(result.repeating.count)", type: "AniList")
 
         return result
     }

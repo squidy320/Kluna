@@ -165,6 +165,29 @@ final class ProgressManager: ObservableObject {
         saveProgressData()
     }
 
+    /// Marks episodes 1…throughEpisode as watched locally without triggering tracker sync.
+    /// Used during AniList import to avoid syncing back data we just imported.
+    func bulkMarkEpisodesAsWatched(showId: Int, seasonNumber: Int, throughEpisode: Int) {
+        guard throughEpisode >= 1 else { return }
+        accessQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+            for e in 1...throughEpisode {
+                var entry = self.progressData.findEpisode(showId: showId, season: seasonNumber, episode: e)
+                    ?? EpisodeProgressEntry(showId: showId, seasonNumber: seasonNumber, episodeNumber: e)
+                guard !entry.isWatched else { continue }
+                let safeDuration = entry.totalDuration > 0 ? entry.totalDuration : max(entry.currentTime, 1)
+                entry.totalDuration = safeDuration
+                entry.isWatched = true
+                entry.currentTime = safeDuration
+                entry.lastUpdated = Date()
+                self.progressData.updateEpisode(entry)
+            }
+            self.publishCurrentData()
+            Logger.shared.log("Bulk marked S\(seasonNumber)E1-E\(throughEpisode) as watched for show \(showId) (import)", type: "Progress")
+        }
+        saveProgressData()
+    }
+
     private func publishCurrentData() {
         accessQueue.async { [weak self] in
             guard let self = self else { return }
@@ -448,6 +471,11 @@ final class ProgressManager: ObservableObject {
             }
             self.publishCurrentData()
             Logger.shared.log("Marked previous episodes as watched for S\(seasonNumber) up to E\(episodeNumber - 1)", type: "Progress")
+
+            // Sync highest episode to trackers (AniList progress is cumulative, so one call suffices)
+            DispatchQueue.main.async {
+                TrackerManager.shared.syncWatchProgress(showId: showId, seasonNumber: seasonNumber, episodeNumber: episodeNumber - 1, progress: 1.0)
+            }
         }
         saveProgressData()
     }
