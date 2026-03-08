@@ -152,7 +152,9 @@ class StremioAddonManager: ObservableObject {
         onComplete: @escaping () -> Void
     ) async {
         let active = activeAddons
+        Logger.shared.log("Stremio: fetchStreamsFromAddons — \(active.count) active addon(s), tmdbId=\(tmdbId) imdbId=\(imdbId ?? "nil") type=\(type) s=\(season?.description ?? "nil") e=\(episode?.description ?? "nil")", type: "Stremio")
         guard !active.isEmpty else {
+            Logger.shared.log("Stremio: No active addons, skipping", type: "Stremio")
             onComplete()
             return
         }
@@ -204,6 +206,8 @@ class StremioAddonManager: ObservableObject {
         season: Int?,
         episode: Int?
     ) async -> (StremioAddon, [StremioStream])? {
+        Logger.shared.log("Stremio: Starting fetch for addon '\(addon.manifest.name)' baseURL=\(addon.configuredURL)", type: "Stremio")
+
         guard let contentId = client.buildContentId(
             tmdbId: tmdbId,
             imdbId: imdbId,
@@ -212,9 +216,11 @@ class StremioAddonManager: ObservableObject {
             episode: episode,
             addon: addon
         ) else {
-            Logger.shared.log("Stremio: No valid content ID for \(addon.manifest.name)", type: "Stremio")
+            Logger.shared.log("Stremio: No valid content ID for \(addon.manifest.name) — skipping", type: "Stremio")
             return (addon, [])
         }
+
+        Logger.shared.log("Stremio: \(addon.manifest.name) requesting streams with contentId='\(contentId)'", type: "Stremio")
 
         do {
             let streams = try await client.fetchStreams(
@@ -222,9 +228,10 @@ class StremioAddonManager: ObservableObject {
                 type: type,
                 id: contentId
             )
+            Logger.shared.log("Stremio: \(addon.manifest.name) returned \(streams.count) stream(s) for '\(contentId)'", type: "Stremio")
             return (addon, streams)
         } catch {
-            Logger.shared.log("Stremio: \(addon.manifest.name) failed with id '\(contentId)': \(error.localizedDescription)", type: "Stremio")
+            Logger.shared.log("Stremio: \(addon.manifest.name) FAILED with id '\(contentId)': \(error.localizedDescription)", type: "Stremio")
             return (addon, [])
         }
     }

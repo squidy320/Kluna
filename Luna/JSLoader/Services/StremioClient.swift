@@ -26,17 +26,23 @@ final class StremioClient {
 
     func fetchManifest(from url: String) async throws -> StremioManifest {
         let manifestURL = normalizeManifestURL(url)
+        Logger.shared.log("Stremio: Fetching manifest from \(manifestURL)", type: "Stremio")
         guard let requestURL = URL(string: manifestURL) else {
+            Logger.shared.log("Stremio: Invalid manifest URL: \(manifestURL)", type: "Stremio")
             throw StremioError.invalidURL
         }
 
         let (data, response) = try await session.data(from: requestURL)
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
-            throw StremioError.httpError((response as? HTTPURLResponse)?.statusCode ?? 0)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            Logger.shared.log("Stremio: Manifest fetch failed HTTP \(code) from \(manifestURL)", type: "Stremio")
+            throw StremioError.httpError(code)
         }
 
-        return try decoder.decode(StremioManifest.self, from: data)
+        let manifest = try decoder.decode(StremioManifest.self, from: data)
+        Logger.shared.log("Stremio: Manifest OK — id=\(manifest.id) name=\(manifest.name) resources=\(manifest.resources?.count ?? 0) idPrefixes=\(manifest.idPrefixes ?? [])", type: "Stremio")
+        return manifest
     }
 
     // MARK: - Fetch Streams
@@ -59,12 +65,15 @@ final class StremioClient {
             throw StremioError.invalidURL
         }
 
-        Logger.shared.log("Stremio: Fetching streams from \(urlString)", type: "Stremio")
+        Logger.shared.log("Stremio: Fetching streams — type=\(type) id=\(id) url=\(urlString)", type: "Stremio")
 
         let (data, response) = try await session.data(from: url)
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        Logger.shared.log("Stremio: Stream response HTTP \(statusCode) from \(cleanBase)", type: "Stremio")
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
-            throw StremioError.httpError((response as? HTTPURLResponse)?.statusCode ?? 0)
+            Logger.shared.log("Stremio: Stream fetch FAILED HTTP \(statusCode) — base=\(cleanBase) type=\(type) id=\(id)", type: "Stremio")
+            throw StremioError.httpError(statusCode)
         }
 
         let streamResponse = try decoder.decode(StremioStreamResponse.self, from: data)
@@ -99,23 +108,34 @@ final class StremioClient {
         let supportsTMDB = prefixes.isEmpty || prefixes.contains("tmdb") || prefixes.contains("tmdb:")
         let supportsIMDB = prefixes.isEmpty || prefixes.contains("tt")
 
+        Logger.shared.log("Stremio: buildContentId addon=\(addon.manifest.name) prefixes=\(prefixes) imdbId=\(imdbId ?? "nil") tmdbId=\(tmdbId) type=\(type) s=\(season?.description ?? "nil") e=\(episode?.description ?? "nil")", type: "Stremio")
+
         // Prefer IMDB — it is the universal Stremio standard and avoids extra requests
         if supportsIMDB, let imdb = imdbId, !imdb.isEmpty {
             let ttId = imdb.hasPrefix("tt") ? imdb : "tt\(imdb)"
+            var result: String
             if type == "series", let s = season, let e = episode {
-                return "\(ttId):\(s):\(e)"
+                result = "\(ttId):\(s):\(e)"
+            } else {
+                result = ttId
             }
-            return ttId
+            Logger.shared.log("Stremio: Using IMDB content ID: \(result)", type: "Stremio")
+            return result
         }
 
         // Fall back to tmdb: only when no IMDB ID is available
         if supportsTMDB {
+            var result: String
             if type == "series", let s = season, let e = episode {
-                return "tmdb:\(tmdbId):\(s):\(e)"
+                result = "tmdb:\(tmdbId):\(s):\(e)"
+            } else {
+                result = "tmdb:\(tmdbId)"
             }
-            return "tmdb:\(tmdbId)"
+            Logger.shared.log("Stremio: No IMDB ID, falling back to TMDB content ID: \(result)", type: "Stremio")
+            return result
         }
 
+        Logger.shared.log("Stremio: No supported prefix for addon \(addon.manifest.name)", type: "Stremio")
         return nil
     }
 
