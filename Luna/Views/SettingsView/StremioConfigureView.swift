@@ -7,9 +7,7 @@
 
 import SwiftUI
 
-#if os(tvOS)
-import FakeWebKit
-#else
+#if !os(tvOS)
 import WebKit
 #endif
 
@@ -32,17 +30,11 @@ struct StremioConfigureView: View {
     var body: some View {
         NavigationView {
             Group {
+#if os(tvOS)
+                tvOSFallbackView
+#else
                 if let error = error {
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 40))
-                            .foregroundColor(.orange)
-                        Text(error)
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding()
+                    errorView(message: error)
                 } else if let url = configureURL {
                     StremioConfigureWebView(
                         url: url,
@@ -60,28 +52,54 @@ struct StremioConfigureView: View {
                         }
                     }
                 } else {
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 40))
-                            .foregroundColor(.orange)
-                        Text("Unable to determine configure URL for this addon.")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding()
+                    errorView(message: "Unable to determine configure URL for this addon.")
                 }
+#endif
             }
             .navigationTitle("Configure \(addon.manifest.name)")
-            #if !os(tvOS)
+#if !os(tvOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
             }
-            #endif
+#endif
         }
+    }
+
+    @ViewBuilder
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 40))
+                .foregroundColor(.orange)
+            Text(message)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+    }
+
+    @ViewBuilder
+    private var tvOSFallbackView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "safari")
+                .font(.system(size: 40))
+                .foregroundColor(.secondary)
+            Text("Configure this addon on the web, then use \"Update URL\" to paste the new URL.")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            if let url = configureURL {
+                Text(url.absoluteString)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding()
     }
 
     private func applyConfiguration(_ newURL: String) {
@@ -98,8 +116,9 @@ struct StremioConfigureView: View {
     }
 }
 
-// MARK: - WKWebView wrapper
+// MARK: - WKWebView wrapper (iOS only)
 
+#if !os(tvOS)
 struct StremioConfigureWebView: UIViewRepresentable {
     let url: URL
     @Binding var isLoading: Bool
@@ -149,7 +168,6 @@ struct StremioConfigureWebView: UIViewRepresentable {
             }
         }
 
-        /// Intercept navigation: capture stremio:// URLs and extract the manifest URL.
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
@@ -162,8 +180,6 @@ struct StremioConfigureWebView: UIViewRepresentable {
 
             let urlString = url.absoluteString
 
-            // Stremio install links use the stremio:// scheme
-            // e.g. stremio://torrentio.strem.fun/sort=qualitysize|.../manifest.json
             if urlString.lowercased().hasPrefix("stremio://") {
                 decisionHandler(.cancel)
                 let configuredURL = extractConfiguredURL(from: urlString)
@@ -176,21 +192,17 @@ struct StremioConfigureWebView: UIViewRepresentable {
             decisionHandler(.allow)
         }
 
-        /// Convert "stremio://host/path/manifest.json" → "https://host/path"
         private func extractConfiguredURL(from stremioURL: String) -> String {
             var cleaned = stremioURL
 
-            // Replace stremio:// with https://
             if cleaned.lowercased().hasPrefix("stremio://") {
                 cleaned = "https://" + cleaned.dropFirst("stremio://".count)
             }
 
-            // Strip /manifest.json suffix
             if cleaned.hasSuffix("/manifest.json") {
                 cleaned = String(cleaned.dropLast("/manifest.json".count))
             }
 
-            // Strip trailing slash
             if cleaned.hasSuffix("/") {
                 cleaned = String(cleaned.dropLast())
             }
@@ -199,3 +211,4 @@ struct StremioConfigureWebView: UIViewRepresentable {
         }
     }
 }
+#endif
