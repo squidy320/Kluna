@@ -6,9 +6,9 @@
 //
 
 import SwiftUI
-import WebKit
 
 #if !os(tvOS)
+import WebKit
 
 // MARK: - NovelReaderView
 
