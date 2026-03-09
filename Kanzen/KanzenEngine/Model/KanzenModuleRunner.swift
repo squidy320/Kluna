@@ -150,6 +150,33 @@ class KanzenModuleRunner
         promise.invokeMethod("catch", withArguments: [rejectCallback as Any])
     }
     
+    func extractText(params:Any, completion: @escaping (JSValue?,Error?) -> Void)
+    {
+        guard let context = jsContext else {
+            completion(nil, NSError(domain: "JSContext", code: 1, userInfo: [NSLocalizedDescriptionKey: "JS function not found"]))
+            return
+        }
+        guard let textFunc = context.objectForKeyedSubscript("extractText") else {
+            completion(nil, NSError(domain: "JSContext", code: 1, userInfo: [NSLocalizedDescriptionKey: "JS function not found"]))
+            return
+        }
+        guard let promise = textFunc.call(withArguments: [params]) else {
+            completion(nil, NSError(domain: "JSContext", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to call JS async function"]))
+            return
+        }
+        let resolveBlock: @convention(block) (JSValue) -> Void = { result in
+            completion(result, nil)
+        }
+        let rejectBlock: @convention(block) (JSValue) -> Void = { error in
+            let err = NSError(domain: "JSContext", code: 3, userInfo: [NSLocalizedDescriptionKey: error.toString() ?? "-"])
+            completion(nil, err)
+        }
+        let resolveCallback = JSValue(object: resolveBlock, in: context)
+        let rejectCallback = JSValue(object: rejectBlock, in: context)
+        promise.invokeMethod("then", withArguments: [resolveCallback as Any])
+        promise.invokeMethod("catch", withArguments: [rejectCallback as Any])
+    }
+    
     func setUpEnvironMent()
     {
         jsContext = JSContext()

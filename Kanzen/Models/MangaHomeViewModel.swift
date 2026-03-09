@@ -20,9 +20,16 @@ final class MangaHomeViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        let needsLightNovels = catalogManager.hasEnabledLightNovelCatalogs
+
         Task {
             do {
-                let allCatalogs = try await AniListMangaService.shared.fetchAllMangaCatalogs()
+                var allCatalogs = try await AniListMangaService.shared.fetchAllMangaCatalogs()
+
+                if needsLightNovels {
+                    let lnCatalogs = try await AniListMangaService.shared.fetchAllLightNovelCatalogs()
+                    allCatalogs.merge(lnCatalogs) { _, new in new }
+                }
 
                 await MainActor.run {
                     self.catalogResults = allCatalogs

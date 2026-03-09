@@ -15,6 +15,7 @@ struct ModuleData: Codable, Equatable
     let version: String
     let language: String
     let scriptURL: String
+    let novel: Bool?
     
     struct Author: Codable, Equatable
     {

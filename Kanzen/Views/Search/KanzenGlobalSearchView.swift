@@ -9,6 +9,11 @@ import SwiftUI
 import Kingfisher
 
 #if !os(tvOS)
+enum MangaSearchMode: String, CaseIterable {
+    case manga = "Manga"
+    case lightNovel = "Light Novel"
+}
+
 struct KanzenGlobalSearchView: View {
     @State private var searchText: String = ""
     @State private var searchResults: [AniListManga] = []
@@ -17,6 +22,7 @@ struct KanzenGlobalSearchView: View {
     @State private var randomManga: AniListManga?
     @State private var isLoadingRandom: Bool = false
     @State private var showRandomManga: Bool = false
+    @State private var searchMode: MangaSearchMode = .manga
 
     private let cellWidth: CGFloat = isIPad ? 150 * iPadScaleSmall : 150
     private var columnCount: Int {
@@ -32,7 +38,7 @@ struct KanzenGlobalSearchView: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.secondary)
-                        TextField("Search manga…", text: $searchText, onCommit: performSearch)
+                        TextField(searchMode == .manga ? "Search manga…" : "Search light novels…", text: $searchText, onCommit: performSearch)
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
                         if !searchText.isEmpty {
@@ -67,6 +73,22 @@ struct KanzenGlobalSearchView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
+
+                Picker("Search Mode", selection: $searchMode) {
+                    ForEach(MangaSearchMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .onChange(of: searchMode) { _ in
+                    searchResults = []
+                    hasSearched = false
+                    if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        performSearch()
+                    }
+                }
 
                 if isSearching {
                     Spacer()
@@ -108,7 +130,7 @@ struct KanzenGlobalSearchView: View {
                         Image(systemName: "text.magnifyingglass")
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
-                        Text("Search for manga on AniList")
+                        Text(searchMode == .manga ? "Search for manga on AniList" : "Search for light novels on AniList")
                             .foregroundColor(.secondary)
                     }
                     Spacer()
@@ -133,7 +155,7 @@ struct KanzenGlobalSearchView: View {
         isLoadingRandom = true
         Task {
             do {
-                let manga = try await AniListMangaService.shared.fetchRandomManga()
+                let manga = try await AniListMangaService.shared.fetchRandomManga(format: searchMode == .lightNovel ? "NOVEL" : nil)
                 await MainActor.run {
                     self.randomManga = manga
                     self.showRandomManga = true
@@ -157,7 +179,12 @@ struct KanzenGlobalSearchView: View {
 
         Task {
             do {
-                let results = try await AniListMangaService.shared.searchManga(query: query)
+                let results: [AniListManga]
+                if searchMode == .lightNovel {
+                    results = try await AniListMangaService.shared.searchLightNovels(query: query)
+                } else {
+                    results = try await AniListMangaService.shared.searchManga(query: query)
+                }
                 await MainActor.run {
                     self.searchResults = results
                     self.isSearching = false

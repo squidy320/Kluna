@@ -23,9 +23,53 @@ struct BackupData: Codable {
     var enableVLCSubtitleEditMenu: Bool
 
     var preferredAnimeAudioLanguage: String
-    var playerChoice: String
+    var inAppPlayer: String
     var showScheduleTab: Bool
     var showLocalScheduleTime: Bool
+
+    // Player Settings
+    var holdSpeedPlayer: Double = 2.0
+    var externalPlayer: String = "none"
+    var alwaysLandscape: Bool = false
+    var aniSkipAutoSkip: Bool = false
+    var skip85sEnabled: Bool = false
+    var showNextEpisodeButton: Bool = true
+    var nextEpisodeThreshold: Double = 0.90
+    var vlcHeaderProxyEnabled: Bool = true
+
+    // Subtitle Styling
+    var subtitleForegroundColor: Data?
+    var subtitleStrokeColor: Data?
+    var subtitleStrokeWidth: Double = 1.0
+    var subtitleFontSize: Double = 30.0
+    var subtitleVerticalOffset: Double = -6.0
+
+    // UI Preferences
+    var showKanzen: Bool = false
+    var kanzenAutoMode: Bool = false
+    var kanzenAutoUpdateModules: Bool = true
+    var seasonMenu: Bool = false
+    var horizontalEpisodeList: Bool = false
+    var homeSections: Data?
+    var mediaColumnsPortrait: Int = 3
+    var mediaColumnsLandscape: Int = 5
+
+    // Manga / Reader
+    var readingMode: Int = 2
+
+    // Novel Reader
+    var readerFontSize: Double = 16
+    var readerFontFamily: String = "-apple-system"
+    var readerFontWeight: String = "normal"
+    var readerColorPreset: Int = 0
+    var readerTextAlignment: String = "left"
+    var readerLineSpacing: Double = 1.6
+    var readerMargin: Double = 4
+
+    // Other
+    var autoClearCacheEnabled: Bool = false
+    var autoClearCacheThresholdMB: Double = 500
+    var highQualityThreshold: Double = 0.9
     
     // Collections (Library)
     var collections: [BackupCollection] = []
@@ -50,7 +94,13 @@ struct BackupData: Codable {
 
     enum CodingKeys: String, CodingKey {
         case version, createdDate
-        case accentColor, tmdbLanguage, selectedAppearance, enableSubtitlesByDefault, defaultSubtitleLanguage, enableVLCSubtitleEditMenu, preferredAnimeAudioLanguage, playerChoice, showScheduleTab, showLocalScheduleTime
+        case accentColor, tmdbLanguage, selectedAppearance, enableSubtitlesByDefault, defaultSubtitleLanguage, enableVLCSubtitleEditMenu, preferredAnimeAudioLanguage, inAppPlayer, playerChoice, showScheduleTab, showLocalScheduleTime
+        case holdSpeedPlayer, externalPlayer, alwaysLandscape, aniSkipAutoSkip, skip85sEnabled, showNextEpisodeButton, nextEpisodeThreshold, vlcHeaderProxyEnabled
+        case subtitleForegroundColor, subtitleStrokeColor, subtitleStrokeWidth, subtitleFontSize, subtitleVerticalOffset
+        case showKanzen, kanzenAutoMode, kanzenAutoUpdateModules, seasonMenu, horizontalEpisodeList, homeSections, mediaColumnsPortrait, mediaColumnsLandscape
+        case readingMode
+        case readerFontSize, readerFontFamily, readerFontWeight, readerColorPreset, readerTextAlignment, readerLineSpacing, readerMargin
+        case autoClearCacheEnabled, autoClearCacheThresholdMB, highQualityThreshold
         case collections, progressData, trackerState, catalogs, services
         case mangaCollections, mangaReadingProgress, mangaCatalogs, kanzenModules
     }
@@ -68,9 +118,57 @@ struct BackupData: Codable {
         enableVLCSubtitleEditMenu = try container.decodeIfPresent(Bool.self, forKey: .enableVLCSubtitleEditMenu) ?? false
 
         preferredAnimeAudioLanguage = try container.decodeIfPresent(String.self, forKey: .preferredAnimeAudioLanguage) ?? "jpn"
-        playerChoice = try container.decodeIfPresent(String.self, forKey: .playerChoice) ?? "mpv"
+        // Support both new "inAppPlayer" key and legacy "playerChoice" key
+        inAppPlayer = try container.decodeIfPresent(String.self, forKey: .inAppPlayer)
+            ?? container.decodeIfPresent(String.self, forKey: .playerChoice)
+            ?? "Normal"
         showScheduleTab = try container.decodeIfPresent(Bool.self, forKey: .showScheduleTab) ?? true
         showLocalScheduleTime = try container.decodeIfPresent(Bool.self, forKey: .showLocalScheduleTime) ?? true
+
+        // Player settings
+        holdSpeedPlayer = try container.decodeIfPresent(Double.self, forKey: .holdSpeedPlayer) ?? 2.0
+        externalPlayer = try container.decodeIfPresent(String.self, forKey: .externalPlayer) ?? "none"
+        alwaysLandscape = try container.decodeIfPresent(Bool.self, forKey: .alwaysLandscape) ?? false
+        aniSkipAutoSkip = try container.decodeIfPresent(Bool.self, forKey: .aniSkipAutoSkip) ?? false
+        skip85sEnabled = try container.decodeIfPresent(Bool.self, forKey: .skip85sEnabled) ?? false
+        showNextEpisodeButton = try container.decodeIfPresent(Bool.self, forKey: .showNextEpisodeButton) ?? true
+        nextEpisodeThreshold = try container.decodeIfPresent(Double.self, forKey: .nextEpisodeThreshold) ?? 0.90
+        vlcHeaderProxyEnabled = try container.decodeIfPresent(Bool.self, forKey: .vlcHeaderProxyEnabled) ?? true
+
+        // Subtitle styling
+        subtitleForegroundColor = try container.decodeIfPresent(Data.self, forKey: .subtitleForegroundColor)
+        subtitleStrokeColor = try container.decodeIfPresent(Data.self, forKey: .subtitleStrokeColor)
+        subtitleStrokeWidth = try container.decodeIfPresent(Double.self, forKey: .subtitleStrokeWidth) ?? 1.0
+        subtitleFontSize = try container.decodeIfPresent(Double.self, forKey: .subtitleFontSize) ?? 30.0
+        subtitleVerticalOffset = try container.decodeIfPresent(Double.self, forKey: .subtitleVerticalOffset) ?? -6.0
+
+        // UI preferences
+        showKanzen = try container.decodeIfPresent(Bool.self, forKey: .showKanzen) ?? false
+        kanzenAutoMode = try container.decodeIfPresent(Bool.self, forKey: .kanzenAutoMode) ?? false
+        kanzenAutoUpdateModules = try container.decodeIfPresent(Bool.self, forKey: .kanzenAutoUpdateModules) ?? true
+        seasonMenu = try container.decodeIfPresent(Bool.self, forKey: .seasonMenu) ?? false
+        horizontalEpisodeList = try container.decodeIfPresent(Bool.self, forKey: .horizontalEpisodeList) ?? false
+        homeSections = try container.decodeIfPresent(Data.self, forKey: .homeSections)
+        mediaColumnsPortrait = try container.decodeIfPresent(Int.self, forKey: .mediaColumnsPortrait) ?? 3
+        mediaColumnsLandscape = try container.decodeIfPresent(Int.self, forKey: .mediaColumnsLandscape) ?? 5
+
+        // Manga / Reader
+        readingMode = try container.decodeIfPresent(Int.self, forKey: .readingMode) ?? 2
+
+        // Novel Reader
+        readerFontSize = try container.decodeIfPresent(Double.self, forKey: .readerFontSize) ?? 16
+        readerFontFamily = try container.decodeIfPresent(String.self, forKey: .readerFontFamily) ?? "-apple-system"
+        readerFontWeight = try container.decodeIfPresent(String.self, forKey: .readerFontWeight) ?? "normal"
+        readerColorPreset = try container.decodeIfPresent(Int.self, forKey: .readerColorPreset) ?? 0
+        readerTextAlignment = try container.decodeIfPresent(String.self, forKey: .readerTextAlignment) ?? "left"
+        readerLineSpacing = try container.decodeIfPresent(Double.self, forKey: .readerLineSpacing) ?? 1.6
+        readerMargin = try container.decodeIfPresent(Double.self, forKey: .readerMargin) ?? 4
+
+        // Other
+        autoClearCacheEnabled = try container.decodeIfPresent(Bool.self, forKey: .autoClearCacheEnabled) ?? false
+        autoClearCacheThresholdMB = try container.decodeIfPresent(Double.self, forKey: .autoClearCacheThresholdMB) ?? 500
+        highQualityThreshold = try container.decodeIfPresent(Double.self, forKey: .highQualityThreshold) ?? 0.9
+
         collections = try container.decodeIfPresent([BackupCollection].self, forKey: .collections) ?? []
         progressData = try container.decodeIfPresent(ProgressData.self, forKey: .progressData) ?? ProgressData()
         trackerState = try container.decodeIfPresent(TrackerState.self, forKey: .trackerState) ?? TrackerState()
@@ -94,9 +192,54 @@ struct BackupData: Codable {
         try container.encode(enableVLCSubtitleEditMenu, forKey: .enableVLCSubtitleEditMenu)
 
         try container.encode(preferredAnimeAudioLanguage, forKey: .preferredAnimeAudioLanguage)
-        try container.encode(playerChoice, forKey: .playerChoice)
+        try container.encode(inAppPlayer, forKey: .inAppPlayer)
         try container.encode(showScheduleTab, forKey: .showScheduleTab)
         try container.encode(showLocalScheduleTime, forKey: .showLocalScheduleTime)
+
+        // Player settings
+        try container.encode(holdSpeedPlayer, forKey: .holdSpeedPlayer)
+        try container.encode(externalPlayer, forKey: .externalPlayer)
+        try container.encode(alwaysLandscape, forKey: .alwaysLandscape)
+        try container.encode(aniSkipAutoSkip, forKey: .aniSkipAutoSkip)
+        try container.encode(skip85sEnabled, forKey: .skip85sEnabled)
+        try container.encode(showNextEpisodeButton, forKey: .showNextEpisodeButton)
+        try container.encode(nextEpisodeThreshold, forKey: .nextEpisodeThreshold)
+        try container.encode(vlcHeaderProxyEnabled, forKey: .vlcHeaderProxyEnabled)
+
+        // Subtitle styling
+        try container.encodeIfPresent(subtitleForegroundColor, forKey: .subtitleForegroundColor)
+        try container.encodeIfPresent(subtitleStrokeColor, forKey: .subtitleStrokeColor)
+        try container.encode(subtitleStrokeWidth, forKey: .subtitleStrokeWidth)
+        try container.encode(subtitleFontSize, forKey: .subtitleFontSize)
+        try container.encode(subtitleVerticalOffset, forKey: .subtitleVerticalOffset)
+
+        // UI preferences
+        try container.encode(showKanzen, forKey: .showKanzen)
+        try container.encode(kanzenAutoMode, forKey: .kanzenAutoMode)
+        try container.encode(kanzenAutoUpdateModules, forKey: .kanzenAutoUpdateModules)
+        try container.encode(seasonMenu, forKey: .seasonMenu)
+        try container.encode(horizontalEpisodeList, forKey: .horizontalEpisodeList)
+        try container.encodeIfPresent(homeSections, forKey: .homeSections)
+        try container.encode(mediaColumnsPortrait, forKey: .mediaColumnsPortrait)
+        try container.encode(mediaColumnsLandscape, forKey: .mediaColumnsLandscape)
+
+        // Manga / Reader
+        try container.encode(readingMode, forKey: .readingMode)
+
+        // Novel Reader
+        try container.encode(readerFontSize, forKey: .readerFontSize)
+        try container.encode(readerFontFamily, forKey: .readerFontFamily)
+        try container.encode(readerFontWeight, forKey: .readerFontWeight)
+        try container.encode(readerColorPreset, forKey: .readerColorPreset)
+        try container.encode(readerTextAlignment, forKey: .readerTextAlignment)
+        try container.encode(readerLineSpacing, forKey: .readerLineSpacing)
+        try container.encode(readerMargin, forKey: .readerMargin)
+
+        // Other
+        try container.encode(autoClearCacheEnabled, forKey: .autoClearCacheEnabled)
+        try container.encode(autoClearCacheThresholdMB, forKey: .autoClearCacheThresholdMB)
+        try container.encode(highQualityThreshold, forKey: .highQualityThreshold)
+
         try container.encode(collections, forKey: .collections)
         try container.encode(progressData, forKey: .progressData)
         try container.encode(trackerState, forKey: .trackerState)
@@ -119,9 +262,54 @@ struct BackupData: Codable {
         enableVLCSubtitleEditMenu: Bool,
 
         preferredAnimeAudioLanguage: String,
-        playerChoice: String,
+        inAppPlayer: String,
         showScheduleTab: Bool,
         showLocalScheduleTime: Bool,
+
+        // Player settings
+        holdSpeedPlayer: Double = 2.0,
+        externalPlayer: String = "none",
+        alwaysLandscape: Bool = false,
+        aniSkipAutoSkip: Bool = false,
+        skip85sEnabled: Bool = false,
+        showNextEpisodeButton: Bool = true,
+        nextEpisodeThreshold: Double = 0.90,
+        vlcHeaderProxyEnabled: Bool = true,
+
+        // Subtitle styling
+        subtitleForegroundColor: Data? = nil,
+        subtitleStrokeColor: Data? = nil,
+        subtitleStrokeWidth: Double = 1.0,
+        subtitleFontSize: Double = 30.0,
+        subtitleVerticalOffset: Double = -6.0,
+
+        // UI preferences
+        showKanzen: Bool = false,
+        kanzenAutoMode: Bool = false,
+        kanzenAutoUpdateModules: Bool = true,
+        seasonMenu: Bool = false,
+        horizontalEpisodeList: Bool = false,
+        homeSections: Data? = nil,
+        mediaColumnsPortrait: Int = 3,
+        mediaColumnsLandscape: Int = 5,
+
+        // Manga / Reader
+        readingMode: Int = 2,
+
+        // Novel Reader
+        readerFontSize: Double = 16,
+        readerFontFamily: String = "-apple-system",
+        readerFontWeight: String = "normal",
+        readerColorPreset: Int = 0,
+        readerTextAlignment: String = "left",
+        readerLineSpacing: Double = 1.6,
+        readerMargin: Double = 4,
+
+        // Other
+        autoClearCacheEnabled: Bool = false,
+        autoClearCacheThresholdMB: Double = 500,
+        highQualityThreshold: Double = 0.9,
+
         collections: [BackupCollection] = [],
         progressData: ProgressData = ProgressData(),
         trackerState: TrackerState = TrackerState(),
@@ -142,9 +330,48 @@ struct BackupData: Codable {
         self.enableVLCSubtitleEditMenu = enableVLCSubtitleEditMenu
 
         self.preferredAnimeAudioLanguage = preferredAnimeAudioLanguage
-        self.playerChoice = playerChoice
+        self.inAppPlayer = inAppPlayer
         self.showScheduleTab = showScheduleTab
         self.showLocalScheduleTime = showLocalScheduleTime
+
+        self.holdSpeedPlayer = holdSpeedPlayer
+        self.externalPlayer = externalPlayer
+        self.alwaysLandscape = alwaysLandscape
+        self.aniSkipAutoSkip = aniSkipAutoSkip
+        self.skip85sEnabled = skip85sEnabled
+        self.showNextEpisodeButton = showNextEpisodeButton
+        self.nextEpisodeThreshold = nextEpisodeThreshold
+        self.vlcHeaderProxyEnabled = vlcHeaderProxyEnabled
+
+        self.subtitleForegroundColor = subtitleForegroundColor
+        self.subtitleStrokeColor = subtitleStrokeColor
+        self.subtitleStrokeWidth = subtitleStrokeWidth
+        self.subtitleFontSize = subtitleFontSize
+        self.subtitleVerticalOffset = subtitleVerticalOffset
+
+        self.showKanzen = showKanzen
+        self.kanzenAutoMode = kanzenAutoMode
+        self.kanzenAutoUpdateModules = kanzenAutoUpdateModules
+        self.seasonMenu = seasonMenu
+        self.horizontalEpisodeList = horizontalEpisodeList
+        self.homeSections = homeSections
+        self.mediaColumnsPortrait = mediaColumnsPortrait
+        self.mediaColumnsLandscape = mediaColumnsLandscape
+
+        self.readingMode = readingMode
+
+        self.readerFontSize = readerFontSize
+        self.readerFontFamily = readerFontFamily
+        self.readerFontWeight = readerFontWeight
+        self.readerColorPreset = readerColorPreset
+        self.readerTextAlignment = readerTextAlignment
+        self.readerLineSpacing = readerLineSpacing
+        self.readerMargin = readerMargin
+
+        self.autoClearCacheEnabled = autoClearCacheEnabled
+        self.autoClearCacheThresholdMB = autoClearCacheThresholdMB
+        self.highQualityThreshold = highQualityThreshold
+
         self.collections = collections
         self.progressData = progressData
         self.trackerState = trackerState
@@ -262,10 +489,64 @@ class BackupManager {
         let enableVLCSubtitleEditMenu = userDefaults.bool(forKey: "enableVLCSubtitleEditMenu")
 
         let preferredAnimeAudioLanguage = userDefaults.string(forKey: "preferredAnimeAudioLanguage") ?? "jpn"
-        let playerChoice = userDefaults.string(forKey: "playerChoice") ?? "mpv"
+        let inAppPlayer = userDefaults.string(forKey: "inAppPlayer") ?? "Normal"
         let tmdbLanguage = userDefaults.string(forKey: "tmdbLanguage") ?? "en-US"
         let showScheduleTab = userDefaults.bool(forKey: "showScheduleTab")
         let showLocalScheduleTime = userDefaults.bool(forKey: "showLocalScheduleTime")
+        
+        // Player settings
+        let savedHoldSpeed = userDefaults.double(forKey: "holdSpeedPlayer")
+        let holdSpeedPlayer = savedHoldSpeed > 0 ? savedHoldSpeed : 2.0
+        let externalPlayer = userDefaults.string(forKey: "externalPlayer") ?? "none"
+        let alwaysLandscape = userDefaults.bool(forKey: "alwaysLandscape")
+        let aniSkipAutoSkip = userDefaults.bool(forKey: "aniSkipAutoSkip")
+        let skip85sEnabled = userDefaults.bool(forKey: "skip85sEnabled")
+        let showNextEpisodeButton = userDefaults.object(forKey: "showNextEpisodeButton") == nil ? true : userDefaults.bool(forKey: "showNextEpisodeButton")
+        let savedNextThreshold = userDefaults.double(forKey: "nextEpisodeThreshold")
+        let nextEpisodeThreshold = savedNextThreshold > 0 ? savedNextThreshold : 0.90
+        let vlcHeaderProxyEnabled = userDefaults.object(forKey: "vlcHeaderProxyEnabled") as? Bool ?? true
+
+        // Subtitle styling
+        let subtitleForegroundColor = userDefaults.data(forKey: "subtitles_foregroundColor")
+        let subtitleStrokeColor = userDefaults.data(forKey: "subtitles_strokeColor")
+        let savedStrokeWidth = userDefaults.double(forKey: "subtitles_strokeWidth")
+        let subtitleStrokeWidth = savedStrokeWidth >= 0 ? savedStrokeWidth : 1.0
+        let savedFontSize = userDefaults.double(forKey: "subtitles_fontSize")
+        let subtitleFontSize = savedFontSize > 0 ? savedFontSize : 30.0
+        let subtitleVerticalOffset = userDefaults.object(forKey: "vlcSubtitleOverlayBottomConstant") != nil
+            ? userDefaults.double(forKey: "vlcSubtitleOverlayBottomConstant") : -6.0
+
+        // UI preferences
+        let showKanzen = userDefaults.bool(forKey: "showKanzen")
+        let kanzenAutoMode = userDefaults.bool(forKey: "kanzenAutoMode")
+        let kanzenAutoUpdateModules = ModuleManager.isAutoUpdateEnabled
+        let seasonMenu = userDefaults.bool(forKey: "seasonMenu")
+        let horizontalEpisodeList = userDefaults.bool(forKey: "horizontalEpisodeList")
+        let homeSections = userDefaults.data(forKey: "homeSections")
+        let mediaColumnsPortrait = userDefaults.object(forKey: "mediaColumnsPortrait") != nil ? userDefaults.integer(forKey: "mediaColumnsPortrait") : 3
+        let mediaColumnsLandscape = userDefaults.object(forKey: "mediaColumnsLandscape") != nil ? userDefaults.integer(forKey: "mediaColumnsLandscape") : 5
+
+        // Manga / Reader
+        let readingMode = userDefaults.object(forKey: "readingMode") != nil ? userDefaults.integer(forKey: "readingMode") : ReadingMode.WEBTOON.rawValue
+
+        // Novel Reader
+        let savedReaderFontSize = userDefaults.double(forKey: "readerFontSize")
+        let readerFontSize = savedReaderFontSize > 0 ? savedReaderFontSize : 16
+        let readerFontFamily = userDefaults.string(forKey: "readerFontFamily") ?? "-apple-system"
+        let readerFontWeight = userDefaults.string(forKey: "readerFontWeight") ?? "normal"
+        let readerColorPreset = userDefaults.integer(forKey: "readerColorPreset")
+        let readerTextAlignment = userDefaults.string(forKey: "readerTextAlignment") ?? "left"
+        let savedReaderLineSpacing = userDefaults.double(forKey: "readerLineSpacing")
+        let readerLineSpacing = savedReaderLineSpacing > 0 ? savedReaderLineSpacing : 1.6
+        let savedReaderMargin = userDefaults.object(forKey: "readerMargin") != nil ? userDefaults.double(forKey: "readerMargin") : 4
+        let readerMargin = savedReaderMargin
+
+        // Other
+        let autoClearCacheEnabled = userDefaults.bool(forKey: "autoClearCacheEnabled")
+        let savedCacheThreshold = userDefaults.double(forKey: "autoClearCacheThresholdMB")
+        let autoClearCacheThresholdMB = savedCacheThreshold > 0 ? savedCacheThreshold : 500
+        let savedQualityThreshold = userDefaults.object(forKey: "highQualityThreshold") as? Double ?? 0.9
+        let highQualityThreshold = savedQualityThreshold
         
         // Get library collections
         let libraryManager = LibraryManager.shared
@@ -332,9 +613,48 @@ class BackupManager {
             enableVLCSubtitleEditMenu: enableVLCSubtitleEditMenu,
 
             preferredAnimeAudioLanguage: preferredAnimeAudioLanguage,
-            playerChoice: playerChoice,
+            inAppPlayer: inAppPlayer,
             showScheduleTab: showScheduleTab,
             showLocalScheduleTime: showLocalScheduleTime,
+
+            holdSpeedPlayer: holdSpeedPlayer,
+            externalPlayer: externalPlayer,
+            alwaysLandscape: alwaysLandscape,
+            aniSkipAutoSkip: aniSkipAutoSkip,
+            skip85sEnabled: skip85sEnabled,
+            showNextEpisodeButton: showNextEpisodeButton,
+            nextEpisodeThreshold: nextEpisodeThreshold,
+            vlcHeaderProxyEnabled: vlcHeaderProxyEnabled,
+
+            subtitleForegroundColor: subtitleForegroundColor,
+            subtitleStrokeColor: subtitleStrokeColor,
+            subtitleStrokeWidth: subtitleStrokeWidth,
+            subtitleFontSize: subtitleFontSize,
+            subtitleVerticalOffset: subtitleVerticalOffset,
+
+            showKanzen: showKanzen,
+            kanzenAutoMode: kanzenAutoMode,
+            kanzenAutoUpdateModules: kanzenAutoUpdateModules,
+            seasonMenu: seasonMenu,
+            horizontalEpisodeList: horizontalEpisodeList,
+            homeSections: homeSections,
+            mediaColumnsPortrait: mediaColumnsPortrait,
+            mediaColumnsLandscape: mediaColumnsLandscape,
+
+            readingMode: readingMode,
+
+            readerFontSize: readerFontSize,
+            readerFontFamily: readerFontFamily,
+            readerFontWeight: readerFontWeight,
+            readerColorPreset: readerColorPreset,
+            readerTextAlignment: readerTextAlignment,
+            readerLineSpacing: readerLineSpacing,
+            readerMargin: readerMargin,
+
+            autoClearCacheEnabled: autoClearCacheEnabled,
+            autoClearCacheThresholdMB: autoClearCacheThresholdMB,
+            highQualityThreshold: highQualityThreshold,
+
             collections: backupCollections,
             progressData: progressData,
             trackerState: trackerState,
@@ -409,9 +729,53 @@ class BackupManager {
         let defaultSubtitleLanguage = json["defaultSubtitleLanguage"] as? String ?? "eng"
         let enableVLCSubtitleEditMenu = json["enableVLCSubtitleEditMenu"] as? Bool ?? false
         let preferredAnimeAudioLanguage = json["preferredAnimeAudioLanguage"] as? String ?? "jpn"
-        let playerChoice = json["playerChoice"] as? String ?? "mpv"
+        let inAppPlayer = json["inAppPlayer"] as? String ?? json["playerChoice"] as? String ?? "Normal"
         let showScheduleTab = json["showScheduleTab"] as? Bool ?? true
         let showLocalScheduleTime = json["showLocalScheduleTime"] as? Bool ?? true
+
+        // Player settings
+        let holdSpeedPlayer = json["holdSpeedPlayer"] as? Double ?? 2.0
+        let externalPlayer = json["externalPlayer"] as? String ?? "none"
+        let alwaysLandscape = json["alwaysLandscape"] as? Bool ?? false
+        let aniSkipAutoSkip = json["aniSkipAutoSkip"] as? Bool ?? false
+        let skip85sEnabled = json["skip85sEnabled"] as? Bool ?? false
+        let showNextEpisodeButton = json["showNextEpisodeButton"] as? Bool ?? true
+        let nextEpisodeThreshold = json["nextEpisodeThreshold"] as? Double ?? 0.90
+        let vlcHeaderProxyEnabled = json["vlcHeaderProxyEnabled"] as? Bool ?? true
+
+        // Subtitle styling
+        let subtitleForegroundColor = json["subtitleForegroundColor"] as? Data
+        let subtitleStrokeColor = json["subtitleStrokeColor"] as? Data
+        let subtitleStrokeWidth = json["subtitleStrokeWidth"] as? Double ?? 1.0
+        let subtitleFontSize = json["subtitleFontSize"] as? Double ?? 30.0
+        let subtitleVerticalOffset = json["subtitleVerticalOffset"] as? Double ?? -6.0
+
+        // UI preferences
+        let showKanzen = json["showKanzen"] as? Bool ?? false
+        let kanzenAutoMode = json["kanzenAutoMode"] as? Bool ?? false
+        let kanzenAutoUpdateModules = json["kanzenAutoUpdateModules"] as? Bool ?? true
+        let seasonMenu = json["seasonMenu"] as? Bool ?? false
+        let horizontalEpisodeList = json["horizontalEpisodeList"] as? Bool ?? false
+        let homeSections = json["homeSections"] as? Data
+        let mediaColumnsPortrait = json["mediaColumnsPortrait"] as? Int ?? 3
+        let mediaColumnsLandscape = json["mediaColumnsLandscape"] as? Int ?? 5
+
+        // Manga / Reader
+        let readingMode = json["readingMode"] as? Int ?? 2
+
+        // Novel Reader
+        let readerFontSize = json["readerFontSize"] as? Double ?? 16
+        let readerFontFamily = json["readerFontFamily"] as? String ?? "-apple-system"
+        let readerFontWeight = json["readerFontWeight"] as? String ?? "normal"
+        let readerColorPreset = json["readerColorPreset"] as? Int ?? 0
+        let readerTextAlignment = json["readerTextAlignment"] as? String ?? "left"
+        let readerLineSpacing = json["readerLineSpacing"] as? Double ?? 1.6
+        let readerMargin = json["readerMargin"] as? Double ?? 4
+
+        // Other
+        let autoClearCacheEnabled = json["autoClearCacheEnabled"] as? Bool ?? false
+        let autoClearCacheThresholdMB = json["autoClearCacheThresholdMB"] as? Double ?? 500
+        let highQualityThreshold = json["highQualityThreshold"] as? Double ?? 0.9
         
         // Try to decode complex objects individually
         var collections: [BackupCollection] = []
@@ -523,9 +887,41 @@ class BackupManager {
             defaultSubtitleLanguage: defaultSubtitleLanguage,
             enableVLCSubtitleEditMenu: enableVLCSubtitleEditMenu,
             preferredAnimeAudioLanguage: preferredAnimeAudioLanguage,
-            playerChoice: playerChoice,
+            inAppPlayer: inAppPlayer,
             showScheduleTab: showScheduleTab,
             showLocalScheduleTime: showLocalScheduleTime,
+            holdSpeedPlayer: holdSpeedPlayer,
+            externalPlayer: externalPlayer,
+            alwaysLandscape: alwaysLandscape,
+            aniSkipAutoSkip: aniSkipAutoSkip,
+            skip85sEnabled: skip85sEnabled,
+            showNextEpisodeButton: showNextEpisodeButton,
+            nextEpisodeThreshold: nextEpisodeThreshold,
+            vlcHeaderProxyEnabled: vlcHeaderProxyEnabled,
+            subtitleForegroundColor: subtitleForegroundColor,
+            subtitleStrokeColor: subtitleStrokeColor,
+            subtitleStrokeWidth: subtitleStrokeWidth,
+            subtitleFontSize: subtitleFontSize,
+            subtitleVerticalOffset: subtitleVerticalOffset,
+            showKanzen: showKanzen,
+            kanzenAutoMode: kanzenAutoMode,
+            kanzenAutoUpdateModules: kanzenAutoUpdateModules,
+            seasonMenu: seasonMenu,
+            horizontalEpisodeList: horizontalEpisodeList,
+            homeSections: homeSections,
+            mediaColumnsPortrait: mediaColumnsPortrait,
+            mediaColumnsLandscape: mediaColumnsLandscape,
+            readingMode: readingMode,
+            readerFontSize: readerFontSize,
+            readerFontFamily: readerFontFamily,
+            readerFontWeight: readerFontWeight,
+            readerColorPreset: readerColorPreset,
+            readerTextAlignment: readerTextAlignment,
+            readerLineSpacing: readerLineSpacing,
+            readerMargin: readerMargin,
+            autoClearCacheEnabled: autoClearCacheEnabled,
+            autoClearCacheThresholdMB: autoClearCacheThresholdMB,
+            highQualityThreshold: highQualityThreshold,
             collections: collections,
             progressData: progressData,
             trackerState: trackerState,
@@ -559,9 +955,59 @@ class BackupManager {
         userDefaults.set(backup.enableVLCSubtitleEditMenu, forKey: "enableVLCSubtitleEditMenu")
 
         userDefaults.set(backup.preferredAnimeAudioLanguage, forKey: "preferredAnimeAudioLanguage")
-        userDefaults.set(backup.playerChoice, forKey: "playerChoice")
+        userDefaults.set(backup.inAppPlayer, forKey: "inAppPlayer")
         userDefaults.set(backup.showScheduleTab, forKey: "showScheduleTab")
         userDefaults.set(backup.showLocalScheduleTime, forKey: "showLocalScheduleTime")
+
+        // Player settings
+        userDefaults.set(backup.holdSpeedPlayer, forKey: "holdSpeedPlayer")
+        userDefaults.set(backup.externalPlayer, forKey: "externalPlayer")
+        userDefaults.set(backup.alwaysLandscape, forKey: "alwaysLandscape")
+        userDefaults.set(backup.aniSkipAutoSkip, forKey: "aniSkipAutoSkip")
+        userDefaults.set(backup.skip85sEnabled, forKey: "skip85sEnabled")
+        userDefaults.set(backup.showNextEpisodeButton, forKey: "showNextEpisodeButton")
+        userDefaults.set(backup.nextEpisodeThreshold, forKey: "nextEpisodeThreshold")
+        userDefaults.set(backup.vlcHeaderProxyEnabled, forKey: "vlcHeaderProxyEnabled")
+
+        // Subtitle styling
+        if let fgColor = backup.subtitleForegroundColor {
+            userDefaults.set(fgColor, forKey: "subtitles_foregroundColor")
+        }
+        if let strokeColor = backup.subtitleStrokeColor {
+            userDefaults.set(strokeColor, forKey: "subtitles_strokeColor")
+        }
+        userDefaults.set(backup.subtitleStrokeWidth, forKey: "subtitles_strokeWidth")
+        userDefaults.set(backup.subtitleFontSize, forKey: "subtitles_fontSize")
+        userDefaults.set(backup.subtitleVerticalOffset, forKey: "vlcSubtitleOverlayBottomConstant")
+
+        // UI preferences
+        userDefaults.set(backup.showKanzen, forKey: "showKanzen")
+        userDefaults.set(backup.kanzenAutoMode, forKey: "kanzenAutoMode")
+        userDefaults.set(backup.kanzenAutoUpdateModules, forKey: "kanzenAutoUpdateModules")
+        userDefaults.set(backup.seasonMenu, forKey: "seasonMenu")
+        userDefaults.set(backup.horizontalEpisodeList, forKey: "horizontalEpisodeList")
+        if let homeSections = backup.homeSections {
+            userDefaults.set(homeSections, forKey: "homeSections")
+        }
+        userDefaults.set(backup.mediaColumnsPortrait, forKey: "mediaColumnsPortrait")
+        userDefaults.set(backup.mediaColumnsLandscape, forKey: "mediaColumnsLandscape")
+
+        // Manga / Reader
+        userDefaults.set(backup.readingMode, forKey: "readingMode")
+
+        // Novel Reader
+        userDefaults.set(backup.readerFontSize, forKey: "readerFontSize")
+        userDefaults.set(backup.readerFontFamily, forKey: "readerFontFamily")
+        userDefaults.set(backup.readerFontWeight, forKey: "readerFontWeight")
+        userDefaults.set(backup.readerColorPreset, forKey: "readerColorPreset")
+        userDefaults.set(backup.readerTextAlignment, forKey: "readerTextAlignment")
+        userDefaults.set(backup.readerLineSpacing, forKey: "readerLineSpacing")
+        userDefaults.set(backup.readerMargin, forKey: "readerMargin")
+
+        // Other
+        userDefaults.set(backup.autoClearCacheEnabled, forKey: "autoClearCacheEnabled")
+        userDefaults.set(backup.autoClearCacheThresholdMB, forKey: "autoClearCacheThresholdMB")
+        userDefaults.set(backup.highQualityThreshold, forKey: "highQualityThreshold")
         
         // Reload Settings singleton to pick up changes
         let settings = Settings.shared

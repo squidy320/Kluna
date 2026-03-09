@@ -44,6 +44,14 @@ class KanzenEngine: ObservableObject
         }
     }
     
+    func extractText(params: Any, completion: @escaping (String?) -> Void)
+    {
+        controller.extractText(params: params){
+            result in
+            completion(result)
+        }
+    }
+    
     func searchInput(_ input: String,page: Int = 0, completion: @escaping ([[String:Any]]?) -> Void) -> Void {
         controller.searchInput(_input: input,page: page)
         {

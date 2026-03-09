@@ -59,6 +59,19 @@ class KanzenRunnerController {
         }
     }
     
+    func extractText(params:Any, completion: @escaping (String?) -> Void)
+    {
+        moduleRunner.extractText(params: params)
+        {
+            jsResult, error in
+            guard let result = jsResult?.toString() else {
+                completion(nil)
+                return
+            }
+            completion(result)
+        }
+    }
+    
     func searchInput(_input: String,page:Int = 0, completion: @escaping ([[String:Any]]?) -> Void)
     {
         moduleRunner.searchResults(input: _input,page: page)

@@ -108,14 +108,26 @@ struct MangaDetailView: View {
             }
         }) { chapter in
             if let chapters = loadedChapters, chapterLanguageIdx < chapters.count {
-                readerManagerView(
-                    chapters: chapters[chapterLanguageIdx].chapters,
-                    selectedChapter: chapter,
-                    kanzen: chapterEngine,
-                    mangaId: manga.id,
-                    mangaTitle: manga.displayTitle,
-                    mangaCoverURL: manga.coverURL ?? ""
-                )
+                let chapterList = chapters[chapterLanguageIdx].chapters
+                if selectedSource?.module.moduleData.novel == true {
+                    NovelReaderView(
+                        kanzen: chapterEngine,
+                        chapters: chapterList,
+                        initialChapter: chapter,
+                        mangaId: manga.id,
+                        mangaTitle: manga.displayTitle,
+                        mangaCoverURL: manga.coverURL ?? ""
+                    )
+                } else {
+                    readerManagerView(
+                        chapters: chapterList,
+                        selectedChapter: chapter,
+                        kanzen: chapterEngine,
+                        mangaId: manga.id,
+                        mangaTitle: manga.displayTitle,
+                        mangaCoverURL: manga.coverURL ?? ""
+                    )
+                }
             }
         }
         .task {
@@ -706,6 +718,7 @@ struct MangaDetailView: View {
         switch format {
         case "MANGA": return "Manga"
         case "ONE_SHOT": return "One Shot"
+        case "NOVEL": return "Light Novel"
         default: return format.capitalized
         }
     }

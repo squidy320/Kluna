@@ -30,12 +30,16 @@ class MangaCatalogManager: ObservableObject {
             MangaCatalog(id: "popularManhwa", name: "Popular Manhwa", isEnabled: true, order: 5),
             MangaCatalog(id: "trendingManhwa", name: "Trending Manhwa", isEnabled: false, order: 6),
             MangaCatalog(id: "topRatedManhwa", name: "Top Rated Manhwa", isEnabled: false, order: 7),
+            MangaCatalog(id: "trendingNovels", name: "Trending Light Novels", isEnabled: false, order: 8),
+            MangaCatalog(id: "popularNovels", name: "Popular Light Novels", isEnabled: false, order: 9),
+            MangaCatalog(id: "topRatedNovels", name: "Top Rated Light Novels", isEnabled: false, order: 10),
+            MangaCatalog(id: "publishingNovels", name: "Publishing Light Novels", isEnabled: false, order: 11),
         ]
 
         if let data = userDefaults.data(forKey: catalogsKey),
            let savedCatalogs = try? JSONDecoder().decode([MangaCatalog].self, from: data) {
             let validIds = Set(defaultCatalogs.map { $0.id })
-            // Remove stale catalogs that no longer exist in defaults (e.g. removed light novel catalogs)
+            // Remove stale catalogs that no longer exist in defaults
             var merged = savedCatalogs.filter { validIds.contains($0.id) }.sorted { $0.order < $1.order }
             let existingIds = Set(merged.map { $0.id })
             let missingDefaults = defaultCatalogs.filter { !existingIds.contains($0.id) }
@@ -82,6 +86,14 @@ class MangaCatalogManager: ObservableObject {
 
     func getEnabledCatalogs() -> [MangaCatalog] {
         catalogs.filter { $0.isEnabled }.sorted { $0.order < $1.order }
+    }
+
+    private static let lightNovelCatalogIds: Set<String> = [
+        "trendingNovels", "popularNovels", "topRatedNovels", "publishingNovels"
+    ]
+
+    var hasEnabledLightNovelCatalogs: Bool {
+        catalogs.contains { $0.isEnabled && Self.lightNovelCatalogIds.contains($0.id) }
     }
 }
 

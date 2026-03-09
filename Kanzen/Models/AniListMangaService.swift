@@ -204,6 +204,50 @@ final class AniListMangaService {
         return result
     }
 
+    /// Fetch all light novel catalogs in a single aliased GraphQL query.
+    func fetchAllLightNovelCatalogs(limit: Int = 20) async throws -> [String: [AniListManga]] {
+        let query = """
+        query {
+            trendingNovels: Page(perPage: \(limit)) {
+                media(type: MANGA, format: NOVEL, sort: [TRENDING_DESC]) { \(mediaFragment) }
+            }
+            popularNovels: Page(perPage: \(limit)) {
+                media(type: MANGA, format: NOVEL, sort: [POPULARITY_DESC]) { \(mediaFragment) }
+            }
+            topRatedNovels: Page(perPage: \(limit)) {
+                media(type: MANGA, format: NOVEL, sort: [SCORE_DESC]) { \(mediaFragment) }
+            }
+            publishingNovels: Page(perPage: \(limit)) {
+                media(type: MANGA, format: NOVEL, sort: [POPULARITY_DESC], status: RELEASING) { \(mediaFragment) }
+            }
+        }
+        """
+
+        struct PageData: Codable { let media: [AniListManga] }
+        struct LNResponse: Codable {
+            let data: DataWrapper
+            struct DataWrapper: Codable {
+                let trendingNovels: PageData
+                let popularNovels: PageData
+                let topRatedNovels: PageData
+                let publishingNovels: PageData
+            }
+        }
+
+        let data = try await executeGraphQLQuery(query)
+        let decoded = try JSONDecoder().decode(LNResponse.self, from: data)
+
+        let result: [String: [AniListManga]] = [
+            "trendingNovels": decoded.data.trendingNovels.media,
+            "popularNovels": decoded.data.popularNovels.media,
+            "topRatedNovels": decoded.data.topRatedNovels.media,
+            "publishingNovels": decoded.data.publishingNovels.media,
+        ]
+
+        Logger.shared.log("AniListMangaService: Fetched all light novel catalogs in 1 query", type: "AniList")
+        return result
+    }
+
     // MARK: - Search
 
     /// Search AniList for manga matching a query string.
@@ -230,15 +274,40 @@ final class AniListMangaService {
         return decoded.data.Page.media
     }
 
+    /// Search AniList for light novels matching a query string.
+    func searchLightNovels(query searchQuery: String, page: Int = 1, perPage: Int = 20) async throws -> [AniListManga] {
+        let sanitized = searchQuery.replacingOccurrences(of: "\"", with: "\\\"")
+        let query = """
+        query {
+            Page(page: \(page), perPage: \(perPage)) {
+                media(search: "\(sanitized)", type: MANGA, format: NOVEL, sort: [POPULARITY_DESC]) {
+                    \(mediaFragment)
+                }
+            }
+        }
+        """
+
+        struct SearchResponse: Codable {
+            let data: DataWrapper
+            struct DataWrapper: Codable { let Page: PageData }
+            struct PageData: Codable { let media: [AniListManga] }
+        }
+
+        let data = try await executeGraphQLQuery(query)
+        let decoded = try JSONDecoder().decode(SearchResponse.self, from: data)
+        return decoded.data.Page.media
+    }
+
     // MARK: - Random
 
     /// Fetch a random manga by picking a random page from AniList's popularity-sorted results.
-    func fetchRandomManga() async throws -> AniListManga {
+    func fetchRandomManga(format: String? = nil) async throws -> AniListManga {
         let randomPage = Int.random(in: 1...300)
+        let formatFilter = format != nil ? "format: \(format!)" : "format_not: NOVEL"
         let query = """
         query {
             Page(page: \(randomPage), perPage: 20) {
-                media(type: MANGA, format_not: NOVEL, sort: [POPULARITY_DESC]) {
+                media(type: MANGA, \(formatFilter), sort: [POPULARITY_DESC]) {
                     \(mediaFragment)
                 }
             }
