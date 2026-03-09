@@ -96,7 +96,6 @@ struct StremioConfigureView: View {
                 Text(url.absoluteString)
                     .font(.caption)
                     .foregroundColor(.gray)
-                    .textSelection(.enabled)
             }
         }
         .padding()
