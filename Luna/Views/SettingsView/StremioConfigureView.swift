@@ -130,6 +130,35 @@ struct StremioConfigureWebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+
+        // Inject JS to intercept stremio:// links and window.location assignments
+        let js = """
+        (function() {
+            // Intercept link clicks
+            document.addEventListener('click', function(e) {
+                var target = e.target;
+                while (target && target.tagName !== 'A') { target = target.parentElement; }
+                if (target && target.href && target.href.toLowerCase().startsWith('stremio://')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.webkit.messageHandlers.stremioInstall.postMessage(target.href);
+                }
+            }, true);
+            // Intercept window.location changes
+            var origAssign = window.location.assign;
+            window.location.assign = function(url) {
+                if (typeof url === 'string' && url.toLowerCase().startsWith('stremio://')) {
+                    window.webkit.messageHandlers.stremioInstall.postMessage(url);
+                    return;
+                }
+                origAssign.call(window.location, url);
+            };
+        })();
+        """
+        let userScript = WKUserScript(source: js, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        config.userContentController.addUserScript(userScript)
+        config.userContentController.add(context.coordinator, name: "stremioInstall")
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.load(URLRequest(url: url))
@@ -138,12 +167,25 @@ struct StremioConfigureWebView: UIViewRepresentable {
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
-    class Coordinator: NSObject, WKNavigationDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         let parent: StremioConfigureWebView
 
         init(parent: StremioConfigureWebView) {
             self.parent = parent
         }
+
+        // MARK: - WKScriptMessageHandler
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "stremioInstall", let urlString = message.body as? String {
+                let configuredURL = extractConfiguredURL(from: urlString)
+                DispatchQueue.main.async {
+                    self.parent.onConfigured(configuredURL)
+                }
+            }
+        }
+
+        // MARK: - WKNavigationDelegate
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             DispatchQueue.main.async { self.parent.isLoading = true }

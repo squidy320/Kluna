@@ -494,7 +494,7 @@ struct StremioAddonRow: View {
                 }
             }
             Button {
-                reconfigureURL = addon.configuredURL
+                reconfigureURL = ""
                 showReconfigure = true
             } label: {
                 Label("Update URL", systemImage: "link")
