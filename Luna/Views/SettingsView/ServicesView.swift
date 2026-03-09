@@ -401,6 +401,7 @@ private struct AddServiceInputModifier: ViewModifier {
 struct StremioAddonRow: View {
     let addon: StremioAddon
     @ObservedObject var manager: StremioAddonManager
+    @State private var showConfigure = false
     @State private var showReconfigure = false
     @State private var reconfigureURL = ""
     @State private var reconfigureError: String?
@@ -411,6 +412,10 @@ struct StremioAddonRow: View {
             return managed.isActive
         }
         return addon.isActive
+    }
+
+    private var isConfigurable: Bool {
+        addon.manifest.behaviorHints?.configurable == true
     }
 
     var body: some View {
@@ -481,12 +486,22 @@ struct StremioAddonRow: View {
             }
         }
         .contextMenu {
+            if isConfigurable {
+                Button {
+                    showConfigure = true
+                } label: {
+                    Label("Configure", systemImage: "gearshape")
+                }
+            }
             Button {
                 reconfigureURL = addon.configuredURL
                 showReconfigure = true
             } label: {
-                Label("Reconfigure", systemImage: "gearshape")
+                Label("Update URL", systemImage: "link")
             }
+        }
+        .sheet(isPresented: $showConfigure) {
+            StremioConfigureView(addon: addon, manager: manager)
         }
         .modifier(ReconfigureStremioAddonModifier(
             isPresented: $showReconfigure,

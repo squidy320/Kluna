@@ -10,6 +10,7 @@
 		12201F512EBE918D0033073C /* ServiceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12201F502EBE91870033073C /* ServiceStore.swift */; };
 		12201F542EBE922D0033073C /* ServiceModels.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 12201F522EBE922D0033073C /* ServiceModels.xcdatamodeld */; };
 		5E1111112F60000000AE1111 /* StremioModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1111102F60000000AE1110 /* StremioModels.swift */; };
+		5E2222212F70000000AE2221 /* StremioConfigureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2222202F70000000AE2220 /* StremioConfigureView.swift */; };
 		5E2222212F60000000AE2221 /* StremioClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2222202F60000000AE2220 /* StremioClient.swift */; };
 		5E3333312F60000000AE3331 /* StremioAddonStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E3333302F60000000AE3330 /* StremioAddonStore.swift */; };
 		5E4444412F60000000AE4441 /* StremioAddonManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4444402F60000000AE4440 /* StremioAddonManager.swift */; };
@@ -176,6 +177,7 @@
 		12201F502EBE91870033073C /* ServiceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStore.swift; sourceTree = "<group>"; };
 		12201F532EBE922D0033073C /* ServiceModels.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = ServiceModels.xcdatamodel; sourceTree = "<group>"; };
 		5E1111102F60000000AE1110 /* StremioModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StremioModels.swift; sourceTree = "<group>"; };
+		5E2222202F70000000AE2220 /* StremioConfigureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StremioConfigureView.swift; sourceTree = "<group>"; };
 		5E2222202F60000000AE2220 /* StremioClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StremioClient.swift; sourceTree = "<group>"; };
 		5E3333302F60000000AE3330 /* StremioAddonStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StremioAddonStore.swift; sourceTree = "<group>"; };
 		5E4444402F60000000AE4440 /* StremioAddonManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StremioAddonManager.swift; sourceTree = "<group>"; };
@@ -838,6 +840,7 @@
 				13830AF12E55F51300B3CDE4 /* AlternativeUIView.swift */,
 				13F5B5962E730CDB00565E75 /* TMDBFiltersView.swift */,
 				13F072792E4B2D9000EF90EB /* ServicesView.swift */,
+				5E2222202F70000000AE2220 /* StremioConfigureView.swift */,
 				13F518422EBCE42B00DEF778 /* StorageView.swift */,
 				13F0727E2E4B2D9000EF90EB /* LoggerView.swift */,
 				14BBB0043FFF111100AAAAAA /* BackupManagementView.swift */,
@@ -1045,6 +1048,7 @@
 				13F187AD2E6F38CE00747F7E /* LibraryItem.swift in Sources */,
 				13F187B02E6F38CE00747F7E /* CreateCollectionView.swift in Sources */,
 				13F072A42E4B2D9200EF90EB /* ServicesView.swift in Sources */,
+				5E2222212F70000000AE2221 /* StremioConfigureView.swift in Sources */,
 				13F072A62E4B2D9200EF90EB /* LibraryView.swift in Sources */,
 				13F072A92E4B2D9200EF90EB /* LoggerView.swift in Sources */,
 				13F072A72E4B2D9200EF90EB /* MediaDetailView.swift in Sources */,
