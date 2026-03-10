@@ -20,6 +20,10 @@ struct MangaProgress: Codable {
     var coverURL: String?
     var format: String?
     var totalChapters: Int?
+    // Module routing (for module-search sourced content)
+    var moduleUUID: String?
+    var contentParams: String?
+    var isNovel: Bool?
 }
 
 // MARK: - Progress Manager
@@ -68,7 +72,7 @@ final class MangaReadingProgressManager: ObservableObject {
     // MARK: - Mutations
 
     /// Mark a chapter as read and optionally sync to AniList.
-    func markChapterRead(mangaId: Int, chapterNumber: String, mangaTitle: String? = nil, coverURL: String? = nil, format: String? = nil, totalChapters: Int? = nil) {
+    func markChapterRead(mangaId: Int, chapterNumber: String, mangaTitle: String? = nil, coverURL: String? = nil, format: String? = nil, totalChapters: Int? = nil, moduleUUID: String? = nil, contentParams: String? = nil, isNovel: Bool? = nil) {
         var progress = progressMap[mangaId] ?? MangaProgress()
 
         guard !progress.readChapterNumbers.contains(chapterNumber) else {
@@ -78,6 +82,9 @@ final class MangaReadingProgressManager: ObservableObject {
             if let c = coverURL, progress.coverURL != c { progress.coverURL = c; changed = true }
             if let f = format, progress.format != f { progress.format = f; changed = true }
             if let tc = totalChapters, progress.totalChapters != tc { progress.totalChapters = tc; changed = true }
+            if let m = moduleUUID, progress.moduleUUID != m { progress.moduleUUID = m; changed = true }
+            if let cp = contentParams, progress.contentParams != cp { progress.contentParams = cp; changed = true }
+            if let n = isNovel, progress.isNovel != n { progress.isNovel = n; changed = true }
             if changed { progressMap[mangaId] = progress; save() }
             return
         }
@@ -89,6 +96,9 @@ final class MangaReadingProgressManager: ObservableObject {
         if let c = coverURL { progress.coverURL = c }
         if let f = format { progress.format = f }
         if let tc = totalChapters { progress.totalChapters = tc }
+        if let m = moduleUUID { progress.moduleUUID = m }
+        if let cp = contentParams { progress.contentParams = cp }
+        if let n = isNovel { progress.isNovel = n }
         progressMap[mangaId] = progress
         save()
 

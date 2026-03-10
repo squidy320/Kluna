@@ -78,27 +78,88 @@ struct KanzenHistoryView: View {
 
     @ViewBuilder
     private func mangaDestination(for item: (id: Int, progress: MangaProgress)) -> some View {
-        let manga = AniListManga(
-            id: item.id,
-            title: AniListManga.AniListMangaTitle(
-                romaji: item.progress.title,
-                english: nil,
-                native: nil
-            ),
-            chapters: item.progress.totalChapters,
-            volumes: nil,
-            status: nil,
-            coverImage: item.progress.coverURL.map {
-                AniListManga.AniListMangaCover(large: $0, medium: nil)
-            },
-            format: item.progress.format,
-            description: nil,
-            genres: nil,
-            averageScore: nil,
-            countryOfOrigin: nil,
-            startDate: nil
-        )
-        MangaDetailView(manga: manga)
+        if let moduleUUIDStr = item.progress.moduleUUID,
+           let moduleUUID = UUID(uuidString: moduleUUIDStr),
+           let contentParams = item.progress.contentParams {
+            HistoryModuleLoaderView(
+                moduleUUID: moduleUUID,
+                title: item.progress.title ?? "Unknown",
+                imageURL: item.progress.coverURL ?? "",
+                contentParams: contentParams,
+                isNovel: item.progress.isNovel ?? false
+            )
+        } else {
+            let manga = AniListManga(
+                id: item.id,
+                title: AniListManga.AniListMangaTitle(
+                    romaji: item.progress.title,
+                    english: nil,
+                    native: nil
+                ),
+                chapters: item.progress.totalChapters,
+                volumes: nil,
+                status: nil,
+                coverImage: item.progress.coverURL.map {
+                    AniListManga.AniListMangaCover(large: $0, medium: nil)
+                },
+                format: item.progress.format,
+                description: nil,
+                genres: nil,
+                averageScore: nil,
+                countryOfOrigin: nil,
+                startDate: nil
+            )
+            MangaDetailView(manga: manga)
+        }
+    }
+}
+
+// MARK: - Module Loader for History
+
+private struct HistoryModuleLoaderView: View {
+    let moduleUUID: UUID
+    let title: String
+    let imageURL: String
+    let contentParams: String
+    let isNovel: Bool
+
+    @ObservedObject private var kanzen = KanzenEngine()
+    @State private var moduleLoaded = false
+    @State private var loadFailed = false
+
+    var body: some View {
+        if moduleLoaded, let module = ModuleManager.shared.getModule(moduleUUID) {
+            contentView(parentModule: module, title: title, imageURL: imageURL, params: contentParams)
+                .environmentObject(kanzen)
+        } else if loadFailed {
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 40))
+                    .foregroundColor(.secondary)
+                Text("Module not available")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                Text("The source module may have been removed.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        } else {
+            ProgressView("Loading module…")
+                .task {
+                    guard let module = ModuleManager.shared.getModule(moduleUUID) else {
+                        loadFailed = true
+                        return
+                    }
+                    do {
+                        let content = try ModuleManager.shared.getModuleScript(module: module)
+                        try kanzen.loadScript(content, isNovel: isNovel)
+                        moduleLoaded = true
+                    } catch {
+                        Logger.shared.log("Error loading module for history: \(error.localizedDescription)", type: "Error")
+                        loadFailed = true
+                    }
+                }
+        }
     }
 }
 #endif
