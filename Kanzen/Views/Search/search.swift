@@ -23,15 +23,18 @@ struct KanzenSearchView: View {
     @EnvironmentObject var kanzen: KanzenEngine
     @EnvironmentObject var moduleManager: ModuleManager
     @State var searchArray : [Manga] = []
+    @State var isSearching: Bool = false
     
     private func performSearch(append:Bool = false){
         if endOfPage{
             print("end of page")
             return
         }
+        if !append { isSearching = true }
         kanzen.searchInput(searchText,page: searchPage){
             
             result in
+            DispatchQueue.main.async { isSearching = false }
             if let result = result{
                 if result.isEmpty{
                     endOfPage = true
@@ -99,11 +102,18 @@ struct KanzenSearchView: View {
             SearchBar(text: $searchText,onSearchButtonClicked: {
                 searchPage = 0
                 endOfPage = false
+                searchArray = []
                 performSearch()
             }
             ).padding(.leading,20)
                 .padding(.trailing,20)
-            generateCells()
+            if isSearching && searchArray.isEmpty {
+                Spacer()
+                ProgressView("Searching...")
+                Spacer()
+            } else {
+                generateCells()
+            }
             
         }.frame(maxHeight: .infinity, alignment: .top)
             .onAppear{

@@ -161,7 +161,19 @@ struct contentView: View {
         }
         .fullScreenCover(item: $selectedChapterData){ chapter in
             if let contentChapters = self.contentChapters{
-                readerManagerView(chapters: contentChapters[langaugeIdx].chapters,selectedChapter: chapter,kanzen: kanzen)
+                let chapterList = contentChapters[langaugeIdx].chapters
+                if parentModule?.moduleData.novel == true {
+                    NovelReaderView(
+                        kanzen: kanzen,
+                        chapters: chapterList,
+                        initialChapter: chapter,
+                        mangaId: 0,
+                        mangaTitle: title,
+                        mangaCoverURL: imageURL
+                    )
+                } else {
+                    readerManagerView(chapters: chapterList, selectedChapter: chapter, kanzen: kanzen)
+                }
             }
             
         }
