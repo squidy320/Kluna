@@ -16,11 +16,76 @@ struct ModuleData: Codable, Equatable
     let language: String
     let scriptURL: String
     let novel: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case sourceName, author, version, language, novel
+        // Luna format
+        case iconURL
+        case scriptURL
+        // Sora format
+        case iconUrl
+        case scriptUrl
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sourceName = try container.decode(String.self, forKey: .sourceName)
+        author = try container.decode(Author.self, forKey: .author)
+        version = try container.decode(String.self, forKey: .version)
+        language = try container.decode(String.self, forKey: .language)
+        novel = try container.decodeIfPresent(Bool.self, forKey: .novel)
+        // Accept both "iconURL" (Luna) and "iconUrl" (Sora)
+        if let val = try container.decodeIfPresent(String.self, forKey: .iconURL) {
+            iconURL = val
+        } else {
+            iconURL = try container.decode(String.self, forKey: .iconUrl)
+        }
+        // Accept both "scriptURL" (Luna) and "scriptUrl" (Sora)
+        if let val = try container.decodeIfPresent(String.self, forKey: .scriptURL) {
+            scriptURL = val
+        } else {
+            scriptURL = try container.decode(String.self, forKey: .scriptUrl)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(sourceName, forKey: .sourceName)
+        try container.encode(author, forKey: .author)
+        try container.encode(version, forKey: .version)
+        try container.encode(language, forKey: .language)
+        try container.encodeIfPresent(novel, forKey: .novel)
+        try container.encode(iconURL, forKey: .iconURL)
+        try container.encode(scriptURL, forKey: .scriptURL)
+    }
     
     struct Author: Codable, Equatable
     {
         let name: String
         let iconURL: String
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case iconURL   // Luna format
+            case icon      // Sora format
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            name = try container.decode(String.self, forKey: .name)
+            // Accept both "iconURL" (Luna) and "icon" (Sora)
+            if let val = try container.decodeIfPresent(String.self, forKey: .iconURL) {
+                iconURL = val
+            } else {
+                iconURL = (try? container.decode(String.self, forKey: .icon)) ?? ""
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(name, forKey: .name)
+            try container.encode(iconURL, forKey: .iconURL)
+        }
     }
 }
 struct ModuleDataContainer: Codable, Identifiable,Hashable
