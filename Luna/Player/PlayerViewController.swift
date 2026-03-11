@@ -439,6 +439,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     private var initialPreset: PlayerPreset?
     private var initialHeaders: [String: String]?
     private var initialSubtitles: [String]?
+    private var initialSubtitleNames: [String]?
     private var userSelectedAudioTrack = false
     private var userSelectedSubtitleTrack = false
     private var vlcProxyFallbackTried = false
@@ -661,6 +662,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     }
     
     private var subtitleURLs: [String] = []
+    private var subtitleNames: [String] = []
     private var currentSubtitleIndex: Int = 0
     private var subtitleEntries: [SubtitleEntry] = []
     private var vlcExternalSubtitlesLoadedNatively = false
@@ -920,12 +922,13 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         NotificationCenter.default.removeObserver(self)
     }
     
-    convenience init(url: URL, preset: PlayerPreset, headers: [String: String]? = nil, subtitles: [String]? = nil, mediaInfo: MediaInfo? = nil) {
+    convenience init(url: URL, preset: PlayerPreset, headers: [String: String]? = nil, subtitles: [String]? = nil, subtitleNames: [String]? = nil, mediaInfo: MediaInfo? = nil) {
         self.init(nibName: nil, bundle: nil)
         self.initialURL = url
         self.initialPreset = preset
         self.initialHeaders = headers
         self.initialSubtitles = subtitles
+        self.initialSubtitleNames = subtitleNames
         self.mediaInfo = mediaInfo
         Logger.shared.log("[PlayerViewController.init] URL=\(url.absoluteString) preset=\(preset.id.rawValue) headers=\(headers?.count ?? 0) subtitles=\(subtitles?.count ?? 0) mediaInfo=\(mediaInfo != nil)", type: "Stream")
     }
@@ -963,7 +966,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         }
         
         if let subs = initialSubtitles, !subs.isEmpty {
-            loadSubtitles(subs)
+            loadSubtitles(subs, names: initialSubtitleNames)
         }
     }
     
@@ -1428,8 +1431,9 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         
         for (index, _) in subtitleURLs.enumerated() {
             let isSelected = subtitleModel.isVisible && currentSubtitleIndex == index
+            let title = index < subtitleNames.count ? subtitleNames[index] : "Subtitle \(index + 1)"
             let action = UIAction(
-                title: "Subtitle \(index + 1)",
+                title: title,
                 image: UIImage(systemName: "captions.bubble"),
                 state: isSelected ? .on : .off
             ) { [weak self] _ in
@@ -2232,7 +2236,10 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         }
         let useCustomExternalOverlay = isVLCCustomSubtitleOverlayEnabled
         let externalTracks = useCustomExternalOverlay
-            ? subtitleURLs.enumerated().map { ($0.offset, "Subtitle \($0.offset + 1)") }
+            ? subtitleURLs.enumerated().map { (index, _) in
+                let name = index < subtitleNames.count ? subtitleNames[index] : "Subtitle \(index + 1)"
+                return (index, name)
+            }
             : []
         let embeddedTracks = rendererGetSubtitleTracks().filter { $0.0 >= 0 && !isDisabledTrackName($0.1) }
 
@@ -2479,8 +2486,9 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         updateSubtitleButtonAppearance()
     }
 
-    private func loadSubtitles(_ urls: [String]) {
+    private func loadSubtitles(_ urls: [String], names: [String]? = nil) {
         subtitleURLs = urls
+        subtitleNames = names ?? []
         userSelectedSubtitleTrack = false
         vlcSubtitleSelection = .none
         vlcExternalSubtitlesLoadedNatively = false
@@ -2739,7 +2747,8 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         alert.addAction(disableAction)
         
         for (index, _) in subtitleURLs.enumerated() {
-            let action = UIAlertAction(title: "Subtitle \(index + 1)", style: .default) { [weak self] _ in
+            let title = index < subtitleNames.count ? subtitleNames[index] : "Subtitle \(index + 1)"
+            let action = UIAlertAction(title: title, style: .default) { [weak self] _ in
                 self?.currentSubtitleIndex = index
                 self?.subtitleModel.isVisible = true
                 self?.userSelectedSubtitleTrack = true

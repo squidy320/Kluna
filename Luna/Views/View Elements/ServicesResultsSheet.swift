@@ -1232,17 +1232,22 @@ struct ModulesSearchResultsSheet: View {
             return
         }
 
-        // Gather subtitles from the stream if available
-        let subtitleURL = stream.subtitles?.first(where: { $0.url != nil })?.url
+        // Gather ALL subtitles from the stream (not just the first)
+        let allSubtitles: [(url: String, lang: String?)] = (stream.subtitles ?? []).compactMap { sub in
+            guard let url = sub.url, !url.isEmpty else { return nil }
+            return (url: url, lang: sub.lang)
+        }
+        let subtitleURLs = allSubtitles.map { $0.url }
+        let subtitleNames = allSubtitles.map { $0.lang ?? "Unknown" }
 
         if downloadMode {
-            downloadStremioStream(urlString, addon: addon, subtitle: subtitleURL, headers: stream.proxyHeaders)
+            downloadStremioStream(urlString, addon: addon, subtitle: subtitleURLs.first, headers: stream.proxyHeaders)
         } else {
-            playStremioStreamURL(urlString, addon: addon, subtitle: subtitleURL, headers: stream.proxyHeaders)
+            playStremioStreamURL(urlString, addon: addon, subtitles: subtitleURLs, subtitleNames: subtitleNames, headers: stream.proxyHeaders)
         }
     }
 
-    private func playStremioStreamURL(_ url: String, addon: StremioAddon, subtitle: String?, headers: [String: String]?) {
+    private func playStremioStreamURL(_ url: String, addon: StremioAddon, subtitles: [String], subtitleNames: [String], headers: [String: String]?) {
         viewModel.resetStreamState()
 
         Task { @MainActor in
@@ -1296,13 +1301,14 @@ struct ModulesSearchResultsSheet: View {
 
             if inAppPlayer == "mpv" || inAppPlayer == "VLC" {
                 let preset = PlayerPreset.presets.first
-                let subtitleArray: [String]? = subtitle.map { [$0] }
+                let subtitleArray: [String]? = subtitles.isEmpty ? nil : subtitles
 
                 let pvc = PlayerViewController(
                     url: streamURL,
                     preset: preset ?? PlayerPreset(id: .sdrRec709, title: "Default", summary: "", stream: nil, commands: []),
                     headers: finalHeaders,
                     subtitles: subtitleArray,
+                    subtitleNames: subtitleNames.isEmpty ? nil : subtitleNames,
                     mediaInfo: playerMediaInfo
                 )
                 let isAnimeHint = isAnimeContent || animeSeasonTitle != nil || TrackerManager.shared.cachedAniListId(for: tmdbId) != nil
