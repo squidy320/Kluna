@@ -2235,7 +2235,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
             return
         }
         let useCustomExternalOverlay = isVLCCustomSubtitleOverlayEnabled
-        let externalTracks = useCustomExternalOverlay
+        let externalTracks: [(Int, String)] = useCustomExternalOverlay
             ? subtitleURLs.enumerated().map { (index, _) in
                 let name = index < subtitleNames.count ? subtitleNames[index] : "Subtitle \(index + 1)"
                 return (index, name)
