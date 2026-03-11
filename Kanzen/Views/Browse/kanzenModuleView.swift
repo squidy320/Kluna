@@ -141,7 +141,7 @@ struct KanzenModuleView: View {
                  }
                  
                  // Remove default list styling
-                 .scrollContentBackground(.hidden)
+                 .lunaHideScrollBackground()
                  .background(LunaTheme.shared.backgroundBase)
              .navigationTitle("Modules")
              .navigationBarTitleDisplayMode(.inline)

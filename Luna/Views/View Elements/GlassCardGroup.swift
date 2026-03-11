@@ -73,13 +73,16 @@ struct GlassSettingsRow<Trailing: View>: View {
 }
 
 // Convenience for NavigationLink rows with chevron
-extension GlassSettingsRow where Trailing == Image {
+extension GlassSettingsRow where Trailing == AnyView {
     init(icon: String, iconColor: Color = .white, title: String) {
-        self.init(icon: icon, iconColor: iconColor, title: title) {
+        self.icon = icon
+        self.iconColor = iconColor
+        self.title = title
+        self.trailing = AnyView(
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(Color.white.opacity(0.3))
-        }
+        )
     }
 }
 

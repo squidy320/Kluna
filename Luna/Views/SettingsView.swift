@@ -227,7 +227,7 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .lunaGradientBackground()
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .lunaDarkToolbar()
         #endif
     }
     
@@ -332,6 +332,6 @@ struct LanguageSelectionView: View {
         }
         .navigationTitle("Language")
         .lunaGradientBackground()
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .lunaDarkToolbar()
     }
 }

@@ -80,12 +80,32 @@ extension View {
         )
     }
     
+    /// Hide list/scroll-view chrome (iOS 16+)
+    @ViewBuilder
+    func lunaHideScrollBackground() -> some View {
+        if #available(iOS 16.0, *) {
+            self.scrollContentBackground(.hidden)
+        } else {
+            self
+        }
+    }
+
+    /// Dark toolbar color scheme (iOS 16+)
+    @ViewBuilder
+    func lunaDarkToolbar() -> some View {
+        if #available(iOS 16.0, *) {
+            self.toolbarColorScheme(.dark, for: .navigationBar)
+        } else {
+            self
+        }
+    }
+
     /// Apply Luna styling to any List-based settings sub-view:
     /// gradient background, transparent list style, dark toolbar
     func lunaSettingsStyle() -> some View {
         self
-            .scrollContentBackground(.hidden)
+            .lunaHideScrollBackground()
             .lunaGradientBackground()
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .lunaDarkToolbar()
     }
 }

@@ -69,7 +69,7 @@ struct KanzenHistoryView: View {
                         }
                     }
                     .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
+                    .lunaHideScrollBackground()
                 }
             }
             .navigationTitle("History")
