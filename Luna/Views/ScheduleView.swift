@@ -19,6 +19,7 @@ struct ScheduleView: View {
     @State private var showNoTMDBAlert = false
     @State private var noTMDBAlertTitle = ""
     @State private var loadingItemId: Int?
+    @State private var scrollOffset: CGFloat = 0
     
     private let dayChangeTimer = Timer.publish(every: 300, on: .main, in: .common).autoconnect()
     
@@ -38,7 +39,7 @@ struct ScheduleView: View {
     private var scheduleContent: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            LunaTheme.shared.backgroundBase.ignoresSafeArea()
+            SettingsGradientBackground(scrollOffset: scrollOffset).ignoresSafeArea()
             
             if viewModel.isLoading {
                 loadingView
@@ -145,7 +146,17 @@ struct ScheduleView: View {
             }
             .padding(.top)
             .padding(.bottom, 100)
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: -geo.frame(in: .named("scheduleScroll")).origin.y
+                    )
+                }
+            )
         }
+        .coordinateSpace(name: "scheduleScroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { scrollOffset = $0 }
     }
     
     private var timeZoneToggleSection: some View {

@@ -23,20 +23,28 @@ class CatalogManager: ObservableObject {
     private func loadCatalogs() {
         // Default catalogs
         let defaultCatalogs: [Catalog] = [
-            Catalog(id: "trending", name: "Trending This Week", source: .tmdb, isEnabled: true, order: 0),
-            Catalog(id: "popularMovies", name: "Popular Movies", source: .tmdb, isEnabled: true, order: 1),
-            Catalog(id: "nowPlayingMovies", name: "Now Playing Movies", source: .tmdb, isEnabled: false, order: 2),
-            Catalog(id: "upcomingMovies", name: "Upcoming Movies", source: .tmdb, isEnabled: false, order: 3),
-            Catalog(id: "popularTVShows", name: "Popular TV Shows", source: .tmdb, isEnabled: true, order: 4),
-            Catalog(id: "onTheAirTV", name: "On The Air TV Shows", source: .tmdb, isEnabled: false, order: 5),
-            Catalog(id: "airingTodayTV", name: "Airing Today TV Shows", source: .tmdb, isEnabled: false, order: 6),
-            Catalog(id: "topRatedTVShows", name: "Top Rated TV Shows", source: .tmdb, isEnabled: true, order: 7),
-            Catalog(id: "topRatedMovies", name: "Top Rated Movies", source: .tmdb, isEnabled: true, order: 8),
-            Catalog(id: "trendingAnime", name: "Trending Anime", source: .anilist, isEnabled: true, order: 9),
-            Catalog(id: "popularAnime", name: "Popular Anime", source: .anilist, isEnabled: true, order: 10),
-            Catalog(id: "topRatedAnime", name: "Top Rated Anime", source: .anilist, isEnabled: true, order: 11),
-            Catalog(id: "airingAnime", name: "Currently Airing Anime", source: .anilist, isEnabled: false, order: 12),
-            Catalog(id: "upcomingAnime", name: "Upcoming Anime", source: .anilist, isEnabled: false, order: 13)
+            Catalog(id: "forYou", name: "Just For You", source: .local, isEnabled: true, order: 0),
+            Catalog(id: "trending", name: "Trending This Week", source: .tmdb, isEnabled: true, order: 1),
+            Catalog(id: "popularMovies", name: "Popular Movies", source: .tmdb, isEnabled: true, order: 2),
+            Catalog(id: "nowPlayingMovies", name: "Now Playing Movies", source: .tmdb, isEnabled: false, order: 3),
+            Catalog(id: "upcomingMovies", name: "Upcoming Movies", source: .tmdb, isEnabled: false, order: 4),
+            Catalog(id: "popularTVShows", name: "Popular TV Shows", source: .tmdb, isEnabled: true, order: 5),
+            Catalog(id: "onTheAirTV", name: "On The Air TV Shows", source: .tmdb, isEnabled: false, order: 6),
+            Catalog(id: "airingTodayTV", name: "Airing Today TV Shows", source: .tmdb, isEnabled: false, order: 7),
+            Catalog(id: "topRatedTVShows", name: "Top Rated TV Shows", source: .tmdb, isEnabled: true, order: 8),
+            Catalog(id: "topRatedMovies", name: "Top Rated Movies", source: .tmdb, isEnabled: true, order: 9),
+            Catalog(id: "trendingAnime", name: "Trending Anime", source: .anilist, isEnabled: true, order: 10),
+            Catalog(id: "popularAnime", name: "Popular Anime", source: .anilist, isEnabled: true, order: 11),
+            Catalog(id: "topRatedAnime", name: "Top Rated Anime", source: .anilist, isEnabled: true, order: 12),
+            Catalog(id: "airingAnime", name: "Currently Airing Anime", source: .anilist, isEnabled: false, order: 13),
+            Catalog(id: "upcomingAnime", name: "Upcoming Anime", source: .anilist, isEnabled: false, order: 14),
+            Catalog(id: "networks", name: "Network", source: .tmdb, displayStyle: .network, isEnabled: true, order: 15),
+            Catalog(id: "genres", name: "Category", source: .tmdb, displayStyle: .genre, isEnabled: true, order: 16),
+            Catalog(id: "companies", name: "Company", source: .tmdb, displayStyle: .company, isEnabled: true, order: 17),
+            Catalog(id: "bestTVShows", name: "Best TV Shows", source: .tmdb, displayStyle: .ranked, isEnabled: true, order: 18),
+            Catalog(id: "bestMovies", name: "Best Movies", source: .tmdb, displayStyle: .ranked, isEnabled: true, order: 19),
+            Catalog(id: "bestAnime", name: "Best Anime", source: .anilist, displayStyle: .ranked, isEnabled: true, order: 20),
+            Catalog(id: "featured", name: "Featured", source: .tmdb, displayStyle: .featured, isEnabled: true, order: 21)
         ]
         
         // Try to load saved catalogs
@@ -100,9 +108,39 @@ struct Catalog: Identifiable, Codable {
     let source: CatalogSource
     var isEnabled: Bool
     var order: Int
+    var displayStyle: CatalogDisplayStyle
     
     enum CatalogSource: String, Codable {
         case tmdb = "TMDB"
         case anilist = "AniList"
+        case local = "Local"
+    }
+    
+    enum CatalogDisplayStyle: String, Codable {
+        case standard
+        case network
+        case genre
+        case company
+        case ranked
+        case featured
+    }
+    
+    init(id: String, name: String, source: CatalogSource, isEnabled: Bool, order: Int, displayStyle: CatalogDisplayStyle = .standard) {
+        self.id = id
+        self.name = name
+        self.source = source
+        self.isEnabled = isEnabled
+        self.order = order
+        self.displayStyle = displayStyle
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        source = try container.decode(CatalogSource.self, forKey: .source)
+        isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
+        order = try container.decode(Int.self, forKey: .order)
+        displayStyle = try container.decodeIfPresent(CatalogDisplayStyle.self, forKey: .displayStyle) ?? .standard
     }
 }

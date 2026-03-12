@@ -10,11 +10,12 @@ struct HomeView: View {
     @State private var isHoveringWatchNow = false
     @State private var isHoveringWatchlist = false
     @State private var continueWatchingItems: [ContinueWatchingItem] = []
+    @State private var scrollOffset: CGFloat = 0
     
     @AppStorage("tmdbLanguage") private var selectedLanguage = "en-US"
     
     @StateObject private var homeViewModel = HomeViewModel()
-    @ObservedObject private var catalogManager = CatalogManager.shared
+    @StateObject private var catalogManager = CatalogManager.shared
     @StateObject private var tmdbService = TMDBService.shared
     @StateObject private var contentFilter = TMDBContentFilter.shared
     
@@ -47,13 +48,15 @@ struct HomeView: View {
     
     private var homeContent: some View {
         ZStack {
-            GlobalGradientBackground()
+            GlobalGradientBackground(scrollOffset: scrollOffset)
                 .ignoresSafeArea(.all)
             
-            Group {
-                homeViewModel.ambientColor
+            if !LunaTheme.shared.globalGradientEnabled {
+                Group {
+                    homeViewModel.ambientColor
+                }
+                .ignoresSafeArea(.all)
             }
-            .ignoresSafeArea(.all)
             
             if homeViewModel.isLoading {
                 loadingView
@@ -131,7 +134,17 @@ struct HomeView: View {
                 continueWatchingSection
                 contentSections
             }
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: -geo.frame(in: .named("homeScroll")).origin.y
+                    )
+                }
+            )
         }
+        .coordinateSpace(name: "homeScroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { scrollOffset = $0 }
         .ignoresSafeArea(edges: [.top, .leading, .trailing])
     }
 
@@ -309,29 +322,83 @@ struct HomeView: View {
     
     @ViewBuilder
     private var contentSections: some View {
-        VStack(spacing: 0) {
+        LazyVStack(spacing: 0) {
             let catalogs = enabledCatalogs.filter { catalog in
-                if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
-                    return true
+                switch catalog.displayStyle {
+                case .standard:
+                    if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
+                        return true
+                    }
+                    return false
+                case .network:
+                    return WidgetNetwork.curated.contains { !( homeViewModel.widgetData["network_\($0.id)"] ?? []).isEmpty }
+                case .genre:
+                    return WidgetGenre.curated.contains { !(homeViewModel.widgetData["genre_\($0.id)"] ?? []).isEmpty }
+                case .company:
+                    return WidgetCompany.curated.contains { !(homeViewModel.widgetData["company_\($0.id)"] ?? []).isEmpty }
+                case .ranked:
+                    if let items = homeViewModel.widgetData[catalog.id], !items.isEmpty { return true }
+                    if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty { return true }
+                    return false
+                case .featured:
+                    return !(homeViewModel.widgetData["featured"] ?? []).isEmpty
                 }
-                return false
             }
             
             ForEach(Array(catalogs.enumerated()), id: \.element.id) { index, catalog in
-                if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
-                    let limitedItems = Array(items.prefix(15))
-                    let displayItems = catalog.id == "trending"
-                        ? limitedItems.filter { $0.id != homeViewModel.heroContent?.id }
-                        : limitedItems
+                switch catalog.displayStyle {
+                case .standard:
+                    if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
+                        let limitedItems = Array(items.prefix(15))
+                        let displayItems = catalog.id == "trending"
+                            ? limitedItems.filter { $0.id != homeViewModel.heroContent?.id }
+                            : limitedItems
+                        
+                        MediaSection(
+                            title: catalog.name,
+                            items: displayItems
+                        )
+                    }
                     
-                    MediaSection(
-                        title: catalog.name,
-                        items: displayItems
+                case .network:
+                    NetworkSectionWidget(
+                        widgetData: homeViewModel.widgetData,
+                        tmdbService: tmdbService
                     )
                     
-                    if index < catalogs.count - 1 {
-                        SectionDivider()
-                    }
+                case .genre:
+                    GenreSectionWidget(
+                        widgetData: homeViewModel.widgetData,
+                        tmdbService: tmdbService
+                    )
+                    
+                case .company:
+                    CompanySectionWidget(
+                        widgetData: homeViewModel.widgetData,
+                        tmdbService: tmdbService
+                    )
+                    
+                case .ranked:
+                    let items = homeViewModel.widgetData[catalog.id]
+                        ?? homeViewModel.catalogResults[catalog.id]
+                        ?? []
+                    RankedListWidget(
+                        catalogId: catalog.id,
+                        title: catalog.name,
+                        items: Array(items.prefix(10)),
+                        tmdbService: tmdbService
+                    )
+                    
+                case .featured:
+                    FeaturedSpotlightWidget(
+                        widgetData: homeViewModel.widgetData,
+                        genreName: homeViewModel.featuredGenreName,
+                        tmdbService: tmdbService
+                    )
+                }
+                
+                if index < catalogs.count - 1 {
+                    SectionDivider()
                 }
             }
             

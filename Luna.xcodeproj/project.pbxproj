@@ -11,6 +11,9 @@
 		A1B2C3032FA0000100A1B2C3 /* HeroTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3022FA0000100A1B2C2 /* HeroTransition.swift */; };
 		A1B2C3052FA0000100A1B2C5 /* GlassCardGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3042FA0000100A1B2C4 /* GlassCardGroup.swift */; };
 		A1B2C3072FA0000100A1B2C7 /* GradientBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3062FA0000100A1B2C6 /* GradientBackground.swift */; };
+		CC1111102FC0000000CC1110 /* WidgetMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1111002FC0000000CC1100 /* WidgetMetadata.swift */; };
+		CC2222202FC0000000CC2220 /* HomeWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2222002FC0000000CC2200 /* HomeWidgets.swift */; };
+		CC3333302FC0000000CC3330 /* DiscoverDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC3333002FC0000000CC3300 /* DiscoverDetailView.swift */; };
 		12201F512EBE918D0033073C /* ServiceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12201F502EBE91870033073C /* ServiceStore.swift */; };
 		12201F542EBE922D0033073C /* ServiceModels.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 12201F522EBE922D0033073C /* ServiceModels.xcdatamodeld */; };
 		5E1111112F60000000AE1111 /* StremioModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1111102F60000000AE1110 /* StremioModels.swift */; };
@@ -146,6 +149,7 @@
 		AA5555552F10000000AA5555 /* CatalogManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5555502F10000000AA5550 /* CatalogManager.swift */; };
 		AA6666662F10000000AA6666 /* CatalogsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA6666602F10000000AA6660 /* CatalogsSettingsView.swift */; };
 		AA7777712F10000000AA7771 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA7777702F10000000AA7770 /* HomeViewModel.swift */; };
+		BB9999912F50000000BB9991 /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9999902F50000000BB9990 /* RecommendationEngine.swift */; };
 		AA8888812F10000000AA8881 /* ScheduleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA8888802F10000000AA8880 /* ScheduleViewModel.swift */; };
 		FF1111112F30000000FF1111 /* AniListMangaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1111102F30000000FF1110 /* AniListMangaService.swift */; };
 		FF2222222F30000000FF2222 /* MangaCatalogManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2222202F30000000FF2220 /* MangaCatalogManager.swift */; };
@@ -183,6 +187,9 @@
 		A1B2C3022FA0000100A1B2C2 /* HeroTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroTransition.swift; sourceTree = "<group>"; };
 		A1B2C3042FA0000100A1B2C4 /* GlassCardGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCardGroup.swift; sourceTree = "<group>"; };
 		A1B2C3062FA0000100A1B2C6 /* GradientBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradientBackground.swift; sourceTree = "<group>"; };
+		CC1111002FC0000000CC1100 /* WidgetMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetMetadata.swift; sourceTree = "<group>"; };
+		CC2222002FC0000000CC2200 /* HomeWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWidgets.swift; sourceTree = "<group>"; };
+		CC3333002FC0000000CC3300 /* DiscoverDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverDetailView.swift; sourceTree = "<group>"; };
 		12201F502EBE91870033073C /* ServiceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStore.swift; sourceTree = "<group>"; };
 		12201F532EBE922D0033073C /* ServiceModels.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = ServiceModels.xcdatamodel; sourceTree = "<group>"; };
 		5E1111102F60000000AE1110 /* StremioModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StremioModels.swift; sourceTree = "<group>"; };
@@ -310,6 +317,7 @@
 		AA5555502F10000000AA5550 /* CatalogManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CatalogManager.swift; sourceTree = "<group>"; };
 		AA7777702F10000000AA7770 /* HomeViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		AA8888802F10000000AA8880 /* ScheduleViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ScheduleViewModel.swift; sourceTree = "<group>"; };
+		BB9999902F50000000BB9990 /* RecommendationEngine.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RecommendationEngine.swift; sourceTree = "<group>"; };
 		AA6666602F10000000AA6660 /* CatalogsSettingsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CatalogsSettingsView.swift; sourceTree = "<group>"; };
 		BB7777702F20000000BB7770 /* VLCRenderer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VLCRenderer.swift; sourceTree = "<group>"; };
 		CC8888802FA0000000CC8880 /* AniSkipService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AniSkipService.swift; sourceTree = "<group>"; };
@@ -707,6 +715,7 @@
 				AA4444402F10000000AA4440 /* ScheduleView.swift */,
 				DD2222202FB0000000DD2220 /* DownloadsView.swift */,
 				DD4444402FB0000000DD4440 /* DownloadedShowDetailView.swift */,
+				CC3333002FC0000000CC3300 /* DiscoverDetailView.swift */,
 				13F072C42E4B364B00EF90EB /* SettingsView */,
 				13F0727F2E4B2D9000EF90EB /* View Elements */,
 			);
@@ -726,6 +735,7 @@
 				DD3333302FB0000000DD3330 /* FloatingSearchButton.swift */,
 				A1B2C3042FA0000100A1B2C4 /* GlassCardGroup.swift */,
 				A1B2C3062FA0000100A1B2C6 /* GradientBackground.swift */,
+				CC2222002FC0000000CC2200 /* HomeWidgets.swift */,
 			);
 			path = "View Elements";
 			sourceTree = "<group>";
@@ -896,6 +906,8 @@
 				AA5555502F10000000AA5550 /* CatalogManager.swift */,
 				AA7777702F10000000AA7770 /* HomeViewModel.swift */,
 				AA8888802F10000000AA8880 /* ScheduleViewModel.swift */,
+				BB9999902F50000000BB9990 /* RecommendationEngine.swift */,
+				CC1111002FC0000000CC1100 /* WidgetMetadata.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1127,6 +1139,10 @@
 				AA6666662F10000000AA6666 /* CatalogsSettingsView.swift in Sources */,
 				AA7777712F10000000AA7771 /* HomeViewModel.swift in Sources */,
 				AA8888812F10000000AA8881 /* ScheduleViewModel.swift in Sources */,
+				BB9999912F50000000BB9991 /* RecommendationEngine.swift in Sources */,
+				CC1111102FC0000000CC1110 /* WidgetMetadata.swift in Sources */,
+				CC2222202FC0000000CC2220 /* HomeWidgets.swift in Sources */,
+				CC3333302FC0000000CC3330 /* DiscoverDetailView.swift in Sources */,
 				13F072B32E4B2D9200EF90EB /* ServicesResultsSheet.swift in Sources */,
 				13F072A52E4B2D9200EF90EB /* HomeView.swift in Sources */,
 				13E1EDDC2ED9E65F00087629 /* JavaScriptCore.swift in Sources */,

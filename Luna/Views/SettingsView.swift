@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage("tmdbLanguage") private var selectedLanguage = "en-US"
     @StateObject private var algorithmManager = AlgorithmManager.shared
     @AppStorage("showKanzen") private var showKanzen: Bool = false
+    @State private var scrollOffset: CGFloat = 0
     
     let languages = [
         ("en-US", "English (US)"),
@@ -224,9 +225,19 @@ struct SettingsView: View {
                 .padding(.bottom, 30)
             }
             .padding(.top, 16)
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: -geo.frame(in: .named("settingsScroll")).origin.y
+                    )
+                }
+            )
         }
+        .coordinateSpace(name: "settingsScroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { scrollOffset = $0 }
         .navigationTitle("Settings")
-        .lunaGradientBackground()
+        .background(SettingsGradientBackground(scrollOffset: scrollOffset).ignoresSafeArea())
         .lunaDarkToolbar()
         #endif
     }

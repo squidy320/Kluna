@@ -92,6 +92,9 @@ struct BackupData: Codable {
     var mangaCatalogs: [MangaCatalog] = []
     var kanzenModules: [BackupKanzenModule] = []
 
+    // Recommendations
+    var recommendationCache: [TMDBSearchResult] = []
+
     enum CodingKeys: String, CodingKey {
         case version, createdDate
         case accentColor, tmdbLanguage, selectedAppearance, enableSubtitlesByDefault, defaultSubtitleLanguage, enableVLCSubtitleEditMenu, preferredAnimeAudioLanguage, inAppPlayer, playerChoice, showScheduleTab, showLocalScheduleTime
@@ -103,6 +106,7 @@ struct BackupData: Codable {
         case autoClearCacheEnabled, autoClearCacheThresholdMB, highQualityThreshold
         case collections, progressData, trackerState, catalogs, services
         case mangaCollections, mangaReadingProgress, mangaCatalogs, kanzenModules
+        case recommendationCache
     }
 
     init(from decoder: Decoder) throws {
@@ -178,6 +182,7 @@ struct BackupData: Codable {
         mangaReadingProgress = try container.decodeIfPresent([String: MangaProgress].self, forKey: .mangaReadingProgress) ?? [:]
         mangaCatalogs = try container.decodeIfPresent([MangaCatalog].self, forKey: .mangaCatalogs) ?? []
         kanzenModules = try container.decodeIfPresent([BackupKanzenModule].self, forKey: .kanzenModules) ?? []
+        recommendationCache = try container.decodeIfPresent([TMDBSearchResult].self, forKey: .recommendationCache) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -249,6 +254,7 @@ struct BackupData: Codable {
         try container.encode(mangaReadingProgress, forKey: .mangaReadingProgress)
         try container.encode(mangaCatalogs, forKey: .mangaCatalogs)
         try container.encode(kanzenModules, forKey: .kanzenModules)
+        try container.encode(recommendationCache, forKey: .recommendationCache)
     }
     
     init(
@@ -318,7 +324,8 @@ struct BackupData: Codable {
         mangaCollections: [BackupMangaCollection] = [],
         mangaReadingProgress: [String: MangaProgress] = [:],
         mangaCatalogs: [MangaCatalog] = [],
-        kanzenModules: [BackupKanzenModule] = []
+        kanzenModules: [BackupKanzenModule] = [],
+        recommendationCache: [TMDBSearchResult] = []
     ) {
         self.version = version
         self.createdDate = createdDate
@@ -381,6 +388,7 @@ struct BackupData: Codable {
         self.mangaReadingProgress = mangaReadingProgress
         self.mangaCatalogs = mangaCatalogs
         self.kanzenModules = kanzenModules
+        self.recommendationCache = recommendationCache
     }
 
 }
@@ -663,7 +671,8 @@ class BackupManager {
             mangaCollections: mangaCollections,
             mangaReadingProgress: mangaReadingProgress,
             mangaCatalogs: mangaCatalogs,
-            kanzenModules: kanzenModules
+            kanzenModules: kanzenModules,
+            recommendationCache: RecommendationEngine.shared.getRecommendationCache()
         )
         
         return backup
@@ -876,6 +885,16 @@ class BackupManager {
                 }
             }
         }
+
+        var recommendationCache: [TMDBSearchResult] = []
+        if let recsData = json["recommendationCache"] as? [[String: Any]] {
+            for dict in recsData {
+                if let data = try? JSONSerialization.data(withJSONObject: dict),
+                   let rec = try? JSONDecoder().decode(TMDBSearchResult.self, from: data) {
+                    recommendationCache.append(rec)
+                }
+            }
+        }
         
         return BackupData(
             version: version,
@@ -930,7 +949,8 @@ class BackupManager {
             mangaCollections: mangaCollections,
             mangaReadingProgress: mangaReadingProgress,
             mangaCatalogs: mangaCatalogs,
-            kanzenModules: kanzenModules
+            kanzenModules: kanzenModules,
+            recommendationCache: recommendationCache
         )
     }
     
@@ -1031,9 +1051,20 @@ class BackupManager {
             trackerManager.saveTrackerState()
         }
         
-        // Restore catalogs
+        // Restore catalogs (merge to preserve new defaults like widget catalogs)
         let catalogManager = CatalogManager.shared
-        catalogManager.catalogs = backup.catalogs
+        if !backup.catalogs.isEmpty {
+            var merged = backup.catalogs
+            let existingIds = Set(merged.map { $0.id })
+            let currentDefaults = catalogManager.catalogs.filter { !existingIds.contains($0.id) }
+            merged.append(contentsOf: currentDefaults)
+            merged = merged.enumerated().map { index, catalog in
+                var updated = catalog
+                updated.order = index
+                return updated
+            }
+            catalogManager.catalogs = merged
+        }
         catalogManager.saveCatalogs()
 
         // Restore services (clear existing, then insert)
@@ -1086,6 +1117,11 @@ class BackupManager {
                 }
             }
             kanzenModuleManager.saveModules()
+        }
+
+        // Restore recommendation cache
+        if !backup.recommendationCache.isEmpty {
+            RecommendationEngine.shared.restoreRecommendationCache(backup.recommendationCache)
         }
         
         Logger.shared.log("Backup restored successfully", type: "Info")

@@ -22,9 +22,17 @@ struct CatalogsSettingsView: View {
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                             
-                            Text("Source: \(catalogManager.catalogs[index].source.rawValue)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            HStack(spacing: 6) {
+                                Text("Source: \(catalogManager.catalogs[index].source.rawValue)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                if catalogManager.catalogs[index].displayStyle != .standard {
+                                    Text("\u{00B7} \(catalogManager.catalogs[index].displayStyle.rawValue.capitalized)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
                         }
                         
                         Spacer()

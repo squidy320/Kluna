@@ -15,6 +15,7 @@ final class HomeViewModel: ObservableObject {
     @Published var heroContent: TMDBSearchResult?
     @Published var ambientColor: Color = Color.black
     @Published var hasLoadedContent = false
+    @Published var widgetData: [String: [TMDBSearchResult]] = [:]
     
     init() {
         // Init body can be simplified if needed
@@ -211,6 +212,21 @@ final class HomeViewModel: ObservableObject {
                     self.isLoading = false
                     self.hasLoadedContent = true
                 }
+                
+                // Generate "Just For You" recommendations after catalogs are populated
+                let currentResults = await MainActor.run { self.catalogResults }
+                let forYou = await RecommendationEngine.shared.generateRecommendations(
+                    catalogResults: currentResults,
+                    tmdbService: tmdbService
+                )
+                if !forYou.isEmpty {
+                    await MainActor.run {
+                        self.catalogResults["forYou"] = forYou
+                    }
+                }
+                
+                // Load widget data in secondary pass (non-blocking, progressive)
+                self.loadWidgetData(tmdbService: tmdbService, catalogManager: catalogManager)
             } catch {
                 await MainActor.run {
                     self.errorMessage = error.localizedDescription
@@ -221,11 +237,114 @@ final class HomeViewModel: ObservableObject {
     }
 
     
+    func loadWidgetData(
+        tmdbService: TMDBService,
+        catalogManager: CatalogManager
+    ) {
+        let enabledCatalogs = catalogManager.getEnabledCatalogs()
+        
+        Task {
+            // Ranked lists reuse existing catalog data — zero extra API calls
+            let rankedMappings: [(catalogId: String, sourceKey: String)] = [
+                ("bestTVShows", "topRatedTVShows"),
+                ("bestMovies", "topRatedMovies"),
+                ("bestAnime", "topRatedAnime")
+            ]
+            let currentResults = await MainActor.run { self.catalogResults }
+            for mapping in rankedMappings {
+                if enabledCatalogs.contains(where: { $0.id == mapping.catalogId }),
+                   let items = currentResults[mapping.sourceKey], !items.isEmpty {
+                    await MainActor.run {
+                        self.widgetData[mapping.catalogId] = items
+                    }
+                }
+            }
+            
+            // Networks — parallel discover calls
+            if enabledCatalogs.contains(where: { $0.id == "networks" }) {
+                await withTaskGroup(of: (Int, [TMDBSearchResult]).self) { group in
+                    for network in WidgetNetwork.curated {
+                        group.addTask {
+                            let results = (try? await tmdbService.discoverByNetwork(networkId: network.id)) ?? []
+                            return (network.id, results)
+                        }
+                    }
+                    for await (networkId, results) in group {
+                        if !results.isEmpty {
+                            await MainActor.run {
+                                self.widgetData["network_\(networkId)"] = results
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Genres — parallel discover calls
+            if enabledCatalogs.contains(where: { $0.id == "genres" }) {
+                await withTaskGroup(of: (Int, [TMDBSearchResult]).self) { group in
+                    for genre in WidgetGenre.curated {
+                        group.addTask {
+                            let results = (try? await tmdbService.discoverByGenre(genreId: genre.id)) ?? []
+                            return (genre.id, results)
+                        }
+                    }
+                    for await (genreId, results) in group {
+                        if !results.isEmpty {
+                            await MainActor.run {
+                                self.widgetData["genre_\(genreId)"] = results
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Companies — parallel discover calls
+            if enabledCatalogs.contains(where: { $0.id == "companies" }) {
+                await withTaskGroup(of: (Int, [TMDBSearchResult]).self) { group in
+                    for company in WidgetCompany.curated {
+                        group.addTask {
+                            let results = (try? await tmdbService.discoverByCompany(companyId: company.id)) ?? []
+                            return (company.id, results)
+                        }
+                    }
+                    for await (companyId, results) in group {
+                        if !results.isEmpty {
+                            await MainActor.run {
+                                self.widgetData["company_\(companyId)"] = results
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Featured — pick a random popular genre
+            if enabledCatalogs.contains(where: { $0.id == "featured" }) {
+                let randomGenre = WidgetGenre.curated.randomElement() ?? WidgetGenre.curated[0]
+                let results = (try? await tmdbService.discoverByGenre(genreId: randomGenre.id, mediaType: "tv")) ?? []
+                if !results.isEmpty {
+                    await MainActor.run {
+                        self.widgetData["featured"] = results
+                        self.widgetData["featured_genreName"] = [] // Store genre name via key convention
+                    }
+                    // Store the genre name for display
+                    await MainActor.run {
+                        self.featuredGenreName = randomGenre.name
+                    }
+                }
+            }
+        }
+    }
+    
+    @Published var featuredGenreName: String = ""
+    
     func resetContent() {
         catalogResults = [:]
+        widgetData = [:]
         isLoading = true
         errorMessage = nil
         heroContent = nil
         hasLoadedContent = false
+        featuredGenreName = ""
+        RecommendationEngine.shared.invalidateCache()
     }
 }

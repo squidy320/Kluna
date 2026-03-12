@@ -10,6 +10,7 @@ import Kingfisher
 
 struct LibraryView: View {
     @State private var showingCreateSheet = false
+    @State private var scrollOffset: CGFloat = 0
     
     @StateObject private var accentColorManager = AccentColorManager.shared
     @ObservedObject private var libraryManager = LibraryManager.shared
@@ -35,8 +36,18 @@ struct LibraryView: View {
                 collectionsSection
             }
             .padding(.top)
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: -geo.frame(in: .named("libraryScroll")).origin.y
+                    )
+                }
+            )
         }
-        .background(LunaTheme.shared.backgroundBase.ignoresSafeArea())
+        .coordinateSpace(name: "libraryScroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { scrollOffset = $0 }
+        .background(SettingsGradientBackground(scrollOffset: scrollOffset).ignoresSafeArea())
         .navigationTitle("Library")
         .navigationBarItems(trailing: Button(action: {
             showingCreateSheet = true

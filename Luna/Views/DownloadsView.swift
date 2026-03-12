@@ -16,6 +16,7 @@ struct DownloadsView: View {
     @State private var showingDeleteSeriesConfirmation = false
     @State private var seriesToDelete: (tmdbId: Int, title: String)? = nil
     @State private var selectedTab: DownloadsTab = .downloads
+    @State private var scrollOffset: CGFloat = 0
     
     private enum DownloadsTab: String, CaseIterable {
         case downloads = "Downloads"
@@ -72,7 +73,7 @@ struct DownloadsView: View {
             }
         }
         .navigationTitle("Downloads")
-        .background(LunaTheme.shared.backgroundBase.ignoresSafeArea())
+        .background(SettingsGradientBackground(scrollOffset: scrollOffset).ignoresSafeArea())
 #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
 #endif
