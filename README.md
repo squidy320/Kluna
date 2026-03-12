@@ -18,6 +18,7 @@ Features added:
 14: Manga mode completed (ugly ui lowkey but I ain't a designer)
 15: Stremio addon support (only ones that return streams, dw they work with downloads and act mostly like regular services)
 16: LN support
+17: Major overhaul of UI
 
 Notes:
 
