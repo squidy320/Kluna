@@ -42,9 +42,9 @@ class CatalogManager: ObservableObject {
             Catalog(id: "topRatedAnime", name: "Top Rated Anime", source: .anilist, isEnabled: true, order: 16),
             Catalog(id: "airingAnime", name: "Currently Airing Anime", source: .anilist, isEnabled: false, order: 17),
             Catalog(id: "upcomingAnime", name: "Upcoming Anime", source: .anilist, isEnabled: false, order: 18),
-            Catalog(id: "bestTVShows", name: "Best TV Shows", source: .tmdb, isEnabled: true, order: 19, displayStyle: .ranked),
-            Catalog(id: "bestMovies", name: "Best Movies", source: .tmdb, isEnabled: true, order: 20, displayStyle: .ranked),
-            Catalog(id: "bestAnime", name: "Best Anime", source: .anilist, isEnabled: true, order: 21, displayStyle: .ranked)
+            Catalog(id: "bestTVShows", name: "Best TV Shows", source: .tmdb, isEnabled: false, order: 19, displayStyle: .ranked),
+            Catalog(id: "bestMovies", name: "Best Movies", source: .tmdb, isEnabled: false, order: 20, displayStyle: .ranked),
+            Catalog(id: "bestAnime", name: "Best Anime", source: .anilist, isEnabled: false, order: 21, displayStyle: .ranked)
         ]
         
         // Try to load saved catalogs
