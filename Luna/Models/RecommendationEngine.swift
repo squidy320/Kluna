@@ -11,22 +11,46 @@ import Foundation
 final class RecommendationEngine {
     static let shared = RecommendationEngine()
     private init() {
-        cachedRecommendations = Self.loadFromDisk()
+        let forYou = Self.loadFromDisk()
+        cachedRecommendations = forYou.results
+        cacheDate = forYou.date
+
+        let byw = Self.loadBYWFromDisk()
+        becauseYouWatchedTitle = byw.title
+        becauseYouWatchedResults = byw.results
+        becauseYouWatchedCacheDate = byw.date
     }
 
     // Cache to avoid recomputing every time HomeViewModel loads
     private var cachedRecommendations: [TMDBSearchResult] = []
     private var cacheDate: Date?
-    private let cacheTTL: TimeInterval = 300 // 5 minutes
+    private let cacheTTL: TimeInterval = 21600 // 6 hours
 
     // "Because you watched" cache
     private var becauseYouWatchedTitle: String = ""
     private var becauseYouWatchedResults: [TMDBSearchResult] = []
     private var becauseYouWatchedCacheDate: Date?
 
+    // Codable wrappers for disk persistence (including cache date)
+    private struct ForYouCache: Codable {
+        let results: [TMDBSearchResult]
+        let date: Date
+    }
+
+    private struct BecauseYouWatchedDiskCache: Codable {
+        let title: String
+        let results: [TMDBSearchResult]
+        let date: Date
+    }
+
     private static let fileURL: URL = {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return docs.appendingPathComponent("RecommendationCache.json")
+    }()
+
+    private static let bywFileURL: URL = {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return docs.appendingPathComponent("BecauseYouWatchedCache.json")
     }()
 
     /// Generate "Just For You" recommendations by scoring items from existing catalogs
@@ -95,6 +119,8 @@ final class RecommendationEngine {
         becauseYouWatchedResults = []
         becauseYouWatchedTitle = ""
         becauseYouWatchedCacheDate = nil
+        try? FileManager.default.removeItem(at: Self.fileURL)
+        try? FileManager.default.removeItem(at: Self.bywFileURL)
     }
 
     // MARK: - Because You Watched
@@ -146,9 +172,10 @@ final class RecommendationEngine {
             }
         }
 
-        // Sort by most recent and pick the top
+        // Sort by most recent and pick randomly from the top 5
         candidates.sort { $0.date > $1.date }
-        guard let pick = candidates.first else { return ("", []) }
+        let topCandidates = Array(candidates.prefix(5))
+        guard let pick = topCandidates.randomElement() else { return ("", []) }
 
         // Fetch TMDB recommendations for this item
         var recs: [TMDBSearchResult] = []
@@ -186,26 +213,50 @@ final class RecommendationEngine {
         becauseYouWatchedTitle = pick.title
         becauseYouWatchedResults = recs
         becauseYouWatchedCacheDate = Date()
+        saveBYWToDisk()
         return (pick.title, recs)
     }
 
     // MARK: - Persistence
 
     private func saveToDisk() {
-        guard !cachedRecommendations.isEmpty else { return }
+        guard !cachedRecommendations.isEmpty, let cacheDate else { return }
         do {
-            let data = try JSONEncoder().encode(cachedRecommendations)
+            let cache = ForYouCache(results: cachedRecommendations, date: cacheDate)
+            let data = try JSONEncoder().encode(cache)
             try data.write(to: Self.fileURL, options: .atomic)
         } catch { }
     }
 
-    private static func loadFromDisk() -> [TMDBSearchResult] {
+    private static func loadFromDisk() -> (results: [TMDBSearchResult], date: Date?) {
         guard FileManager.default.fileExists(atPath: fileURL.path),
               let data = try? Data(contentsOf: fileURL),
-              let results = try? JSONDecoder().decode([TMDBSearchResult].self, from: data) else {
-            return []
+              let cache = try? JSONDecoder().decode(ForYouCache.self, from: data) else {
+            return ([], nil)
         }
-        return results
+        return (cache.results, cache.date)
+    }
+
+    private func saveBYWToDisk() {
+        guard !becauseYouWatchedResults.isEmpty, let becauseYouWatchedCacheDate else { return }
+        do {
+            let cache = BecauseYouWatchedDiskCache(
+                title: becauseYouWatchedTitle,
+                results: becauseYouWatchedResults,
+                date: becauseYouWatchedCacheDate
+            )
+            let data = try JSONEncoder().encode(cache)
+            try data.write(to: Self.bywFileURL, options: .atomic)
+        } catch { }
+    }
+
+    private static func loadBYWFromDisk() -> (title: String, results: [TMDBSearchResult], date: Date?) {
+        guard FileManager.default.fileExists(atPath: bywFileURL.path),
+              let data = try? Data(contentsOf: bywFileURL),
+              let cache = try? JSONDecoder().decode(BecauseYouWatchedDiskCache.self, from: data) else {
+            return ("", [], nil)
+        }
+        return (cache.title, cache.results, cache.date)
     }
 
     /// Returns the current recommendation cache for backup
