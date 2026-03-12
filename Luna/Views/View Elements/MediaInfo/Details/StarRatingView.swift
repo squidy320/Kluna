@@ -21,11 +21,14 @@ struct StarRatingView: View {
 
             HStack(spacing: 8) {
                 ForEach(1...5, id: \.self) { star in
-                    Image(systemName: star <= displayRating ? "star.fill" : "star")
+                    let starImage = Image(systemName: star <= displayRating ? "star.fill" : "star")
                         .font(.title2)
                         .foregroundColor(star <= displayRating ? .yellow : .white.opacity(0.3))
-                        .contentTransition(.symbolEffect(.replace))
-                        .onTapGesture {
+                    
+                    if #available(iOS 17.0, *) {
+                        starImage
+                            .contentTransition(.symbolEffect(.replace))
+                            .onTapGesture {
                             withAnimation(.easeInOut(duration: 0.15)) {
                                 if currentRating == star {
                                     currentRating = 0
@@ -36,6 +39,21 @@ struct StarRatingView: View {
                                 }
                             }
                         }
+                    } else {
+                        starImage
+                            .animation(.easeInOut(duration: 0.15), value: displayRating)
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    if currentRating == star {
+                                        currentRating = 0
+                                        UserRatingManager.shared.removeRating(for: mediaId)
+                                    } else {
+                                        currentRating = star
+                                        UserRatingManager.shared.setRating(star, for: mediaId)
+                                    }
+                                }
+                            }
+                    }
                 }
 
                 if currentRating > 0 {
