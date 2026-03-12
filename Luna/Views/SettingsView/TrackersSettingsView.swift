@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Kingfisher
 
 struct TrackersSettingsView: View {
     @StateObject private var trackerManager = TrackerManager.shared
@@ -164,7 +165,15 @@ struct TrackersSettingsView: View {
         onDisconnect: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(spacing: 12) {
+                if let logoURL = service.logoURL {
+                    KFImage(logoURL)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .cornerRadius(8)
+                }
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(service.displayName)
                         .font(.headline)

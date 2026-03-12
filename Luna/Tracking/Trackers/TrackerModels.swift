@@ -28,6 +28,15 @@ enum TrackerService: String, Codable, CaseIterable {
             return "https://trakt.tv"
         }
     }
+
+    var logoURL: URL? {
+        switch self {
+        case .anilist:
+            return URL(string: "https://anilist.co/img/icons/android-chrome-512x512.png")
+        case .trakt:
+            return URL(string: "https://walter.trakt.tv/hotlink-ok/public/apple-touch-icon.png")
+        }
+    }
 }
 
 struct TrackerAccount: Codable {
