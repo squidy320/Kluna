@@ -86,11 +86,15 @@ struct LoggerView: View {
             } else {
                 ScrollViewReader { proxy in
                     List {
+                        LunaScrollTracker()
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+
                         ForEach(filteredLogs) { log in
                             LogEntryRow(log: log)
                                 .id(log.id)
                         }
-                        .background(LunaScrollTracker())
                     }
                     .listStyle(PlainListStyle())
                 }

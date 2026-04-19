@@ -12,6 +12,11 @@ struct AlgorithmSelectionView: View {
     
     var body: some View {
         List {
+            LunaScrollTracker()
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+
             Section {
                 ForEach(SimilarityAlgorithm.allCases, id: \.self) { algorithm in
                     VStack(alignment: .leading, spacing: 8) {
@@ -49,7 +54,6 @@ struct AlgorithmSelectionView: View {
             } footer: {
                 Text("The similarity algorithm determines how search results are matched and ranked. Jaro-Winkler is recommended for media titles as it performs better with names and short strings, but can fail sometimes.")
             }
-            .background(LunaScrollTracker())
         }
         .navigationTitle("Algorithm")
         .lunaSettingsStyle()

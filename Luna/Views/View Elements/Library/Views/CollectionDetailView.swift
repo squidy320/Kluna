@@ -15,6 +15,8 @@ struct CollectionDetailView: View {
     
     var body: some View {
         ScrollView {
+            LunaScrollTracker()
+
             if collection.items.isEmpty {
                 VStack {
                     Image(systemName: collection.name == "Bookmarks" ? "bookmark" : "folder")
@@ -68,7 +70,6 @@ struct CollectionDetailView: View {
                 }
                 .padding()
             }
-            LunaScrollTracker()
         }
         .coordinateSpace(name: "lunaGradientScroll")
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { scrollOffset = $0 }
