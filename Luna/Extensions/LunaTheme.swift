@@ -113,6 +113,20 @@ extension View {
             .lunaGradientBackground()
             .lunaDarkToolbar()
     }
+
+    /// Hide list row separators where supported (no-op on tvOS).
+    @ViewBuilder
+    func lunaHideListRowSeparator() -> some View {
+        #if os(iOS)
+        if #available(iOS 15.0, *) {
+            self.listRowSeparator(.hidden)
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
+    }
 }
 
 // MARK: - Auto-tracking gradient modifier

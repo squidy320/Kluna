@@ -15,7 +15,7 @@ struct AlgorithmSelectionView: View {
             LunaScrollTracker()
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
+                .lunaHideListRowSeparator()
 
             Section {
                 ForEach(SimilarityAlgorithm.allCases, id: \.self) { algorithm in

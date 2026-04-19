@@ -89,7 +89,7 @@ struct LoggerView: View {
                         LunaScrollTracker()
                             .listRowInsets(EdgeInsets())
                             .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
+                            .lunaHideListRowSeparator()
 
                         ForEach(filteredLogs) { log in
                             LogEntryRow(log: log)
