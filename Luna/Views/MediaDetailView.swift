@@ -694,6 +694,7 @@ struct MediaDetailView: View {
     
     private func loadMediaDetails() {
         Logger.shared.log("MediaDetail load start: id=\(searchResult.id) type=\(searchResult.mediaType) title=\(searchResult.displayTitle)", type: "CrashProbe")
+        Logger.shared.log("MediaDetail cache lookup begin: id=\(searchResult.id)", type: "CrashProbe")
 
         // Check view-level cache first for instant back-navigation
         if let cached = MediaDetailCacheStore.shared.get(id: searchResult.id) {
@@ -716,11 +717,14 @@ struct MediaDetailView: View {
             }
             return
         }
+        Logger.shared.log("MediaDetail cache miss: id=\(searchResult.id)", type: "CrashProbe")
 
         isLoading = true
         errorMessage = nil
+        Logger.shared.log("MediaDetail scheduling async task: id=\(searchResult.id)", type: "CrashProbe")
         
         Task {
+            Logger.shared.log("MediaDetail async task entered: id=\(searchResult.id)", type: "CrashProbe")
             do {
                 if searchResult.isMovie {
                     Logger.shared.log("Movie detail fetch begin: tmdbId=\(searchResult.id)", type: "CrashProbe")
