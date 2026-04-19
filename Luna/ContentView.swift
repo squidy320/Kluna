@@ -66,10 +66,10 @@ struct ContentView: View {
                 }
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: showingSettings)
-            .task { await ServiceManager.shared.autoUpdateServicesIfNeeded() }
+            .task { await runBackgroundAutoChecks() }
             .onChange(of: scenePhase) { newPhase in
                 if newPhase == .active {
-                    Task { await ServiceManager.shared.autoUpdateServicesIfNeeded() }
+                    Task { await runBackgroundAutoChecks() }
                 }
             }
         } else {
@@ -92,10 +92,10 @@ struct ContentView: View {
                 }
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: showingSettings)
-            .task { await ServiceManager.shared.autoUpdateServicesIfNeeded() }
+            .task { await runBackgroundAutoChecks() }
             .onChange(of: scenePhase) { newPhase in
                 if newPhase == .active {
-                    Task { await ServiceManager.shared.autoUpdateServicesIfNeeded() }
+                    Task { await runBackgroundAutoChecks() }
                 }
             }
         }
@@ -119,13 +119,18 @@ struct ContentView: View {
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.86), value: showingSettings)
-        .task { await ServiceManager.shared.autoUpdateServicesIfNeeded() }
+        .task { await runBackgroundAutoChecks() }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
-                Task { await ServiceManager.shared.autoUpdateServicesIfNeeded() }
+                Task { await runBackgroundAutoChecks() }
             }
         }
 #endif
+    }
+
+    private func runBackgroundAutoChecks() async {
+        await ServiceManager.shared.autoUpdateServicesIfNeeded()
+        await GitHubReleaseChecker.checkForUpdatesIfNeeded()
     }
     
 #if compiler(>=6.0)

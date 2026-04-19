@@ -9,9 +9,15 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("tmdbLanguage") private var selectedLanguage = "en-US"
+    @AppStorage("githubReleaseAutoCheckEnabled") private var autoCheckGitHubReleases = true
+    @AppStorage("githubReleaseUpdateAvailable") private var githubReleaseUpdateAvailable = false
+    @AppStorage("githubReleaseLatestVersion") private var githubReleaseLatestVersion = ""
+    @AppStorage("githubReleaseURL") private var githubReleaseURL = ""
+
     @StateObject private var algorithmManager = AlgorithmManager.shared
     @AppStorage("showKanzen") private var showKanzen: Bool = false
     @State private var scrollOffset: CGFloat = 0
+    @State private var isCheckingGitHubRelease = false
     
     let languages = [
         ("en-US", "English (US)"),
@@ -207,12 +213,67 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
                 }
+
+                // MARK: - Updates
+                GlassSection(header: "Updates") {
+                    VStack(spacing: 0) {
+                        GlassSettingsRow(icon: "arrow.triangle.2.circlepath", iconColor: .mint, title: "Auto-check GitHub Releases") {
+                            Toggle("", isOn: $autoCheckGitHubReleases)
+                                .labelsHidden()
+                                .tint(.mint)
+                        }
+
+                        GlassDivider()
+
+                        Button {
+                            Task {
+                                isCheckingGitHubRelease = true
+                                await GitHubReleaseChecker.checkForUpdates(force: true)
+                                isCheckingGitHubRelease = false
+                            }
+                        } label: {
+                            GlassSettingsRow(icon: "arrow.clockwise", iconColor: .cyan, title: "Check for Updates") {
+                                if isCheckingGitHubRelease {
+                                    ProgressView()
+                                        .progressViewStyle(.circular)
+                                        .tint(.white.opacity(0.6))
+                                } else {
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(.white.opacity(0.3))
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        if githubReleaseUpdateAvailable {
+                            GlassDivider()
+
+                            if let releaseURL = URL(string: githubReleaseURL), !githubReleaseURL.isEmpty {
+                                Link(destination: releaseURL) {
+                                    GlassSettingsRow(icon: "arrow.down.circle.fill", iconColor: .green, title: "Open Latest Release") {
+                                        Text(githubReleaseLatestVersion.isEmpty ? "Update Available" : githubReleaseLatestVersion)
+                                            .font(.subheadline)
+                                            .foregroundColor(.green.opacity(0.9))
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
                 
                 // MARK: - Version Info
                 VStack(spacing: 4) {
                     Text("Luna v\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
                         .font(.footnote)
                         .foregroundColor(.white.opacity(0.3))
+
+                    if githubReleaseUpdateAvailable {
+                        Text(githubReleaseLatestVersion.isEmpty ? "Update available on GitHub" : "Update available: \(githubReleaseLatestVersion)")
+                            .font(.footnote)
+                            .foregroundColor(.green.opacity(0.85))
+                    }
                 }
                 .padding(.top, 8)
                 .padding(.bottom, 30)
@@ -281,6 +342,27 @@ struct SettingsView: View {
             NavigationLink(destination: LoggerView()) { Text("Logger") }
         } header: {
             Text("Data")
+        }
+
+        Section {
+            Toggle("Auto-check GitHub Releases", isOn: $autoCheckGitHubReleases)
+
+            Button(isCheckingGitHubRelease ? "Checking..." : "Check for Updates") {
+                Task {
+                    isCheckingGitHubRelease = true
+                    await GitHubReleaseChecker.checkForUpdates(force: true)
+                    isCheckingGitHubRelease = false
+                }
+            }
+            .disabled(isCheckingGitHubRelease)
+
+            if githubReleaseUpdateAvailable,
+               let releaseURL = URL(string: githubReleaseURL),
+               !githubReleaseURL.isEmpty {
+                Link("Open Latest Release (\(githubReleaseLatestVersion.isEmpty ? "Update Available" : githubReleaseLatestVersion))", destination: releaseURL)
+            }
+        } header: {
+            Text("App Updates")
         }
         
         Section {
