@@ -693,8 +693,11 @@ struct MediaDetailView: View {
     }
     
     private func loadMediaDetails() {
+        Logger.shared.log("MediaDetail load start: id=\(searchResult.id) type=\(searchResult.mediaType) title=\(searchResult.displayTitle)", type: "CrashProbe")
+
         // Check view-level cache first for instant back-navigation
         if let cached = MediaDetailCacheStore.shared.get(id: searchResult.id) {
+            Logger.shared.log("MediaDetail cache hit: id=\(searchResult.id) type=\(searchResult.mediaType)", type: "CrashProbe")
             // Defer state update to next run loop tick so SwiftUI properly re-renders
             Task { @MainActor in
                 self.movieDetail = cached.movieDetail
@@ -720,6 +723,7 @@ struct MediaDetailView: View {
         Task {
             do {
                 if searchResult.isMovie {
+                    Logger.shared.log("Movie detail fetch begin: tmdbId=\(searchResult.id)", type: "CrashProbe")
                     async let detailTask = tmdbService.getMovieDetails(id: searchResult.id)
                     async let imagesTask = tmdbService.getMovieImages(id: searchResult.id, preferredLanguage: selectedLanguage)
                     async let romajiTask = tmdbService.getRomajiTitle(for: "movie", id: searchResult.id)
@@ -729,6 +733,7 @@ struct MediaDetailView: View {
                     let (detail, images, romaji) = try await (detailTask, imagesTask, romajiTask)
                     let credits = try? await creditsTask
                     let recommendations = try? await recommendationsTask
+                    Logger.shared.log("Movie detail fetch complete: tmdbId=\(searchResult.id) cast=\(credits?.cast.count ?? 0) recs=\(recommendations?.count ?? 0)", type: "CrashProbe")
                     
                     await MainActor.run {
                         self.movieDetail = detail
@@ -914,6 +919,7 @@ struct MediaDetailView: View {
                     }
                 }
             } catch {
+                Logger.shared.log("MediaDetail load failed: id=\(searchResult.id) type=\(searchResult.mediaType) error=\(error.localizedDescription)", type: "CrashProbe")
                 await MainActor.run {
                     self.errorMessage = error.localizedDescription
                     self.isLoading = false
