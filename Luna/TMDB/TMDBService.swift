@@ -28,11 +28,27 @@ class TMDBService: ObservableObject {
         return UserDefaults.standard.string(forKey: "tmdbLanguage") ?? "en-US"
     }
 
+    private func probe(_ message: String) {
+        Logger.shared.log("TMDBService: \(message)", type: "CrashProbe")
+    }
+
     /// Throttled URL fetch — limits concurrent TMDB requests to avoid 429s
     private func throttledData(from url: URL) async throws -> (Data, URLResponse) {
-        return try await rateLimiter.execute {
+        let isMoviePath = url.path.contains("/movie/")
+        if isMoviePath {
+            probe("throttledData start path=\(url.path)")
+        }
+
+        let result = try await rateLimiter.execute {
             try await URLSession.shared.data(from: url)
         }
+
+        if isMoviePath {
+            let status = (result.1 as? HTTPURLResponse)?.statusCode ?? -1
+            probe("throttledData end path=\(url.path) status=\(status) bytes=\(result.0.count)")
+        }
+
+        return result
     }
     
     // MARK: - Multi Search (Movies and TV Shows)
@@ -110,22 +126,33 @@ class TMDBService: ObservableObject {
     
     // MARK: - Get Movie Details
     func getMovieDetails(id: Int) async throws -> TMDBMovieDetail {
+        probe("getMovieDetails start id=\(id)")
         if let cached: TMDBMovieDetail = detailCache.get(key: "movie_\(id)") {
+            probe("getMovieDetails cache hit id=\(id)")
             return cached
         }
+        probe("getMovieDetails cache miss id=\(id)")
 
         let urlString = "\(baseURL)/movie/\(id)?api_key=\(apiKey)&language=\(currentLanguage)&append_to_response=release_dates"
         
         guard let url = URL(string: urlString) else {
+            probe("getMovieDetails invalid URL id=\(id)")
             throw TMDBError.invalidURL
         }
         
         do {
-            let (data, _) = try await throttledData(from: url)
+            probe("getMovieDetails request id=\(id)")
+            let (data, response) = try await throttledData(from: url)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            probe("getMovieDetails response id=\(id) status=\(status) bytes=\(data.count)")
+            probe("getMovieDetails decode start id=\(id)")
             let movieDetail = try JSONDecoder().decode(TMDBMovieDetail.self, from: data)
+            probe("getMovieDetails decode done id=\(id) title=\(movieDetail.title)")
             detailCache.set(key: "movie_\(id)", value: movieDetail)
+            probe("getMovieDetails cache store id=\(id)")
             return movieDetail
         } catch {
+            probe("getMovieDetails error id=\(id) error=\(error.localizedDescription)")
             throw TMDBError.networkError(error)
         }
     }
@@ -499,24 +526,35 @@ class TMDBService: ObservableObject {
     
     // MARK: - Get Images (Backdrops, Logos, Posters)
     func getMovieImages(id: Int, preferredLanguage: String? = nil) async throws -> TMDBImagesResponse {
+        probe("getMovieImages start id=\(id)")
         let langCode = (preferredLanguage ?? currentLanguage).components(separatedBy: "-").first ?? "en"
         let cacheKey = "movieImages_\(id)_\(langCode)"
         if let cached: TMDBImagesResponse = detailCache.get(key: cacheKey) {
+            probe("getMovieImages cache hit id=\(id) lang=\(langCode)")
             return cached
         }
+        probe("getMovieImages cache miss id=\(id) lang=\(langCode)")
 
         let urlString = "\(baseURL)/movie/\(id)/images?api_key=\(apiKey)&include_image_language=\(langCode),en,null"
         
         guard let url = URL(string: urlString) else {
+            probe("getMovieImages invalid URL id=\(id)")
             throw TMDBError.invalidURL
         }
         
         do {
-            let (data, _) = try await throttledData(from: url)
+            probe("getMovieImages request id=\(id)")
+            let (data, response) = try await throttledData(from: url)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            probe("getMovieImages response id=\(id) status=\(status) bytes=\(data.count)")
+            probe("getMovieImages decode start id=\(id)")
             let response = try JSONDecoder().decode(TMDBImagesResponse.self, from: data)
+            probe("getMovieImages decode done id=\(id) logos=\(response.logos?.count ?? 0)")
             detailCache.set(key: cacheKey, value: response)
+            probe("getMovieImages cache store id=\(id) lang=\(langCode)")
             return response
         } catch {
+            probe("getMovieImages error id=\(id) error=\(error.localizedDescription)")
             throw TMDBError.networkError(error)
         }
     }
@@ -563,15 +601,24 @@ class TMDBService: ObservableObject {
     
     // MARK: - Get Movie Credits (Cast)
     func getMovieCredits(id: Int) async throws -> TMDBCreditsResponse {
+        probe("getMovieCredits start id=\(id)")
         let cacheKey = "movieCredits_\(id)"
         if let cached: TMDBCreditsResponse = detailCache.get(key: cacheKey) {
+            probe("getMovieCredits cache hit id=\(id)")
             return cached
         }
+        probe("getMovieCredits cache miss id=\(id)")
         let urlString = "\(baseURL)/movie/\(id)/credits?api_key=\(apiKey)&language=\(currentLanguage)"
         guard let url = URL(string: urlString) else { throw TMDBError.invalidURL }
-        let (data, _) = try await throttledData(from: url)
+        probe("getMovieCredits request id=\(id)")
+        let (data, response) = try await throttledData(from: url)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        probe("getMovieCredits response id=\(id) status=\(status) bytes=\(data.count)")
+        probe("getMovieCredits decode start id=\(id)")
         let result = try JSONDecoder().decode(TMDBCreditsResponse.self, from: data)
+        probe("getMovieCredits decode done id=\(id) cast=\(result.cast.count)")
         detailCache.set(key: cacheKey, value: result)
+        probe("getMovieCredits cache store id=\(id)")
         return result
     }
     
@@ -591,15 +638,24 @@ class TMDBService: ObservableObject {
     
     // MARK: - Get Movie Recommendations
     func getMovieRecommendations(id: Int) async throws -> [TMDBMovie] {
+        probe("getMovieRecommendations start id=\(id)")
         let cacheKey = "movieRecs_\(id)"
         if let cached: [TMDBMovie] = detailCache.get(key: cacheKey) {
+            probe("getMovieRecommendations cache hit id=\(id) count=\(cached.count)")
             return cached
         }
+        probe("getMovieRecommendations cache miss id=\(id)")
         let urlString = "\(baseURL)/movie/\(id)/recommendations?api_key=\(apiKey)&language=\(currentLanguage)&page=1"
         guard let url = URL(string: urlString) else { throw TMDBError.invalidURL }
-        let (data, _) = try await throttledData(from: url)
+        probe("getMovieRecommendations request id=\(id)")
+        let (data, response) = try await throttledData(from: url)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        probe("getMovieRecommendations response id=\(id) status=\(status) bytes=\(data.count)")
+        probe("getMovieRecommendations decode start id=\(id)")
         let response = try JSONDecoder().decode(TMDBMovieSearchResponse.self, from: data)
+        probe("getMovieRecommendations decode done id=\(id) count=\(response.results.count)")
         detailCache.set(key: cacheKey, value: response.results)
+        probe("getMovieRecommendations cache store id=\(id)")
         return response.results
     }
     

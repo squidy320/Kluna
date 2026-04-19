@@ -728,15 +728,25 @@ struct MediaDetailView: View {
             do {
                 if searchResult.isMovie {
                     Logger.shared.log("Movie detail fetch begin: tmdbId=\(searchResult.id)", type: "CrashProbe")
-                    async let detailTask = tmdbService.getMovieDetails(id: searchResult.id)
-                    async let imagesTask = tmdbService.getMovieImages(id: searchResult.id, preferredLanguage: selectedLanguage)
-                    async let romajiTask = tmdbService.getRomajiTitle(for: "movie", id: searchResult.id)
-                    async let creditsTask = tmdbService.getMovieCredits(id: searchResult.id)
-                    async let recommendationsTask = tmdbService.getMovieRecommendations(id: searchResult.id)
-                    
-                    let (detail, images, romaji) = try await (detailTask, imagesTask, romajiTask)
-                    let credits = try? await creditsTask
-                    let recommendations = try? await recommendationsTask
+                    Logger.shared.log("Movie detail step: getMovieDetails start id=\(searchResult.id)", type: "CrashProbe")
+                    let detail = try await tmdbService.getMovieDetails(id: searchResult.id)
+                    Logger.shared.log("Movie detail step: getMovieDetails done id=\(searchResult.id)", type: "CrashProbe")
+
+                    Logger.shared.log("Movie detail step: getMovieImages start id=\(searchResult.id)", type: "CrashProbe")
+                    let images = try await tmdbService.getMovieImages(id: searchResult.id, preferredLanguage: selectedLanguage)
+                    Logger.shared.log("Movie detail step: getMovieImages done id=\(searchResult.id)", type: "CrashProbe")
+
+                    Logger.shared.log("Movie detail step: getRomajiTitle start id=\(searchResult.id)", type: "CrashProbe")
+                    let romaji = await tmdbService.getRomajiTitle(for: "movie", id: searchResult.id)
+                    Logger.shared.log("Movie detail step: getRomajiTitle done id=\(searchResult.id)", type: "CrashProbe")
+
+                    Logger.shared.log("Movie detail step: getMovieCredits start id=\(searchResult.id)", type: "CrashProbe")
+                    let credits = try? await tmdbService.getMovieCredits(id: searchResult.id)
+                    Logger.shared.log("Movie detail step: getMovieCredits done id=\(searchResult.id) cast=\(credits?.cast.count ?? 0)", type: "CrashProbe")
+
+                    Logger.shared.log("Movie detail step: getMovieRecommendations start id=\(searchResult.id)", type: "CrashProbe")
+                    let recommendations = try? await tmdbService.getMovieRecommendations(id: searchResult.id)
+                    Logger.shared.log("Movie detail step: getMovieRecommendations done id=\(searchResult.id) recs=\(recommendations?.count ?? 0)", type: "CrashProbe")
                     Logger.shared.log("Movie detail fetch complete: tmdbId=\(searchResult.id) cast=\(credits?.cast.count ?? 0) recs=\(recommendations?.count ?? 0)", type: "CrashProbe")
                     
                     await MainActor.run {
