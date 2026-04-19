@@ -681,8 +681,11 @@ final class TrackerManager: NSObject, ObservableObject {
             return
         }
 
-        // Determine status: COMPLETED if >= 85% watch progress, otherwise CURRENT
-        let status = progress >= 0.85 ? "COMPLETED" : "CURRENT"
+        // AniList progress for anime is episode-based. Mark as COMPLETED only when we reach
+        // the final known episode for this AniList entry; otherwise keep it CURRENT.
+        let totalEpisodes = await getAniListEpisodeCount(mediaId: anilistId)
+        let isFinalEpisode = (totalEpisodes ?? 0) > 0 && episodeNumber >= (totalEpisodes ?? 0)
+        let status = isFinalEpisode ? "COMPLETED" : "CURRENT"
 
         // Only include completedAt when marking as COMPLETED
         let completedAtClause: String
@@ -871,6 +874,42 @@ final class TrackerManager: NSObject, ObservableObject {
 
 
     // MARK: - Helper Methods
+
+    private func getAniListEpisodeCount(mediaId: Int) async -> Int? {
+        let query = """
+        query {
+            Media(id: \(mediaId), type: ANIME) {
+                episodes
+            }
+        }
+        """
+
+        struct Response: Codable {
+            let data: DataWrapper
+            struct DataWrapper: Codable {
+                let Media: MediaData?
+                struct MediaData: Codable {
+                    let episodes: Int?
+                }
+            }
+        }
+
+        do {
+            var request = URLRequest(url: URL(string: "https://graphql.anilist.co")!)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["query": query])
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+
+            let decoded = try JSONDecoder().decode(Response.self, from: data)
+            return decoded.data.Media?.episodes
+        } catch {
+            Logger.shared.log("Failed to fetch AniList episode count for mediaId \(mediaId): \(error.localizedDescription)", type: "Tracker")
+            return nil
+        }
+    }
 
     func getAniListMediaId(tmdbId: Int) async -> Int? {
         // Return cached mapping when available

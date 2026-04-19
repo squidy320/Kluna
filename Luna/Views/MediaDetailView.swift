@@ -560,7 +560,7 @@ struct MediaDetailView: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
-                    ForEach(castMembers.prefix(20)) { member in
+                    ForEach(Array(castMembers.prefix(20).enumerated()), id: \.offset) { _, member in
                         VStack(spacing: 8) {
                             if let url = member.fullProfileURL {
                                 KFImage(URL(string: url))
