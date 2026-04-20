@@ -89,6 +89,7 @@ struct MediaDetailView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @AppStorage("tmdbLanguage") private var selectedLanguage = "en-US"
+    private let nextEpisodeSheetPresentationDelay: TimeInterval = 1.2
 
     private var headerHeight: CGFloat {
 #if os(tvOS)
@@ -171,9 +172,8 @@ struct MediaDetailView: View {
                let nextEp = episodes.first(where: { $0.seasonNumber == seasonNumber && $0.episodeNumber == episodeNumber }) {
                 selectedEpisodeForSearch = nextEp
                 showingSearchResults = false
-                let playerDismissalDelay: TimeInterval = 1.2
                 // Delay to ensure the player is fully dismissed before presenting the sheet
-                DispatchQueue.main.asyncAfter(deadline: .now() + playerDismissalDelay) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + nextEpisodeSheetPresentationDelay) {
                     showingSearchResults = true
                 }
             } else {
