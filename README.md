@@ -1,4 +1,4 @@
-My fork of Luna. Has no affiliation with the parent repo. And user is responsible for what they do with the app. Does not come with services or addons.
+My fork of Luna. Has no affiliation with the parent repo. And user is responsible for what they do with the app. Does not come with services or addons. Use GitHub Issues for feature requests and bug reports
 
 Features added:
 
@@ -20,9 +20,6 @@ Features added:
 16: LN support
 17: Major overhaul of UI
 
-Notes:
-
-I have 750+ workflows it took a long time. VLC and this Luna in general has come a long way. There are likely minor issues with VLC that can't be fixed/smoothed without v4.
 
 
 
