@@ -64,18 +64,6 @@ struct EpisodeCell: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
 
-                    if isWatched {
-                        HStack {
-                            Spacer()
-                            VStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.blue)
-                                    .shadow(radius: 2)
-                                Spacer()
-                            }
-                        }
-                        .padding(6)
-                    }
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -124,6 +112,7 @@ struct EpisodeCell: View {
                         Text(episode.name)
                             .font(.subheadline)
                             .foregroundColor(.white)
+                            .opacity(isWatched ? 0.45 : 1)
                             .lineLimit(1)
                     }
                     
@@ -190,18 +179,6 @@ struct EpisodeCell: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
 
-                    if isWatched {
-                        HStack {
-                            Spacer()
-                            VStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.blue)
-                                    .shadow(radius: 2)
-                                Spacer()
-                            }
-                        }
-                        .padding(6)
-                    }
                 }
                 
                 VStack(alignment: .leading, spacing: 6) {
@@ -252,6 +229,7 @@ struct EpisodeCell: View {
                             .fontWeight(.medium)
                             .lineLimit(1)
                             .foregroundColor(.white)
+                            .opacity(isWatched ? 0.45 : 1)
                     }
                     
                     if let overview = episode.overview, !overview.isEmpty {
