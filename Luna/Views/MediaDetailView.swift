@@ -99,6 +99,16 @@ struct MediaDetailView: View {
         !serviceManager.activeServices.isEmpty || !stremioManager.activeAddons.isEmpty
     }
 
+    private var rememberedEpisodeSource: RememberedSource? {
+        guard !searchResult.isMovie,
+              UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled") else { return nil }
+        return EpisodeSourcePreferenceStore.shared.resolveRememberedSource(
+            showId: searchResult.id,
+            services: serviceManager.activeServices,
+            addons: stremioManager.activeAddons
+        )
+    }
+
     private var headerHeight: CGFloat {
 #if os(tvOS)
         UIScreen.main.bounds.height * 0.8
@@ -478,7 +488,7 @@ struct MediaDetailView: View {
                 HStack {
                     Image(systemName: hasActiveSources ? "play.fill" : "exclamationmark.triangle")
                     
-                    Text(hasActiveSources ? playButtonText : "No Services")
+                    Text(hasActiveSources ? playButtonText : "No Sources")
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
@@ -495,6 +505,34 @@ struct MediaDetailView: View {
             }
             .disabled(!hasActiveSources)
             
+            if let rememberedEpisodeSource {
+                Button(action: {
+                    EpisodeSourcePreferenceStore.shared.clearRememberedSource(for: searchResult.id)
+                }) {
+                    ZStack(alignment: .topTrailing) {
+                        KFImage(rememberedEpisodeSource.logoURL.flatMap(URL.init(string:)))
+                            .placeholder {
+                                Image(systemName: "tv")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                            }
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 20, height: 20)
+                            .frame(width: 42, height: 42)
+                            .applyLiquidGlassBackground(cornerRadius: 12)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.9))
+                            .background(Color.black.opacity(0.35))
+                            .clipShape(Circle())
+                            .offset(x: 4, y: -4)
+                    }
+                }
+            }
+
             Button(action: {
                 toggleBookmark()
             }) {

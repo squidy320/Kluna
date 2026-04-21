@@ -283,10 +283,10 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 } : nil
             )
         }
-        .alert("No Active Services", isPresented: $showingNoServicesAlert) {
+        .alert("No Active Sources", isPresented: $showingNoServicesAlert) {
             Button("OK") { }
         } message: {
-            Text("You don't have any active services. Please go to the Services tab to download and activate services.")
+            Text("You don't have any active services or addons. Please go to the Services tab to activate a source.")
         }
     }
     

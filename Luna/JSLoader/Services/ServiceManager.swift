@@ -268,14 +268,26 @@ class ServiceManager: ObservableObject {
                                              onResult: @escaping @MainActor (Service, [SearchItem]?) -> Void,
                                              onComplete: @escaping @MainActor () -> Void) async
     {
-        let activeList = activeServices
-        guard !activeList.isEmpty else {
+        await searchInServicesProgressively(
+            services: activeServices,
+            query: query,
+            onResult: onResult,
+            onComplete: onComplete
+        )
+    }
+
+    func searchInServicesProgressively(services: [Service],
+                                       query: String,
+                                       onResult: @escaping @MainActor (Service, [SearchItem]?) -> Void,
+                                       onComplete: @escaping @MainActor () -> Void) async
+    {
+        guard !services.isEmpty else {
             await MainActor.run { onComplete() }
             return
         }
 
         await withTaskGroup(of: (Service, [SearchItem]?).self) { group in
-            for service in activeList {
+            for service in services {
                 group.addTask {
                     let timeoutSeconds: UInt64 = 20_000_000_000 // 20sec
                     return await self.withTimeout(nanoseconds: timeoutSeconds) {

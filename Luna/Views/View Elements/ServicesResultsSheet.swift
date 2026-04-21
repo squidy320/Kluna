@@ -38,6 +38,7 @@ final class ModulesSearchResultsViewModel: ObservableObject {
     @Published var showingStreamMenu = false
     
     @Published var selectedResult: SearchItem?
+    @Published var selectedResultService: Service?
     @Published var showingPlayAlert = false
     @Published var expandedServices: Set<UUID> = []
     @Published var showingFilterEditor = false
@@ -128,6 +129,8 @@ struct ModulesSearchResultsSheet: View {
     @State private var autoModeRunToken: String?
     @State private var autoModeCancelled = false
     @State private var showManualPicker = false
+    @State private var showingSourcePicker = false
+    @State private var forcedSourceId: String?
 
     private var effectiveTitle: String { seasonTitleOverride ?? mediaTitle }
     private var animeEffectiveTitle: String {
@@ -285,6 +288,23 @@ struct ModulesSearchResultsSheet: View {
         }
     }
 
+    private var usesRememberedEpisodeSourceFlow: Bool {
+        !isMovie && selectedEpisode != nil && UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled")
+    }
+
+    private var rememberedSourceStore: EpisodeSourcePreferenceStore {
+        EpisodeSourcePreferenceStore.shared
+    }
+
+    private var resolvedForcedSource: RememberedSource? {
+        guard let forcedSourceId else { return nil }
+        return rememberedSourceStore.resolve(
+            sourceId: forcedSourceId,
+            services: serviceManager.activeServices,
+            addons: stremioManager.activeAddons
+        )
+    }
+
     private var sortedResultItems: [ResultItem] {
         let services: [ResultItem] = serviceManager.activeServices.map { .service($0) }
         let addons: [ResultItem] = stremioManager.activeAddons.map { .stremio($0) }
@@ -302,9 +322,14 @@ struct ModulesSearchResultsSheet: View {
         return ordered
     }
 
+    private var visibleResultItems: [ResultItem] {
+        guard let forcedSourceId else { return sortedResultItems }
+        return sortedResultItems.filter { autoModeSourceId(for: $0) == forcedSourceId }
+    }
+
     @ViewBuilder
     private var unifiedResultsSections: some View {
-        ForEach(sortedResultItems) { item in
+        ForEach(visibleResultItems) { item in
             switch item {
             case .service(let service):
                 serviceSection(service: service)
@@ -387,6 +412,7 @@ struct ModulesSearchResultsSheet: View {
                 episode: selectedEpisode,
                 onTap: {
                     viewModel.selectedResult = searchResult
+                    viewModel.selectedResultService = service
                     viewModel.showingPlayAlert = true
                 }, highQualityThreshold: viewModel.highQualityThreshold
             )
@@ -437,6 +463,7 @@ struct ModulesSearchResultsSheet: View {
                     episode: selectedEpisode,
                     onTap: {
                         viewModel.selectedResult = searchResult
+                        viewModel.selectedResultService = service
                         viewModel.showingPlayAlert = true
                     }, highQualityThreshold: viewModel.highQualityThreshold
                 )
@@ -453,12 +480,13 @@ struct ModulesSearchResultsSheet: View {
             if let result = viewModel.selectedResult {
                 Task {
                     try? await Task.sleep(nanoseconds: 300_000_000)
-                    await playContent(result)
+                    await playContent(result, serviceOverride: viewModel.selectedResultService)
                 }
             }
         }
         Button("Cancel", role: .cancel) {
             viewModel.selectedResult = nil
+            viewModel.selectedResultService = nil
         }
     }
     
@@ -624,6 +652,31 @@ struct ModulesSearchResultsSheet: View {
     @ViewBuilder
     private var subtitlePickerDialogMessage: some View {
         Text("Choose a subtitle track")
+    }
+
+    @ViewBuilder
+    private var sourcePickerDialogContent: some View {
+        ForEach(sortedResultItems) { item in
+            switch item {
+            case .service(let service):
+                Button(service.metadata.sourceName) {
+                    chooseRememberedSource(.service(service))
+                }
+            case .stremio(let addon):
+                Button(addon.manifest.name) {
+                    chooseRememberedSource(.stremio(addon))
+                }
+            }
+        }
+
+        Button("Cancel", role: .cancel) {
+            presentationMode.wrappedValue.dismiss()
+        }
+    }
+
+    @ViewBuilder
+    private var sourcePickerDialogMessage: some View {
+        Text("Choose the service or addon to use for this show. We'll remember it until you clear it.")
     }
     
     private func filterResults(for results: [SearchItem]) -> (highQuality: [SearchItem], lowQuality: [SearchItem]) {
@@ -1023,11 +1076,110 @@ struct ModulesSearchResultsSheet: View {
         startProgressiveSearch()
         startStremioSearch()
     }
+
+    @MainActor
+    private func initializeSearchFlow() {
+        autoModeDidRun = false
+        if autoModeOnly && usesRememberedEpisodeSourceFlow {
+            if let remembered = rememberedSourceStore.resolveRememberedSource(showId: tmdbId) {
+                forcedSourceId = remembered.id
+                startScopedSearches()
+            } else {
+                if rememberedSourceStore.rememberedSourceId(showId: tmdbId) != nil {
+                    rememberedSourceStore.clearRememberedSource(for: tmdbId)
+                }
+                forcedSourceId = nil
+                resetSearchState()
+                showingSourcePicker = true
+            }
+        } else {
+            forcedSourceId = nil
+            if autoModeOnly && !showManualPicker {
+                startAutoModeIfNeeded()
+            } else {
+                startProgressiveSearch()
+                startStremioSearch()
+            }
+        }
+    }
+
+    @MainActor
+    private func resetSearchState() {
+        viewModel.moduleResults.removeAll()
+        viewModel.stremioResults.removeAll()
+        viewModel.searchedServices.removeAll()
+        viewModel.stremioSearchedAddons.removeAll()
+        viewModel.failedServices.removeAll()
+        viewModel.selectedResult = nil
+        viewModel.selectedResultService = nil
+        viewModel.selectedStremioAddon = nil
+        viewModel.selectedStremioStream = nil
+        viewModel.streamError = nil
+        viewModel.showingStreamError = false
+        viewModel.isSearching = false
+        viewModel.isSearchingStremio = false
+    }
+
+    @MainActor
+    private func startScopedSearches() {
+        resetSearchState()
+        guard let remembered = resolvedForcedSource else {
+            EpisodeSourcePreferenceStore.shared.clearRememberedSource(for: tmdbId)
+            forcedSourceId = nil
+            showingSourcePicker = true
+            return
+        }
+
+        switch remembered {
+        case .service(let service):
+            startProgressiveSearch(services: [service])
+            viewModel.isSearchingStremio = false
+        case .stremio(let addon):
+            viewModel.isSearching = false
+            startStremioSearch(addons: [addon])
+        }
+    }
+
+    @MainActor
+    private func chooseRememberedSource(_ source: RememberedSource) {
+        forcedSourceId = source.id
+        rememberedSourceStore.setRememberedSourceId(source.id, for: tmdbId)
+        showingSourcePicker = false
+        startScopedSearches()
+    }
+
+    @MainActor
+    private func clearRememberedSourceAndPrompt() {
+        rememberedSourceStore.clearRememberedSource(for: tmdbId)
+        forcedSourceId = nil
+        resetSearchState()
+        showingSourcePicker = true
+    }
+
+    @MainActor
+    private func maybePromptForDifferentSource() {
+        guard autoModeOnly, usesRememberedEpisodeSourceFlow, !showingSourcePicker,
+              !viewModel.isSearching, !viewModel.isSearchingStremio,
+              let remembered = resolvedForcedSource else { return }
+
+        switch remembered {
+        case .service(let service):
+            let results = viewModel.moduleResults[service.id] ?? []
+            if results.isEmpty {
+                clearRememberedSourceAndPrompt()
+            }
+        case .stremio(let addon):
+            let streams = viewModel.stremioResults[addon.id] ?? []
+            if streams.isEmpty {
+                clearRememberedSourceAndPrompt()
+            }
+        }
+    }
     
     var body: some View {
         NavigationView {
             Group {
-                if autoModeOnly && !showManualPicker {
+                if autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker {
                     autoModeProgressView
                 } else {
                     List {
@@ -1043,7 +1195,7 @@ struct ModulesSearchResultsSheet: View {
                     .lunaSettingsStyle()
                 }
             }
-            .navigationTitle(autoModeOnly && !showManualPicker ? (downloadMode ? "Auto Download" : "Auto Mode") : (downloadMode ? "Download Source" : "Services Result"))
+            .navigationTitle(autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker ? (downloadMode ? "Auto Download" : "Auto Mode") : (downloadMode ? "Download Source" : "Services Result"))
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -1107,19 +1259,15 @@ struct ModulesSearchResultsSheet: View {
         }
         .overlay(streamFetchingOverlay)
         .onAppear {
-            autoModeDidRun = false
-            if autoModeOnly && !showManualPicker {
-                startAutoModeIfNeeded()
-            } else {
-                startProgressiveSearch()
-                startStremioSearch()
-            }
+            initializeSearchFlow()
         }
         .onChangeComp(of: viewModel.isSearching) { _, _ in
             maybeRunAutoModeSelection()
+            maybePromptForDifferentSource()
         }
         .onChangeComp(of: viewModel.isSearchingStremio) { _, _ in
             maybeRunAutoModeSelection()
+            maybePromptForDifferentSource()
         }
         .alert("Quality Threshold", isPresented: $viewModel.showingFilterEditor) {
             qualityThresholdAlertContent
@@ -1146,8 +1294,13 @@ struct ModulesSearchResultsSheet: View {
         } message: {
             subtitlePickerDialogMessage
         }
+        .adaptiveConfirmationDialog("Choose Source", isPresented: $showingSourcePicker, titleVisibility: .visible) {
+            sourcePickerDialogContent
+        } message: {
+            sourcePickerDialogMessage
+        }
         .alert("Stream Error", isPresented: $viewModel.showingStreamError) {
-            if autoModeOnly && !showManualPicker {
+            if autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker {
                 if downloadMode && onSkipRequested != nil {
                     Button("Skip Episode") {
                         autoModeCancelled = true
@@ -1163,6 +1316,14 @@ struct ModulesSearchResultsSheet: View {
                     autoModeCancelled = true
                     viewModel.streamError = nil
                     presentationMode.wrappedValue.dismiss()
+                }
+            } else if autoModeOnly && usesRememberedEpisodeSourceFlow {
+                Button("Choose Again") {
+                    viewModel.streamError = nil
+                    clearRememberedSourceAndPrompt()
+                }
+                Button("Cancel", role: .cancel) {
+                    viewModel.streamError = nil
                 }
             } else {
                 Button("OK", role: .cancel) {
@@ -1198,8 +1359,8 @@ struct ModulesSearchResultsSheet: View {
         }
     }
     
-    private func startProgressiveSearch() {
-        let activeServices = serviceManager.activeServices
+    private func startProgressiveSearch(services: [Service]? = nil) {
+        let activeServices = services ?? serviceManager.activeServices
         viewModel.totalServicesCount = activeServices.count
         
         guard !activeServices.isEmpty else {
@@ -1226,7 +1387,8 @@ struct ModulesSearchResultsSheet: View {
         let hasAlternativeTitle = originalTitle.map { !$0.isEmpty && $0.lowercased() != effectiveTitle.lowercased() } ?? false
         
         Task {
-            await serviceManager.searchInActiveServicesProgressively(
+            await serviceManager.searchInServicesProgressively(
+                services: activeServices,
                 query: searchQuery,
                 onResult: { service, results in
                     Task { @MainActor in
@@ -1244,7 +1406,8 @@ struct ModulesSearchResultsSheet: View {
                     // Second tier: search with base title if different from primary query
                     if let baseTitleQuery = baseTitleQuery {
                         Task {
-                            await self.serviceManager.searchInActiveServicesProgressively(
+                            await self.serviceManager.searchInServicesProgressively(
+                                services: activeServices,
                                 query: baseTitleQuery,
                                 onResult: { service, additionalResults in
                                     Task { @MainActor in
@@ -1263,7 +1426,8 @@ struct ModulesSearchResultsSheet: View {
                                     // Third tier: search with romaji/original title
                                     if hasAlternativeTitle, let altTitle = self.originalTitle {
                                         Task {
-                                            await self.serviceManager.searchInActiveServicesProgressively(
+                                            await self.serviceManager.searchInServicesProgressively(
+                                                services: activeServices,
                                                 query: altTitle,
                                                 onResult: { service, additionalResults in
                                                     Task { @MainActor in
@@ -1296,7 +1460,8 @@ struct ModulesSearchResultsSheet: View {
                     } else if hasAlternativeTitle, let altTitle = self.originalTitle {
                         // No base title query, go straight to romaji
                         Task {
-                            await self.serviceManager.searchInActiveServicesProgressively(
+                            await self.serviceManager.searchInServicesProgressively(
+                                services: activeServices,
                                 query: altTitle,
                                 onResult: { service, additionalResults in
                                     Task { @MainActor in
@@ -1330,9 +1495,12 @@ struct ModulesSearchResultsSheet: View {
 
     // MARK: - Stremio Addon Search
 
-    private func startStremioSearch() {
-        let active = stremioManager.activeAddons
-        guard !active.isEmpty else { return }
+    private func startStremioSearch(addons: [StremioAddon]? = nil) {
+        let active = addons ?? stremioManager.activeAddons
+        guard !active.isEmpty else {
+            viewModel.isSearchingStremio = false
+            return
+        }
 
         viewModel.isSearchingStremio = true
 
@@ -1344,6 +1512,7 @@ struct ModulesSearchResultsSheet: View {
 
         Task {
             await stremioManager.fetchStreamsFromAddons(
+                addons: active,
                 tmdbId: tmdbId,
                 imdbId: imdbId,
                 type: type,
@@ -1948,14 +2117,14 @@ struct ModulesSearchResultsSheet: View {
     }
     
     @MainActor
-    private func playContent(_ result: SearchItem) async {
+    private func playContent(_ result: SearchItem, serviceOverride: Service? = nil) async {
         Logger.shared.log("Starting playback for: \(result.title)", type: "Stream")
         
         viewModel.isFetchingStreams = true
         viewModel.currentFetchingTitle = result.title
         viewModel.streamFetchProgress = "Initializing..."
         
-        guard let service = serviceManager.activeServices.first(where: { service in
+        guard let service = serviceOverride ?? serviceManager.activeServices.first(where: { service in
             viewModel.moduleResults[service.id]?.contains { $0.id == result.id } ?? false
         }) else {
             Logger.shared.log("Could not find service for result: \(result.title)", type: "Error")
