@@ -27,6 +27,7 @@ private actor AniListRateLimiter {
 private let continuationRelationTypes: Set<String> = ["SEQUEL", "PREQUEL", "SEASON"]
 private let relatedAnimeFetchLimit = 8
 private let relatedAnimeEpisodeLimit = 200
+private let enableRelatedAnimeDetailSelector = false
 
 final class AniListService {
     static let shared = AniListService()
@@ -879,11 +880,18 @@ final class AniListService {
         for season in seasons {
             Logger.shared.log("  Season \(season.seasonNumber): \(season.episodes.count) episodes, poster: \(season.posterUrl ?? "none")", type: "AniList")
         }
-        let relatedEntries = buildRelatedAnimeEntries(
-            from: allAnimeToProcess.map { $0.anime },
-            forcedCandidates: forcedRelatedCandidates,
-            excludedIds: Set(allAnimeToProcess.map { $0.anime.id })
-        )
+        let relatedEntries: [AniListRelatedAnimeEntry]
+        if enableRelatedAnimeDetailSelector {
+            relatedEntries = buildRelatedAnimeEntries(
+                from: allAnimeToProcess.map { $0.anime },
+                forcedCandidates: forcedRelatedCandidates,
+                excludedIds: Set(allAnimeToProcess.map { $0.anime.id })
+            )
+        } else {
+            relatedEntries = []
+            initialRelatedAniListId = nil
+            Logger.shared.log("AniListService: related detail selector disabled; skipping related entries for tmdbId=\(tmdbShowId)", type: "CrashProbe")
+        }
         
         let animeWithSeasons = AniListAnimeWithSeasons(
             id: anime.id,
@@ -1002,6 +1010,11 @@ final class AniListService {
         forcedCandidates: [AniListAnime],
         excludedIds: Set<Int>
     ) -> [AniListRelatedAnimeEntry] {
+        guard enableRelatedAnimeDetailSelector else {
+            Logger.shared.log("AniListService: related build disabled by stability gate animeList=\(animeList.count) forced=\(forcedCandidates.count) excluded=\(excludedIds.count)", type: "CrashProbe")
+            return []
+        }
+
         Logger.shared.log("AniListService: related build start animeList=\(animeList.count) forced=\(forcedCandidates.count) excluded=\(excludedIds.count)", type: "CrashProbe")
         var candidates: [RelatedCandidate] = []
         var skippedContinuation = 0

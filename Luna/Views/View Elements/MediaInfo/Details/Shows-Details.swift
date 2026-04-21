@@ -105,8 +105,10 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     }
     
     var body: some View {
+        let _ = Logger.shared.log("TVShowSeasonsSection body evaluate: showId=\(tvShow?.id ?? 0) hasTVShow=\(tvShow != nil) isAnime=\(isAnime) seasons=\(tvShow?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") seasonDetailEpisodes=\(seasonDetail?.episodes.count ?? 0) isLoadingSeason=\(isLoadingSeason) selectedRelated=\(selectedRelatedAniListId?.description ?? "nil") selectedEpisode=\(selectedEpisodeForSearch.map { "S\($0.seasonNumber)E\($0.episodeNumber):id\($0.id)" } ?? "nil") related=\(relatedAnimeEntries.count) sheets=play:\(showingSearchResults),download:\(showingDownloadSheet)", type: "CrashProbe")
         VStack(alignment: .leading, spacing: 8) {
             if let tvShow = tvShow {
+                let _ = Logger.shared.log("TVShowSeasonsSection body branch tvShow: showId=\(tvShow.id) seasons=\(tvShow.seasons.count) grouped=\(isGroupedBySeasons) menu=\(useSeasonMenu)", type: "CrashProbe")
                 Text("Details")
                     .font(.title2)
                     .fontWeight(.bold)
@@ -155,7 +157,9 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 insertedContent()
                 
                 if !tvShow.seasons.isEmpty {
+                    let _ = Logger.shared.log("TVShowSeasonsSection body branch seasons-present: showId=\(tvShow.id) seasons=\(tvShow.seasons.count)", type: "CrashProbe")
                     if isGroupedBySeasons && !useSeasonMenu {
+                        let _ = Logger.shared.log("TVShowSeasonsSection body branch styled selector: showId=\(tvShow.id)", type: "CrashProbe")
                         HStack {
                             Text("Seasons")
                                 .font(.title2)
@@ -188,12 +192,19 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                         .padding(.horizontal)
                         .padding(.top)
                     } else {
+                        let _ = Logger.shared.log("TVShowSeasonsSection body branch header/menu selector: showId=\(tvShow.id)", type: "CrashProbe")
                         episodesSectionHeader
                         relatedAnimeSelector
                     }
                     
                     episodeListSection
+                } else {
+                    let _ = Logger.shared.log("TVShowSeasonsSection body branch no seasons: showId=\(tvShow.id)", type: "CrashProbe")
+                    EmptyView()
                 }
+            } else {
+                let _ = Logger.shared.log("TVShowSeasonsSection body branch missing tvShow", type: "CrashProbe")
+                EmptyView()
             }
         }
         .onAppear {
@@ -208,9 +219,11 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                     loadSeasonDetails(tvShowId: tvShow.id, season: selectedSeason)
                 }
                 Task {
+                    Logger.shared.log("TVShowSeasonsSection romaji fetch begin: showId=\(tvShow.id)", type: "CrashProbe")
                     let romaji = await tmdbService.getRomajiTitle(for: "tv", id: tvShow.id)
                     await MainActor.run {
                         self.romajiTitle = romaji
+                        Logger.shared.log("TVShowSeasonsSection romaji fetch assigned: showId=\(tvShow.id) hasRomaji=\(romaji != nil)", type: "CrashProbe")
                     }
                 }
             } else {
@@ -223,7 +236,26 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 _ = applyInitialRelatedSelectionIfNeeded(tvShowId: tvShow.id)
             }
         }
+        .onChangeComp(of: selectedSeason?.seasonNumber) { _, newValue in
+            Logger.shared.log("TVShowSeasonsSection selectedSeason changed: showId=\(tvShow?.id ?? 0) season=\(newValue?.description ?? "nil")", type: "CrashProbe")
+        }
+        .onChangeComp(of: seasonDetail?.episodes.count) { _, newValue in
+            Logger.shared.log("TVShowSeasonsSection seasonDetail episodes changed: showId=\(tvShow?.id ?? 0) count=\(newValue?.description ?? "nil") season=\(seasonDetail?.seasonNumber.description ?? "nil")", type: "CrashProbe")
+        }
+        .onChangeComp(of: selectedEpisodeForSearch?.id) { _, _ in
+            Logger.shared.log("TVShowSeasonsSection selectedEpisode changed: showId=\(tvShow?.id ?? 0) episode=\(selectedEpisodeForSearch.map { "S\($0.seasonNumber)E\($0.episodeNumber):id\($0.id)" } ?? "nil")", type: "CrashProbe")
+        }
+        .onChangeComp(of: isLoadingSeason) { _, newValue in
+            Logger.shared.log("TVShowSeasonsSection isLoadingSeason changed: showId=\(tvShow?.id ?? 0) isLoading=\(newValue)", type: "CrashProbe")
+        }
+        .onChangeComp(of: showingSearchResults) { _, newValue in
+            Logger.shared.log("TVShowSeasonsSection showingSearchResults changed: showId=\(tvShow?.id ?? 0) visible=\(newValue) episode=\(selectedEpisodeForSearch.map { "S\($0.seasonNumber)E\($0.episodeNumber)" } ?? "nil")", type: "CrashProbe")
+        }
+        .onChangeComp(of: showingDownloadSheet) { _, newValue in
+            Logger.shared.log("TVShowSeasonsSection showingDownloadSheet changed: showId=\(tvShow?.id ?? 0) visible=\(newValue) episode=\((downloadEpisode ?? selectedEpisodeForSearch).map { "S\($0.seasonNumber)E\($0.episodeNumber)" } ?? "nil") queue=\(downloadAllQueue.count) downloadingAll=\(isDownloadingAll)", type: "CrashProbe")
+        }
         .sheet(isPresented: $showingSearchResults) {
+            let _ = Logger.shared.log("TVShowSeasonsSection constructing play sheet: showId=\(tvShow?.id ?? 0) title=\(getSearchTitle()) isAnime=\(isAnime) selectedEpisode=\(selectedEpisodeForSearch.map { "S\($0.seasonNumber)E\($0.episodeNumber)" } ?? "nil") originalTMDB=\(originalTMDBNumbers.map { "S\($0.season)E\($0.episode)" } ?? "nil") autoMode=\(UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled"))", type: "CrashProbe")
             ModulesSearchResultsSheet(
                 mediaTitle: getSearchTitle(),
                 seasonTitleOverride: currentSeasonTitle,
@@ -241,6 +273,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
             )
         }
         .sheet(isPresented: $showingDownloadSheet, onDismiss: {
+            Logger.shared.log("TVShowSeasonsSection download sheet dismissed: showId=\(tvShow?.id ?? 0) downloadingAll=\(isDownloadingAll) enqueued=\(downloadWasEnqueued) skipped=\(downloadWasSkipped) queue=\(downloadAllQueue.count)", type: "CrashProbe")
             if isDownloadingAll {
                 if downloadWasEnqueued || downloadWasSkipped {
                     // Download enqueued or skipped — advance to next episode
@@ -260,6 +293,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 }
             }
         }) {
+            let _ = Logger.shared.log("TVShowSeasonsSection constructing download sheet: showId=\(tvShow?.id ?? 0) title=\(getSearchTitle()) isAnime=\(isAnime) selectedEpisode=\((downloadEpisode ?? selectedEpisodeForSearch).map { "S\($0.seasonNumber)E\($0.episodeNumber)" } ?? "nil") originalTMDB=\(originalTMDBNumbers.map { "S\($0.season)E\($0.episode)" } ?? "nil") queue=\(downloadAllQueue.count) autoMode=\(UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled"))", type: "CrashProbe")
             ModulesSearchResultsSheet(
                 mediaTitle: getSearchTitle(),
                 seasonTitleOverride: currentSeasonTitle,
@@ -292,6 +326,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     
     @ViewBuilder
     private var episodesSectionHeader: some View {
+        let _ = Logger.shared.log("TVShowSeasonsSection construct episodesSectionHeader: showId=\(tvShow?.id ?? 0) hasSeasonDetail=\(seasonDetail != nil) hasActiveSources=\(hasActiveSources) grouped=\(isGroupedBySeasons) menu=\(useSeasonMenu)", type: "CrashProbe")
         HStack {
             Text("Episodes")
                 .font(.title2)
@@ -320,6 +355,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     @ViewBuilder
     private func seasonMenu(for tvShow: TMDBTVShowWithSeasons) -> some View {
         let seasons = tvShow.seasons.filter { $0.seasonNumber > 0 }
+        let _ = Logger.shared.log("TVShowSeasonsSection construct seasonMenu: showId=\(tvShow.id) seasons=\(seasons.count) related=\(relatedAnimeEntries.count) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") selectedRelated=\(selectedRelatedAniListId?.description ?? "nil")", type: "CrashProbe")
         
         if seasons.count > 1 {
             Menu {
@@ -360,6 +396,11 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 }
                 .foregroundColor(.white)
             }
+        } else {
+            EmptyView()
+                .onAppear {
+                    Logger.shared.log("TVShowSeasonsSection seasonMenu skipped: showId=\(tvShow.id) seasons=\(seasons.count)", type: "CrashProbe")
+                }
         }
     }
     
@@ -367,6 +408,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     private var seasonSelectorStyled: some View {
         if let tvShow = tvShow {
             let seasons = tvShow.seasons.filter { $0.seasonNumber > 0 }
+            let _ = Logger.shared.log("TVShowSeasonsSection construct seasonSelectorStyled: showId=\(tvShow.id) seasons=\(seasons.count) selected=\(selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
             if seasons.count > 1 {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -418,7 +460,17 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 .onAppear {
                     Logger.shared.log("TVShowSeasonsSection season selector appeared: showId=\(tvShow.id) seasons=\(seasons.count) selected=\(selectedSeason?.seasonNumber.description ?? "nil") summary=\(seasonDebugSummary(seasons))", type: "CrashProbe")
                 }
+            } else {
+                EmptyView()
+                    .onAppear {
+                        Logger.shared.log("TVShowSeasonsSection season selector skipped: showId=\(tvShow.id) seasons=\(seasons.count)", type: "CrashProbe")
+                    }
             }
+        } else {
+            EmptyView()
+                .onAppear {
+                    Logger.shared.log("TVShowSeasonsSection season selector missing tvShow", type: "CrashProbe")
+                }
         }
     }
 
@@ -482,6 +534,11 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
             .onAppear {
                 Logger.shared.log("TVShowSeasonsSection related selector appeared: showId=\(tvShow.id) visible=\(items.count) total=\(relatedAnimeEntries.count) selected=\(selectedRelatedAniListId?.description ?? "nil") summary=\(relatedEntriesDebugSummary())", type: "CrashProbe")
             }
+        } else {
+            EmptyView()
+                .onAppear {
+                    Logger.shared.log("TVShowSeasonsSection related selector skipped: showId=\(tvShow?.id ?? 0) isAnime=\(isAnime) related=\(relatedAnimeEntries.count) hasTVShow=\(tvShow != nil)", type: "CrashProbe")
+                }
         }
     }
 
@@ -490,6 +547,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
         Group {
             if let seasonDetail = seasonDetail {
                 let episodeItems = episodeRenderItems(for: seasonDetail)
+                let _ = Logger.shared.log("TVShowSeasonsSection construct episodeListSection with detail: showId=\(tvShow?.id ?? 0) season=\(seasonDetail.seasonNumber) count=\(episodeItems.count) horizontal=\(horizontalEpisodeList)", type: "CrashProbe")
                 if horizontalEpisodeList {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(alignment: .top, spacing: 15) {
@@ -514,6 +572,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                     .padding(.horizontal)
                 }
             } else if isLoadingSeason {
+                let _ = Logger.shared.log("TVShowSeasonsSection construct episodeListSection loading: showId=\(tvShow?.id ?? 0)", type: "CrashProbe")
                 VStack(spacing: 12) {
                     ProgressView()
                         .scaleEffect(1.2)
@@ -523,6 +582,11 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
+            } else {
+                EmptyView()
+                    .onAppear {
+                        Logger.shared.log("TVShowSeasonsSection episodeListSection empty: showId=\(tvShow?.id ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") selectedRelated=\(selectedRelatedAniListId?.description ?? "nil")", type: "CrashProbe")
+                    }
             }
         }
     }
@@ -548,19 +612,27 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 onMarkWatched: { markAsWatched(episode: episode) },
                 onResetProgress: { resetProgress(episode: episode) },
                 onDownload: {
+                    Logger.shared.log("TVShowSeasonsSection episode download tapped: showId=\(tvShow.id) episode=S\(episode.seasonNumber)E\(episode.episodeNumber) hasActiveSources=\(hasActiveSources)", type: "CrashProbe")
                     if hasActiveSources {
                         downloadEpisode = episode
                         selectedEpisodeForSearch = episode
                         showingDownloadSheet = true
+                    } else {
+                        showingNoServicesAlert = true
+                        Logger.shared.log("TVShowSeasonsSection episode download blocked no sources: showId=\(tvShow.id) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
                     }
                 }
             )
         } else {
             EmptyView()
+                .onAppear {
+                    Logger.shared.log("TVShowSeasonsSection createEpisodeCell missing tvShow: episode=S\(episode.seasonNumber)E\(episode.episodeNumber) index=\(index)", type: "CrashProbe")
+                }
         }
     }
     
     private func episodeTapAction(episode: TMDBEpisode) {
+        Logger.shared.log("TVShowSeasonsSection episode tapped: showId=\(tvShow?.id ?? 0) episode=S\(episode.seasonNumber)E\(episode.episodeNumber) id=\(episode.id)", type: "CrashProbe")
         selectedEpisodeForSearch = episode
         searchInServicesForEpisode(episode: episode)
     }
@@ -579,18 +651,28 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     }
     
     private func searchInServicesForEpisode(episode: TMDBEpisode) {
-        guard (tvShow?.name) != nil else { return }
-        
-        if !hasActiveSources {
-            showingNoServicesAlert = true
+        Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode begin: showId=\(tvShow?.id ?? 0) episode=S\(episode.seasonNumber)E\(episode.episodeNumber) hasActiveSources=\(hasActiveSources)", type: "CrashProbe")
+        guard (tvShow?.name) != nil else {
+            Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode aborted missing tvShow: episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
             return
         }
         
+        if !hasActiveSources {
+            showingNoServicesAlert = true
+            Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode blocked no sources: showId=\(tvShow?.id ?? 0) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
+            return
+        }
+        
+        Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode presenting: showId=\(tvShow?.id ?? 0) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
         showingSearchResults = true
     }
     
     private func markAsWatched(episode: TMDBEpisode) {
-        guard let tvShow = tvShow else { return }
+        guard let tvShow = tvShow else {
+            Logger.shared.log("TVShowSeasonsSection markAsWatched aborted missing tvShow: episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
+            return
+        }
+        Logger.shared.log("TVShowSeasonsSection markAsWatched: showId=\(tvShow.id) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
         ProgressManager.shared.markEpisodeAsWatched(
             showId: tvShow.id,
             seasonNumber: episode.seasonNumber,
@@ -599,7 +681,11 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     }
     
     private func resetProgress(episode: TMDBEpisode) {
-        guard let tvShow = tvShow else { return }
+        guard let tvShow = tvShow else {
+            Logger.shared.log("TVShowSeasonsSection resetProgress aborted missing tvShow: episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
+            return
+        }
+        Logger.shared.log("TVShowSeasonsSection resetProgress: showId=\(tvShow.id) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
         ProgressManager.shared.resetEpisodeProgress(
             showId: tvShow.id,
             seasonNumber: episode.seasonNumber,
@@ -654,12 +740,21 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
 
     private func applyInitialRelatedSelectionIfNeeded(tvShowId: Int) -> Bool {
         Logger.shared.log("TVShowSeasonsSection applyInitialRelated check: showId=\(tvShowId) didApply=\(didApplyInitialRelatedSelection) initial=\(initialRelatedAniListId?.description ?? "nil") related=\(relatedAnimeEntries.count)", type: "CrashProbe")
-        guard !didApplyInitialRelatedSelection,
-              let initialRelatedAniListId,
-              let entry = relatedAnimeEntries.first(where: { $0.id == initialRelatedAniListId })
-        else { return false }
+        guard !didApplyInitialRelatedSelection else {
+            Logger.shared.log("TVShowSeasonsSection applyInitialRelated skipped already applied: showId=\(tvShowId)", type: "CrashProbe")
+            return false
+        }
+        guard let initialRelatedAniListId else {
+            Logger.shared.log("TVShowSeasonsSection applyInitialRelated skipped no initial id: showId=\(tvShowId)", type: "CrashProbe")
+            return false
+        }
+        guard let entry = relatedAnimeEntries.first(where: { $0.id == initialRelatedAniListId }) else {
+            Logger.shared.log("TVShowSeasonsSection applyInitialRelated skipped missing entry: showId=\(tvShowId) initial=\(initialRelatedAniListId) relatedSummary=\(relatedEntriesDebugSummary())", type: "CrashProbe")
+            return false
+        }
 
         didApplyInitialRelatedSelection = true
+        Logger.shared.log("TVShowSeasonsSection applyInitialRelated selecting: showId=\(tvShowId) initial=\(initialRelatedAniListId)", type: "CrashProbe")
         selectRelatedEntry(entry, tvShowId: tvShowId)
         return true
     }
@@ -683,7 +778,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     }
     
     private func loadSeasonDetails(tvShowId: Int, season: TMDBSeason) {
-        Logger.shared.log("TVShowSeasonsSection loadSeasonDetails start: showId=\(tvShowId) season=\(season.seasonNumber) isAnime=\(isAnime)", type: "CrashProbe")
+        Logger.shared.log("TVShowSeasonsSection loadSeasonDetails start: showId=\(tvShowId) season=\(season.seasonNumber) seasonId=\(season.id) isAnime=\(isAnime) animeEpisodes=\(animeEpisodes?.count ?? 0)", type: "CrashProbe")
         selectedRelatedAniListId = nil
         currentSeasonTitle = isAnime ? (animeSeasonTitles?[season.seasonNumber] ?? season.name) : nil
         isLoadingSeason = true
@@ -691,6 +786,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
         selectedEpisodeForSearch = nil
         
         Task {
+            Logger.shared.log("TVShowSeasonsSection loadSeasonDetails task entered: showId=\(tvShowId) season=\(season.seasonNumber) isAnime=\(isAnime)", type: "CrashProbe")
             do {
                 // For anime, build season detail from cached AniList episodes with TMDB metadata
                 if isAnime, let animeEpisodes = animeEpisodes {
@@ -724,22 +820,30 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                     )
                     
                     await MainActor.run {
+                        Logger.shared.log("TVShowSeasonsSection loadSeasonDetails anime assign begin: showId=\(tvShowId) season=\(season.seasonNumber)", type: "CrashProbe")
                         self.seasonDetail = detail
                         self.isLoadingSeason = false
                         if let firstEpisode = detail.episodes.first {
                             self.selectedEpisodeForSearch = firstEpisode
+                            Logger.shared.log("TVShowSeasonsSection loadSeasonDetails anime selected first: showId=\(tvShowId) episode=S\(firstEpisode.seasonNumber)E\(firstEpisode.episodeNumber)", type: "CrashProbe")
+                        } else {
+                            Logger.shared.log("TVShowSeasonsSection loadSeasonDetails anime no first episode: showId=\(tvShowId) season=\(season.seasonNumber)", type: "CrashProbe")
                         }
                         Logger.shared.log("TVShowSeasonsSection loadSeasonDetails anime done: showId=\(tvShowId) season=\(season.seasonNumber) episodes=\(detail.episodes.count)", type: "CrashProbe")
                     }
                 } else {
                     // For regular TV shows, fetch from TMDB
-                    Logger.shared.log("TVShowSeasonsSection loadSeasonDetails tmdb fetch begin: showId=\(tvShowId) season=\(season.seasonNumber)", type: "CrashProbe")
+                    Logger.shared.log("TVShowSeasonsSection loadSeasonDetails tmdb fetch begin: showId=\(tvShowId) season=\(season.seasonNumber) reason=\(isAnime ? "anime-without-episodes" : "regular-tv")", type: "CrashProbe")
                     let detail = try await tmdbService.getSeasonDetails(tvShowId: tvShowId, seasonNumber: season.seasonNumber)
                     await MainActor.run {
+                        Logger.shared.log("TVShowSeasonsSection loadSeasonDetails tmdb assign begin: showId=\(tvShowId) season=\(season.seasonNumber)", type: "CrashProbe")
                         self.seasonDetail = detail
                         self.isLoadingSeason = false
                         if let firstEpisode = detail.episodes.first {
                             self.selectedEpisodeForSearch = firstEpisode
+                            Logger.shared.log("TVShowSeasonsSection loadSeasonDetails tmdb selected first: showId=\(tvShowId) episode=S\(firstEpisode.seasonNumber)E\(firstEpisode.episodeNumber)", type: "CrashProbe")
+                        } else {
+                            Logger.shared.log("TVShowSeasonsSection loadSeasonDetails tmdb no first episode: showId=\(tvShowId) season=\(season.seasonNumber)", type: "CrashProbe")
                         }
                         Logger.shared.log("TVShowSeasonsSection loadSeasonDetails tmdb done: showId=\(tvShowId) season=\(season.seasonNumber) episodes=\(detail.episodes.count)", type: "CrashProbe")
                     }
@@ -772,24 +876,32 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     }
     
     private func startDownloadAllSeason() {
-        guard let episodes = seasonDetail?.episodes, !episodes.isEmpty else { return }
+        Logger.shared.log("TVShowSeasonsSection startDownloadAllSeason begin: showId=\(tvShow?.id ?? 0) season=\(seasonDetail?.seasonNumber.description ?? "nil") episodes=\(seasonDetail?.episodes.count ?? 0) hasActiveSources=\(hasActiveSources)", type: "CrashProbe")
+        guard let episodes = seasonDetail?.episodes, !episodes.isEmpty else {
+            Logger.shared.log("TVShowSeasonsSection startDownloadAllSeason aborted no episodes: showId=\(tvShow?.id ?? 0)", type: "CrashProbe")
+            return
+        }
         isDownloadingAll = true
         downloadAllQueue = Array(episodes.dropFirst())
         if let first = episodes.first {
             downloadEpisode = first
             selectedEpisodeForSearch = first
+            Logger.shared.log("TVShowSeasonsSection startDownloadAllSeason presenting first: showId=\(tvShow?.id ?? 0) first=S\(first.seasonNumber)E\(first.episodeNumber) remaining=\(downloadAllQueue.count)", type: "CrashProbe")
             showingDownloadSheet = true
         }
     }
     
     private func showNextDownloadSheet() {
+        Logger.shared.log("TVShowSeasonsSection showNextDownloadSheet begin: showId=\(tvShow?.id ?? 0) queue=\(downloadAllQueue.count)", type: "CrashProbe")
         guard !downloadAllQueue.isEmpty else {
             isDownloadingAll = false
+            Logger.shared.log("TVShowSeasonsSection showNextDownloadSheet completed queue: showId=\(tvShow?.id ?? 0)", type: "CrashProbe")
             return
         }
         let next = downloadAllQueue.removeFirst()
         downloadEpisode = next
         selectedEpisodeForSearch = next
+        Logger.shared.log("TVShowSeasonsSection showNextDownloadSheet presenting next: showId=\(tvShow?.id ?? 0) episode=S\(next.seasonNumber)E\(next.episodeNumber) remaining=\(downloadAllQueue.count)", type: "CrashProbe")
         showingDownloadSheet = true
     }
 }
