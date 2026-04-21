@@ -25,7 +25,8 @@ private actor AniListRateLimiter {
 }
 
 private let continuationRelationTypes: Set<String> = ["SEQUEL", "PREQUEL", "SEASON"]
-private let relatedAnimeFetchLimit = 12
+private let relatedAnimeFetchLimit = 8
+private let relatedAnimeEpisodeLimit = 200
 
 final class AniListService {
     static let shared = AniListService()
@@ -1001,6 +1002,7 @@ final class AniListService {
         forcedCandidates: [AniListAnime],
         excludedIds: Set<Int>
     ) -> [AniListRelatedAnimeEntry] {
+        Logger.shared.log("AniListService: related build start animeList=\(animeList.count) forced=\(forcedCandidates.count) excluded=\(excludedIds.count)", type: "CrashProbe")
         var candidates: [RelatedCandidate] = []
         var skippedContinuation = 0
         var skippedExcluded = 0
@@ -1067,7 +1069,7 @@ final class AniListService {
             }
             guard !trimmedTitle.isEmpty else { continue }
 
-            let episodeCount = max(1, candidate.episodes ?? 1)
+            let episodeCount = min(max(1, candidate.episodes ?? 1), relatedAnimeEpisodeLimit)
             let virtualSeasonNumber = -candidate.id
             let episodes = (1...episodeCount).map { number in
                 AniListEpisode(
@@ -1097,6 +1099,9 @@ final class AniListService {
         }
 
         Logger.shared.log("AniListService: related entries built kept=\(output.count) raw=\(candidates.count) skippedContinuation=\(skippedContinuation) skippedExcluded=\(skippedExcluded) skippedDuplicate=\(skippedDuplicate)", type: "CrashProbe")
+        for entry in output {
+            Logger.shared.log("AniListService: related entry kept id=\(entry.id) relation=\(entry.relationType) format=\(entry.format ?? "nil") episodeCount=\(entry.episodeCount) syntheticEpisodes=\(entry.episodes.count)", type: "CrashProbe")
+        }
         return output
     }
     

@@ -555,6 +555,9 @@ struct MediaDetailView: View {
                 
                 StarRatingView(mediaId: searchResult.id)
             }
+            .onAppear {
+                Logger.shared.log("MediaDetailView episodesSection appeared: tmdbId=\(searchResult.id) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(anilistEpisodes?.count ?? 0) related=\(relatedAnimeEntries.count)", type: "CrashProbe")
+            }
         }
     }
     
@@ -739,6 +742,7 @@ struct MediaDetailView: View {
                 self.castMembers = cached.castMembers
                 self.isLoading = false
                 self.hasLoadedContent = true
+                Logger.shared.log("MediaDetail cache state applied: key=\(detailCacheKey) tvSeasons=\(cached.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(cached.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(cached.anilistEpisodes?.count ?? 0) related=\(cached.relatedAnimeEntries.count) initialRelated=\(cached.initialRelatedAniListId?.description ?? "nil")", type: "CrashProbe")
             }
             return
         }
@@ -951,6 +955,7 @@ struct MediaDetailView: View {
                                 seasonTitles[season.seasonNumber] = season.title
                                 allEpisodes.append(contentsOf: season.episodes)
                             }
+                            Logger.shared.log("MediaDetailView: anime state preassign tmdbId=\(detail.id) aniSeasons=\(aniSeasons.count) allEpisodes=\(allEpisodes.count) seasonTitles=\(seasonTitles.count) related=\(animeData.relatedEntries.count) relatedSummary=\(animeData.relatedEntries.prefix(8).map { "\($0.id):\($0.format ?? "nil"):\($0.relationType):eps\($0.episodeCount)" }.joined(separator: "|"))", type: "CrashProbe")
                             self.animeSeasonTitles = seasonTitles
                             self.anilistEpisodes = allEpisodes
                             self.relatedAnimeEntries = animeData.relatedEntries
@@ -959,6 +964,7 @@ struct MediaDetailView: View {
                             
                             if let firstSeason = aniSeasons.first {
                                 self.selectedSeason = firstSeason
+                                Logger.shared.log("MediaDetailView: selected first AniList season tmdbId=\(detail.id) season=\(firstSeason.seasonNumber) episodeCount=\(firstSeason.episodeCount)", type: "CrashProbe")
                             }
                         } else {
                             // Fallback to TMDB seasons
@@ -977,6 +983,7 @@ struct MediaDetailView: View {
                         self.selectedEpisodeForSearch = nil
                         self.isLoading = false
                         self.hasLoadedContent = true
+                        Logger.shared.log("MediaDetailView: state applied tmdbId=\(searchResult.id) isAnime=\(self.isAnimeShow) tvSeasons=\(self.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(self.anilistEpisodes?.count ?? 0) related=\(self.relatedAnimeEntries.count) hasLoaded=\(self.hasLoadedContent)", type: "CrashProbe")
                         
                         // Store in view-level cache for instant back-navigation
                         MediaDetailCacheStore.shared.set(key: detailCacheKey, detail: .init(
@@ -994,6 +1001,7 @@ struct MediaDetailView: View {
                             castMembers: self.castMembers,
                             timestamp: Date()
                         ))
+                        Logger.shared.log("MediaDetailView: cache stored key=\(detailCacheKey) related=\(self.relatedAnimeEntries.count) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
                     }
                     Logger.shared.log("TV detail fetch complete: tmdbId=\(searchResult.id)", type: "CrashProbe")
                 }

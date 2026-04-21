@@ -56,6 +56,12 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
         let episode: TMDBEpisode
     }
 
+    private struct RelatedRenderItem: Identifiable {
+        let id: String
+        let index: Int
+        let entry: AniListRelatedAnimeEntry
+    }
+
     private func episodeRenderItems(for detail: TMDBSeasonDetail) -> [EpisodeRenderItem] {
         detail.episodes.enumerated().map { index, episode in
             EpisodeRenderItem(
@@ -64,6 +70,28 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 episode: episode
             )
         }
+    }
+
+    private func relatedRenderItems() -> [RelatedRenderItem] {
+        relatedAnimeEntries.prefix(8).enumerated().map { index, entry in
+            RelatedRenderItem(
+                id: "\(entry.id)-\(entry.format ?? "unknown")-\(entry.relationType)-\(index)",
+                index: index,
+                entry: entry
+            )
+        }
+    }
+
+    private func relatedEntriesDebugSummary(limit: Int = 8) -> String {
+        relatedAnimeEntries.prefix(limit).map { entry in
+            "\(entry.id):\(entry.format ?? "nil"):\(entry.relationType):eps\(entry.episodeCount)"
+        }.joined(separator: "|")
+    }
+
+    private func seasonDebugSummary(_ seasons: [TMDBSeason], limit: Int = 8) -> String {
+        seasons.prefix(limit).map { season in
+            "s\(season.seasonNumber):id\(season.id):eps\(season.episodeCount)"
+        }.joined(separator: "|")
     }
     
     private func getSearchTitle() -> String {
@@ -169,6 +197,10 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
             }
         }
         .onAppear {
+            Logger.shared.log(
+                "TVShowSeasonsSection appear begin: showId=\(tvShow?.id ?? 0) isAnime=\(isAnime) seasons=\(tvShow?.seasons.count ?? 0) grouped=\(isGroupedBySeasons) menu=\(useSeasonMenu) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") seasonDetailEpisodes=\(seasonDetail?.episodes.count ?? 0) animeEpisodes=\(animeEpisodes?.count ?? 0) related=\(relatedAnimeEntries.count) initialRelated=\(initialRelatedAniListId?.description ?? "nil") relatedSummary=\(relatedEntriesDebugSummary())",
+                type: "CrashProbe"
+            )
             if let tvShow = tvShow, let selectedSeason = selectedSeason {
                 if applyInitialRelatedSelectionIfNeeded(tvShowId: tvShow.id) {
                     Logger.shared.log("TVShowSeasonsSection auto-selected related id=\(selectedRelatedAniListId ?? 0) showId=\(tvShow.id)", type: "CrashProbe")
@@ -181,10 +213,13 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                         self.romajiTitle = romaji
                     }
                 }
+            } else {
+                Logger.shared.log("TVShowSeasonsSection appear missing required state: hasTVShow=\(tvShow != nil) hasSelectedSeason=\(selectedSeason != nil)", type: "CrashProbe")
             }
         }
         .onChangeComp(of: initialRelatedAniListId) { _, _ in
             if let tvShow = tvShow {
+                Logger.shared.log("TVShowSeasonsSection initialRelated changed: showId=\(tvShow.id) initial=\(initialRelatedAniListId?.description ?? "nil") related=\(relatedAnimeEntries.count)", type: "CrashProbe")
                 _ = applyInitialRelatedSelectionIfNeeded(tvShowId: tvShow.id)
             }
         }
@@ -380,6 +415,9 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                     }
                     .padding(.horizontal)
                 }
+                .onAppear {
+                    Logger.shared.log("TVShowSeasonsSection season selector appeared: showId=\(tvShow.id) seasons=\(seasons.count) selected=\(selectedSeason?.seasonNumber.description ?? "nil") summary=\(seasonDebugSummary(seasons))", type: "CrashProbe")
+                }
             }
         }
     }
@@ -387,6 +425,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     @ViewBuilder
     private var relatedAnimeSelector: some View {
         if isAnime && !relatedAnimeEntries.isEmpty, let tvShow = tvShow {
+            let items = relatedRenderItems()
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("Specials & Related")
@@ -399,45 +438,39 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(relatedAnimeEntries) { entry in
+                        ForEach(items) { item in
+                            let entry = item.entry
                             Button(action: {
                                 selectRelatedEntry(entry, tvShowId: tvShow.id)
                             }) {
-                                VStack(spacing: 8) {
-                                    KFImage(URL(string: entry.posterUrl ?? ""))
-                                        .placeholder {
-                                            Rectangle()
-                                                .fill(Color.gray.opacity(0.3))
-                                                .frame(width: 80, height: 120)
-                                                .overlay(
-                                                    Image(systemName: relatedIconName(for: entry))
-                                                        .font(.title2)
-                                                        .foregroundColor(.white.opacity(0.7))
-                                                )
-                                        }
-                                        .resizable()
-                                        .aspectRatio(2/3, contentMode: .fill)
-                                        .frame(width: 80, height: 120)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(selectedRelatedAniListId == entry.id ? Color.accentColor : Color.clear, lineWidth: 2)
-                                        )
-
-                                    Text(entry.title)
+                                HStack(spacing: 8) {
+                                    Image(systemName: relatedIconName(for: entry))
                                         .font(.caption)
-                                        .fontWeight(.medium)
-                                        .lineLimit(2)
-                                        .multilineTextAlignment(.center)
-                                        .frame(width: 86, height: 34)
-                                        .foregroundColor(selectedRelatedAniListId == entry.id ? .accentColor : .white)
+                                        .foregroundColor(selectedRelatedAniListId == entry.id ? .accentColor : .white.opacity(0.75))
 
-                                    Text(relatedLabel(for: entry))
-                                        .font(.caption2)
-                                        .lineLimit(1)
-                                        .foregroundColor(.white.opacity(0.65))
-                                        .frame(width: 86)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(entry.title)
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .lineLimit(1)
+
+                                        Text(relatedLabel(for: entry))
+                                            .font(.caption2)
+                                            .lineLimit(1)
+                                            .foregroundColor(.white.opacity(0.65))
+                                    }
                                 }
+                                .frame(width: 160, height: 48, alignment: .leading)
+                                .padding(.horizontal, 10)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(selectedRelatedAniListId == entry.id ? Color.accentColor.opacity(0.18) : Color.white.opacity(0.08))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(selectedRelatedAniListId == entry.id ? Color.accentColor : Color.white.opacity(0.12), lineWidth: 1)
+                                )
+                                .foregroundColor(selectedRelatedAniListId == entry.id ? .accentColor : .white)
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
@@ -446,6 +479,9 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 }
             }
             .padding(.top, 4)
+            .onAppear {
+                Logger.shared.log("TVShowSeasonsSection related selector appeared: showId=\(tvShow.id) visible=\(items.count) total=\(relatedAnimeEntries.count) selected=\(selectedRelatedAniListId?.description ?? "nil") summary=\(relatedEntriesDebugSummary())", type: "CrashProbe")
+            }
         }
     }
 
@@ -572,6 +608,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     }
 
     private func selectSeason(_ season: TMDBSeason, tvShowId: Int) {
+        Logger.shared.log("TVShowSeasonsSection selectSeason begin: showId=\(tvShowId) season=\(season.seasonNumber) previousRelated=\(selectedRelatedAniListId?.description ?? "nil")", type: "CrashProbe")
         selectedRelatedAniListId = nil
         selectedSeason = season
         currentSeasonTitle = isAnime ? (animeSeasonTitles?[season.seasonNumber] ?? season.name) : nil
@@ -580,6 +617,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     }
 
     private func selectRelatedEntry(_ entry: AniListRelatedAnimeEntry, tvShowId: Int) {
+        Logger.shared.log("TVShowSeasonsSection selectRelated begin: showId=\(tvShowId) anilistId=\(entry.id) relation=\(entry.relationType) format=\(entry.format ?? "nil") entryEpisodes=\(entry.episodes.count) episodeCount=\(entry.episodeCount)", type: "CrashProbe")
         selectedRelatedAniListId = entry.id
         selectedSeason = nil
         currentSeasonTitle = entry.title
@@ -599,6 +637,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 voteCount: 0
             )
         }
+        Logger.shared.log("TVShowSeasonsSection selectRelated mapped episodes: showId=\(tvShowId) anilistId=\(entry.id) tmdbEpisodes=\(episodes.count) first=\(episodes.first?.episodeNumber.description ?? "nil") seasonNumber=\(episodes.first?.seasonNumber.description ?? "nil")", type: "CrashProbe")
 
         seasonDetail = TMDBSeasonDetail(
             id: -entry.id,
@@ -610,10 +649,11 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
             episodes: episodes
         )
         selectedEpisodeForSearch = episodes.first
-        Logger.shared.log("TVShowSeasonsSection selected related: showId=\(tvShowId) anilistId=\(entry.id) title=\(entry.title) episodes=\(episodes.count)", type: "CrashProbe")
+        Logger.shared.log("TVShowSeasonsSection selected related assigned: showId=\(tvShowId) anilistId=\(entry.id) title=\(entry.title) episodes=\(episodes.count) selectedEpisode=\(selectedEpisodeForSearch?.episodeNumber.description ?? "nil")", type: "CrashProbe")
     }
 
     private func applyInitialRelatedSelectionIfNeeded(tvShowId: Int) -> Bool {
+        Logger.shared.log("TVShowSeasonsSection applyInitialRelated check: showId=\(tvShowId) didApply=\(didApplyInitialRelatedSelection) initial=\(initialRelatedAniListId?.description ?? "nil") related=\(relatedAnimeEntries.count)", type: "CrashProbe")
         guard !didApplyInitialRelatedSelection,
               let initialRelatedAniListId,
               let entry = relatedAnimeEntries.first(where: { $0.id == initialRelatedAniListId })
@@ -655,6 +695,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 // For anime, build season detail from cached AniList episodes with TMDB metadata
                 if isAnime, let animeEpisodes = animeEpisodes {
                     let seasonEpisodes = animeEpisodes.filter { $0.seasonNumber == season.seasonNumber }
+                    Logger.shared.log("TVShowSeasonsSection loadSeasonDetails anime filtered: showId=\(tvShowId) season=\(season.seasonNumber) sourceEpisodes=\(animeEpisodes.count) filtered=\(seasonEpisodes.count)", type: "CrashProbe")
                     
                     let tmdbEpisodes: [TMDBEpisode] = seasonEpisodes.map { aniEp in
                         TMDBEpisode(
@@ -670,6 +711,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                             voteCount: 0
                         )
                     }
+                    Logger.shared.log("TVShowSeasonsSection loadSeasonDetails anime mapped: showId=\(tvShowId) season=\(season.seasonNumber) mapped=\(tmdbEpisodes.count) first=\(tmdbEpisodes.first?.episodeNumber.description ?? "nil")", type: "CrashProbe")
                     
                     let detail = TMDBSeasonDetail(
                         id: season.id,
@@ -691,6 +733,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                     }
                 } else {
                     // For regular TV shows, fetch from TMDB
+                    Logger.shared.log("TVShowSeasonsSection loadSeasonDetails tmdb fetch begin: showId=\(tvShowId) season=\(season.seasonNumber)", type: "CrashProbe")
                     let detail = try await tmdbService.getSeasonDetails(tvShowId: tvShowId, seasonNumber: season.seasonNumber)
                     await MainActor.run {
                         self.seasonDetail = detail
