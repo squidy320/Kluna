@@ -1,0 +1,242 @@
+name: Release And Update SideStore
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - source.json
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build, Release, And Update Source
+    runs-on: macos-latest
+    env:
+      PROJECT_PATH: Luna.xcodeproj
+      SCHEME: Luna
+      CONFIGURATION: Release
+      IOS_IPA_NAME: Luna.ipa
+      TVOS_IPA_NAME: Luna-tvOS.ipa
+      SOURCE_JSON: source.json
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Resolve app metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUILD_SETTINGS="$(xcodebuild -project "$PROJECT_PATH" -scheme "$SCHEME" -configuration "$CONFIGURATION" -showBuildSettings)"
+
+          APP_VERSION="$(printf '%s\n' "$BUILD_SETTINGS" | awk -F' = ' '/MARKETING_VERSION/ {print $2; exit}')"
+          BUILD_NUMBER="$(printf '%s\n' "$BUILD_SETTINGS" | awk -F' = ' '/CURRENT_PROJECT_VERSION/ {print $2; exit}')"
+          PRODUCT_NAME="$(printf '%s\n' "$BUILD_SETTINGS" | awk -F' = ' '/PRODUCT_NAME/ {print $2; exit}')"
+
+          if [[ -z "${APP_VERSION:-}" || -z "${BUILD_NUMBER:-}" || -z "${PRODUCT_NAME:-}" ]]; then
+            echo "Failed to resolve MARKETING_VERSION, CURRENT_PROJECT_VERSION, or PRODUCT_NAME from Xcode build settings."
+            exit 1
+          fi
+
+          DATE_STAMP="$(date -u +%Y%m%d)"
+          RELEASE_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          TAG_NAME="v${APP_VERSION}-${DATE_STAMP}.${BUILD_NUMBER}"
+          RELEASE_NAME="${PRODUCT_NAME} ${APP_VERSION} (${BUILD_NUMBER})"
+          COMMIT_MESSAGE="$(git log -1 --pretty=%s | tr '\n' ' ' | sed 's/"/\\"/g')"
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/latest/download/$IOS_IPA_NAME"
+
+          {
+            echo "APP_VERSION=$APP_VERSION"
+            echo "BUILD_NUMBER=$BUILD_NUMBER"
+            echo "PRODUCT_NAME=$PRODUCT_NAME"
+            echo "DATE_STAMP=$DATE_STAMP"
+            echo "RELEASE_DATE=$RELEASE_DATE"
+            echo "TAG_NAME=$TAG_NAME"
+            echo "RELEASE_NAME=$RELEASE_NAME"
+            echo "COMMIT_MESSAGE=$COMMIT_MESSAGE"
+            echo "DOWNLOAD_URL=$DOWNLOAD_URL"
+          } >> "$GITHUB_ENV"
+
+      - name: Make build script executable
+        run: chmod +x ./ipabuild.sh
+
+      - name: Build iOS IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p artifacts
+          ./ipabuild.sh ios
+
+          if [[ ! -f "build/$IOS_IPA_NAME" ]]; then
+            echo "iOS IPA was not created."
+            exit 1
+          fi
+
+          cp "build/$IOS_IPA_NAME" "artifacts/$IOS_IPA_NAME"
+          IPA_SIZE="$(stat -f%z "artifacts/$IOS_IPA_NAME")"
+          echo "IPA_SIZE=$IPA_SIZE" >> "$GITHUB_ENV"
+          echo "IOS_IPA_PATH=artifacts/$IOS_IPA_NAME" >> "$GITHUB_ENV"
+
+      - name: Build tvOS IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ./ipabuild.sh tvos
+
+          if [[ ! -f "build/$TVOS_IPA_NAME" ]]; then
+            echo "tvOS IPA was not created."
+            exit 1
+          fi
+
+          cp "build/$TVOS_IPA_NAME" "artifacts/$TVOS_IPA_NAME"
+          echo "TVOS_IPA_PATH=artifacts/$TVOS_IPA_NAME" >> "$GITHUB_ENV"
+
+      - name: Create GitHub release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.RELEASE_NAME }}
+          generate_release_notes: true
+          files: |
+            ${{ env.IOS_IPA_PATH }}
+            ${{ env.TVOS_IPA_PATH }}
+
+      - name: Ensure source.json exists
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -s "$SOURCE_JSON" ]]; then
+            cat <<'EOF' > "$SOURCE_JSON"
+          {
+            "name": "Luna",
+            "identifier": "me.cranci.solar",
+            "subtitle": "SideStore source for Luna",
+            "description": "Automated releases for Luna.",
+            "apps": [
+              {
+                "name": "Luna",
+                "bundleIdentifier": "me.cranci.solar",
+                "developerName": "Squidy",
+                "iconURL": "",
+                "localizedDescription": "Automated SideStore distribution for Luna.",
+                "downloadURL": "",
+                "version": "",
+                "versionDate": "",
+                "date": "",
+                "size": 0,
+                "versionDescription": ""
+              }
+            ],
+            "news": []
+          }
+          EOF
+          fi
+
+      - name: Update SideStore source.json
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! jq empty "$SOURCE_JSON" >/dev/null 2>&1; then
+            echo "source.json is invalid JSON; replacing it with a default structure."
+            cat <<'EOF' > "$SOURCE_JSON"
+          {
+            "name": "Luna",
+            "identifier": "me.cranci.solar",
+            "subtitle": "SideStore source for Luna",
+            "description": "Automated releases for Luna.",
+            "apps": [
+              {
+                "name": "Luna",
+                "bundleIdentifier": "me.cranci.solar",
+                "developerName": "Squidy",
+                "iconURL": "",
+                "localizedDescription": "Automated SideStore distribution for Luna.",
+                "downloadURL": "",
+                "version": "",
+                "versionDate": "",
+                "date": "",
+                "size": 0,
+                "versionDescription": ""
+              }
+            ],
+            "news": []
+          }
+          EOF
+          fi
+
+          jq \
+            --arg productName "$PRODUCT_NAME" \
+            --arg version "$APP_VERSION" \
+            --arg releaseDate "$RELEASE_DATE" \
+            --arg downloadURL "$DOWNLOAD_URL" \
+            --arg changelog "$COMMIT_MESSAGE" \
+            --argjson size "$IPA_SIZE" \
+            '
+            .apps = (
+              if (.apps | type) == "array" and (.apps | length) > 0
+              then .apps
+              else [
+                {
+                  "name": $productName,
+                  "bundleIdentifier": "me.cranci.solar",
+                  "developerName": "Squidy",
+                  "iconURL": "",
+                  "localizedDescription": "Automated SideStore distribution for Luna.",
+                  "downloadURL": "",
+                  "version": "",
+                  "versionDate": "",
+                  "date": "",
+                  "size": 0,
+                  "versionDescription": ""
+                }
+              ]
+              end
+            )
+            | .apps[0].version = $version
+            | .apps[0].versionDate = $releaseDate
+            | .apps[0].date = $releaseDate
+            | .apps[0].size = $size
+            | .apps[0].downloadURL = $downloadURL
+            | .apps[0].versionDescription = $changelog
+            | .news = (
+              if (.news | type) == "array"
+              then .news
+              else []
+              end
+            )
+            | .news = [
+              {
+                "title": ("Release " + $version),
+                "caption": $changelog,
+                "date": $releaseDate
+              }
+            ] + (.news | .[0:9])
+            ' "$SOURCE_JSON" > "$SOURCE_JSON.tmp"
+
+          mv "$SOURCE_JSON.tmp" "$SOURCE_JSON"
+
+      - name: Commit updated source.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update SideStore source for ${{ env.TAG_NAME }}"
+          file_pattern: source.json

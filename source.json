@@ -1,0 +1,28 @@
+{
+  "name": "Luna",
+  "identifier": "me.cranci.solar",
+  "subtitle": "SideStore source for Luna",
+  "description": "Automated releases for Luna.",
+  "apps": [
+    {
+      "name": "Luna",
+      "bundleIdentifier": "me.cranci.solar",
+      "developerName": "Squidy",
+      "iconURL": "",
+      "localizedDescription": "Automated SideStore distribution for Luna.",
+      "downloadURL": "https://github.com/squidy/Kluna/releases/latest/download/Luna.ipa",
+      "version": "1.0.0",
+      "versionDate": "2026-04-22T00:00:00Z",
+      "date": "2026-04-22T00:00:00Z",
+      "size": 0,
+      "versionDescription": "Initial automated release pipeline."
+    }
+  ],
+  "news": [
+    {
+      "title": "Release 1.0.0",
+      "caption": "Initial automated release pipeline.",
+      "date": "2026-04-22T00:00:00Z"
+    }
+  ]
+}
