@@ -32,15 +32,15 @@ struct DiscoverDetailView: View {
                 }
                 
                 LazyVGrid(columns: columns, spacing: 20) {
-                    ForEach(items) { item in
+                    ForEach(items, id: \.stableIdentity) { item in
                         NavigationLink(destination: MediaDetailView(searchResult: item)
-                            .heroDestination(id: "discover-\(item.id)", namespace: heroNamespace)
+                            .heroDestination(id: "discover-\(item.stableIdentity)", namespace: heroNamespace)
                         ) {
                             discoverCard(item)
                         }
                         .buttonStyle(PlainButtonStyle())
                         .onAppear {
-                            if item.id == items.last?.id {
+                            if item.stableIdentity == items.last?.stableIdentity {
                                 loadNextPage()
                             }
                         }
@@ -131,7 +131,7 @@ struct DiscoverDetailView: View {
                 .aspectRatio(2/3, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 3)
-                .heroSource(id: "discover-\(item.id)", namespace: heroNamespace)
+                .heroSource(id: "discover-\(item.stableIdentity)", namespace: heroNamespace)
             
             Text(item.displayTitle)
                 .font(.caption)
@@ -171,8 +171,8 @@ struct DiscoverDetailView: View {
                 if newItems.isEmpty {
                     hasMorePages = false
                 } else {
-                    let existingIds = Set(items.map { $0.id })
-                    let unique = newItems.filter { !existingIds.contains($0.id) }
+                    let existingIds = Set(items.map { $0.stableIdentity })
+                    let unique = newItems.filter { !existingIds.contains($0.stableIdentity) }
                     items.append(contentsOf: unique)
                 }
                 isLoadingMore = false

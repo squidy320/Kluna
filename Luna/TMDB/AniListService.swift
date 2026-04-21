@@ -883,17 +883,43 @@ final class AniListService {
     private func buildRelatedEntries(from anime: AniListAnime) -> [AniListRelatedEntry] {
         // Exclude direct continuation relations (SEQUEL, PREQUEL, SEASON in excludedRelatedMediaRelations)
         // because they already power the main season flow.
+        let rawEdges = anime.relations?.edges ?? []
         var seen = Set<Int>()
         var output: [AniListRelatedEntry] = []
+        var skippedNonAnime = 0
+        var skippedSelf = 0
+        var skippedContinuation = 0
+        var skippedDuplicate = 0
+        var skippedEmptyTitle = 0
 
-        for edge in anime.relations?.edges ?? [] {
-            guard edge.node.type == "ANIME" else { continue }
-            guard edge.node.id != anime.id else { continue }
-            guard !excludedRelatedMediaRelations.contains(edge.relationType) else { continue }
-            guard seen.insert(edge.node.id).inserted else { continue }
+        Logger.shared.log(
+            "AniListService: buildRelatedEntries start animeId=\(anime.id) rawEdges=\(rawEdges.count)",
+            type: "CrashProbe"
+        )
+
+        for edge in rawEdges {
+            guard edge.node.type == "ANIME" else {
+                skippedNonAnime += 1
+                continue
+            }
+            guard edge.node.id != anime.id else {
+                skippedSelf += 1
+                continue
+            }
+            guard !excludedRelatedMediaRelations.contains(edge.relationType) else {
+                skippedContinuation += 1
+                continue
+            }
+            guard seen.insert(edge.node.id).inserted else {
+                skippedDuplicate += 1
+                continue
+            }
 
             let relatedTitle = AniListTitlePicker.title(from: edge.node.title, preferredLanguageCode: preferredLanguageCode)
-            guard !relatedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+            guard !relatedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                skippedEmptyTitle += 1
+                continue
+            }
 
             output.append(AniListRelatedEntry(
                 id: edge.node.id,
@@ -903,7 +929,7 @@ final class AniListService {
             ))
         }
 
-        return output.sorted {
+        let sorted = output.sorted {
             let relationOrder: [String: Int] = [
                 "SIDE_STORY": 0,
                 "SPIN_OFF": 1,
@@ -918,6 +944,13 @@ final class AniListService {
             }
             return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
         }
+
+        Logger.shared.log(
+            "AniListService: buildRelatedEntries done animeId=\(anime.id) kept=\(sorted.count) skippedNonAnime=\(skippedNonAnime) skippedSelf=\(skippedSelf) skippedContinuation=\(skippedContinuation) skippedDuplicate=\(skippedDuplicate) skippedEmptyTitle=\(skippedEmptyTitle)",
+            type: "CrashProbe"
+        )
+
+        return sorted
     }
 
     private func pickBestAniListMatch(from candidates: [AniListAnime], tmdbShow: TMDBTVShowWithSeasons?) -> AniListAnime {

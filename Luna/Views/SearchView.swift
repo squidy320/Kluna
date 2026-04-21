@@ -337,7 +337,7 @@ struct SearchView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: columnsCount), spacing: 16) {
-                    ForEach(filteredResults) { result in
+                    ForEach(filteredResults, id: \.stableIdentity) { result in
                         SearchResultCard(result: result)
                     }
                 }

@@ -84,7 +84,7 @@ struct LibraryView: View {
                         // Show oldest bookmarks first so order is predictable
                         ForEach(bookmarksCollection.items.sorted(by: { $0.dateAdded < $1.dateAdded })) { item in
                             NavigationLink(destination: MediaDetailView(searchResult: item.searchResult)
-                                .heroDestination(id: "media-\(item.searchResult.id)", namespace: heroNamespace)
+                                .heroDestination(id: "media-\(item.searchResult.stableIdentity)", namespace: heroNamespace)
                             ) {
                                 BookmarkItemCard(item: item)
                             }
@@ -182,7 +182,7 @@ struct BookmarkItemCard: View {
                 .frame(width: 120 * iPadScale, height: 180 * iPadScale)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
-                .heroSource(id: "media-\(item.searchResult.id)", namespace: heroNamespace)
+                .heroSource(id: "media-\(item.searchResult.stableIdentity)", namespace: heroNamespace)
             
             Text(item.searchResult.displayTitle)
                 .font(.caption)

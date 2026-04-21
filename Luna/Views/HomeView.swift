@@ -354,7 +354,7 @@ struct HomeView: View {
                     if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
                         let limitedItems = Array(items.prefix(15))
                         let displayItems = catalog.id == "trending"
-                            ? limitedItems.filter { $0.id != homeViewModel.heroContent?.id }
+                            ? limitedItems.filter { $0.stableIdentity != homeViewModel.heroContent?.stableIdentity }
                             : limitedItems
                         
                         let displayTitle: String = {
@@ -456,7 +456,7 @@ struct MediaSection: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: gap) {
-                    ForEach(items) { item in
+                    ForEach(items, id: \.stableIdentity) { item in
                         MediaCard(result: item)
                     }
                 }
@@ -514,7 +514,7 @@ struct MediaCard: View {
     
     var body: some View {
         NavigationLink(destination: MediaDetailView(searchResult: result)
-            .heroDestination(id: "media-\(result.id)", namespace: heroNamespace)
+            .heroDestination(id: "media-\(result.stableIdentity)", namespace: heroNamespace)
         ) {
             VStack(alignment: .leading, spacing: 6) {
                 KFImage(URL(string: result.fullPosterURL ?? ""))
@@ -539,7 +539,7 @@ struct MediaCard: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                             .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
                     })
-                    .heroSource(id: "media-\(result.id)", namespace: heroNamespace)
+                    .heroSource(id: "media-\(result.stableIdentity)", namespace: heroNamespace)
                 
                 VStack(alignment: .leading, spacing: isTvOS ? 10 : 3) {
                     Text(result.displayTitle)
