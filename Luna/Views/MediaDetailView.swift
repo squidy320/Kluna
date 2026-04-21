@@ -320,6 +320,7 @@ struct MediaDetailView: View {
     
     @ViewBuilder
     private var mainScrollView: some View {
+        let _ = Logger.shared.log("MediaDetailView construct mainScrollView: id=\(searchResult.id) isLoading=\(isLoading) hasLoaded=\(hasLoadedContent) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") relatedState=\(relatedAnimeEntries.count) allowRelated=\(allowRelatedAnimeRendering)", type: "CrashProbe")
         ScrollView(showsIndicators: false) {
             LazyVStack(spacing: 0) {
                 heroImageSection
@@ -355,6 +356,7 @@ struct MediaDetailView: View {
     
     @ViewBuilder
     private var contentContainer: some View {
+        let _ = Logger.shared.log("MediaDetailView construct contentContainer: id=\(searchResult.id) movie=\(searchResult.isMovie) cast=\(castMembers.count) relatedState=\(relatedAnimeEntries.count) allowRelated=\(allowRelatedAnimeRendering)", type: "CrashProbe")
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 16) {
                 synopsisSection
@@ -538,6 +540,7 @@ struct MediaDetailView: View {
     @ViewBuilder
     private var episodesSection: some View {
         if !searchResult.isMovie {
+            let _ = Logger.shared.log("MediaDetailView construct episodesSection: tmdbId=\(searchResult.id) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(anilistEpisodes?.count ?? 0) relatedPassed=\(allowRelatedAnimeRendering ? relatedAnimeEntries.count : 0) relatedState=\(relatedAnimeEntries.count)", type: "CrashProbe")
             TVShowSeasonsSection(
                 tvShow: tvShowDetail,
                 isAnime: isAnimeShow,
@@ -636,19 +639,22 @@ struct MediaDetailView: View {
         isBookmarked = libraryManager.isBookmarked(searchResult)
     }
 
-    private func scheduleRelatedAnimeRendering(reason: String) {
-        let count = relatedAnimeEntries.count
+    private func scheduleRelatedAnimeRendering(entries: [AniListRelatedAnimeEntry], initialRelatedId: Int?, reason: String) {
+        let count = entries.count
         guard count > 0 else {
             Logger.shared.log("MediaDetailView: related render skipped reason=\(reason) count=0", type: "CrashProbe")
             return
         }
 
         Logger.shared.log("MediaDetailView: related render scheduled reason=\(reason) count=\(count)", type: "CrashProbe")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             guard self.hasLoadedContent, !self.isLoading, !self.searchResult.isMovie else {
                 Logger.shared.log("MediaDetailView: related render enable aborted reason=\(reason) hasLoaded=\(self.hasLoadedContent) isLoading=\(self.isLoading)", type: "CrashProbe")
                 return
             }
+            Logger.shared.log("MediaDetailView: related state assigning reason=\(reason) count=\(entries.count) initial=\(initialRelatedId?.description ?? "nil")", type: "CrashProbe")
+            self.relatedAnimeEntries = entries
+            self.initialRelatedAniListId = initialRelatedId
             Logger.shared.log("MediaDetailView: related render enabling reason=\(reason) count=\(self.relatedAnimeEntries.count)", type: "CrashProbe")
             self.allowRelatedAnimeRendering = true
         }
@@ -756,14 +762,14 @@ struct MediaDetailView: View {
                 self.isAnimeShow = cached.isAnimeShow
                 self.anilistEpisodes = cached.anilistEpisodes
                 self.animeSeasonTitles = cached.animeSeasonTitles
-                self.relatedAnimeEntries = cached.relatedAnimeEntries
                 self.allowRelatedAnimeRendering = false
-                self.initialRelatedAniListId = cached.initialRelatedAniListId
+                self.relatedAnimeEntries = []
+                self.initialRelatedAniListId = nil
                 self.castMembers = cached.castMembers
                 self.isLoading = false
                 self.hasLoadedContent = true
                 Logger.shared.log("MediaDetail cache state applied: key=\(detailCacheKey) tvSeasons=\(cached.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(cached.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(cached.anilistEpisodes?.count ?? 0) related=\(cached.relatedAnimeEntries.count) initialRelated=\(cached.initialRelatedAniListId?.description ?? "nil")", type: "CrashProbe")
-                self.scheduleRelatedAnimeRendering(reason: "cache")
+                self.scheduleRelatedAnimeRendering(entries: cached.relatedAnimeEntries, initialRelatedId: cached.initialRelatedAniListId, reason: "cache")
             }
             return
         }
@@ -979,9 +985,9 @@ struct MediaDetailView: View {
                             Logger.shared.log("MediaDetailView: anime state preassign tmdbId=\(detail.id) aniSeasons=\(aniSeasons.count) allEpisodes=\(allEpisodes.count) seasonTitles=\(seasonTitles.count) related=\(animeData.relatedEntries.count) relatedSummary=\(animeData.relatedEntries.prefix(8).map { "\($0.id):\($0.format ?? "nil"):\($0.relationType):eps\($0.episodeCount)" }.joined(separator: "|"))", type: "CrashProbe")
                             self.animeSeasonTitles = seasonTitles
                             self.anilistEpisodes = allEpisodes
-                            self.relatedAnimeEntries = animeData.relatedEntries
                             self.allowRelatedAnimeRendering = false
-                            self.initialRelatedAniListId = animeData.initialRelatedAniListId
+                            self.relatedAnimeEntries = []
+                            self.initialRelatedAniListId = nil
                             Logger.shared.log("MediaDetailView: related anime entries=\(animeData.relatedEntries.count) initial=\(animeData.initialRelatedAniListId.map(String.init) ?? "none")", type: "CrashProbe")
                             
                             if let firstSeason = aniSeasons.first {
@@ -1006,7 +1012,7 @@ struct MediaDetailView: View {
                         self.selectedEpisodeForSearch = nil
                         self.isLoading = false
                         self.hasLoadedContent = true
-                        Logger.shared.log("MediaDetailView: state applied tmdbId=\(searchResult.id) isAnime=\(self.isAnimeShow) tvSeasons=\(self.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(self.anilistEpisodes?.count ?? 0) related=\(self.relatedAnimeEntries.count) hasLoaded=\(self.hasLoadedContent)", type: "CrashProbe")
+                        Logger.shared.log("MediaDetailView: state applied tmdbId=\(searchResult.id) isAnime=\(self.isAnimeShow) tvSeasons=\(self.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(self.anilistEpisodes?.count ?? 0) relatedState=\(self.relatedAnimeEntries.count) pendingRelated=\(animeData?.relatedEntries.count ?? 0) hasLoaded=\(self.hasLoadedContent)", type: "CrashProbe")
                         
                         // Store in view-level cache for instant back-navigation
                         MediaDetailCacheStore.shared.set(key: detailCacheKey, detail: .init(
@@ -1019,13 +1025,17 @@ struct MediaDetailView: View {
                             isAnimeShow: self.isAnimeShow,
                             anilistEpisodes: self.anilistEpisodes,
                             animeSeasonTitles: self.animeSeasonTitles,
-                            relatedAnimeEntries: self.relatedAnimeEntries,
-                            initialRelatedAniListId: self.initialRelatedAniListId,
+                            relatedAnimeEntries: animeData?.relatedEntries ?? [],
+                            initialRelatedAniListId: animeData?.initialRelatedAniListId,
                             castMembers: self.castMembers,
                             timestamp: Date()
                         ))
-                        Logger.shared.log("MediaDetailView: cache stored key=\(detailCacheKey) related=\(self.relatedAnimeEntries.count) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
-                        self.scheduleRelatedAnimeRendering(reason: "fresh-load")
+                        Logger.shared.log("MediaDetailView: cache stored key=\(detailCacheKey) related=\(animeData?.relatedEntries.count ?? 0) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
+                        if let animeData {
+                            self.scheduleRelatedAnimeRendering(entries: animeData.relatedEntries, initialRelatedId: animeData.initialRelatedAniListId, reason: "fresh-load")
+                        } else {
+                            self.scheduleRelatedAnimeRendering(entries: [], initialRelatedId: nil, reason: "fresh-load-no-anime")
+                        }
                     }
                     Logger.shared.log("TV detail fetch complete: tmdbId=\(searchResult.id)", type: "CrashProbe")
                 }
