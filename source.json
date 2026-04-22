@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Luna.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Luna.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-22T17:12:10Z",
-      "date": "2026-04-22T17:12:10Z",
-      "size": 64324161,
+      "versionDate": "2026-04-22T17:39:41Z",
+      "date": "2026-04-22T17:39:41Z",
+      "size": 64326156,
       "versionDescription": "Merge branch 'main' of https://github.com/squidy320/Kluna "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
+      "date": "2026-04-22T17:39:41Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
@@ -63,11 +68,6 @@
       "title": "Release 1.0.0",
       "caption": "watched episode dim indicator ",
       "date": "2026-04-21T23:07:22Z"
-    },
-    {
-      "title": "Release 1.0.0",
-      "caption": "sidestore? ",
-      "date": "2026-04-21T22:48:12Z"
     }
   ]
 }
