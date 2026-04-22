@@ -74,9 +74,59 @@ struct RememberedProviderResult: Codable, Equatable {
     }
 }
 
+struct RememberedStreamSelection: Codable, Equatable {
+    let name: String
+    let url: String
+    let subtitle: String?
+
+    init(option: StreamOption) {
+        self.name = option.name
+        self.url = option.url
+        self.subtitle = option.subtitle
+    }
+
+    func matches(_ option: StreamOption) -> Bool {
+        if !url.isEmpty {
+            return url == option.url
+        }
+
+        return normalizedName == Self.normalize(option.name)
+            && normalizedSubtitle == Self.normalize(option.subtitle ?? "")
+    }
+
+    private var normalizedName: String {
+        Self.normalize(name)
+    }
+
+    private var normalizedSubtitle: String {
+        Self.normalize(subtitle ?? "")
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+struct RememberedSubtitleSelection: Codable, Equatable {
+    let url: String?
+    let title: String?
+    let isNone: Bool
+
+    static let none = RememberedSubtitleSelection(url: nil, title: nil, isNone: true)
+
+    func matches(url candidateURL: String) -> Bool {
+        guard !isNone, let url else { return false }
+        return url == candidateURL
+    }
+}
+
 struct RememberedEpisodeMatch: Codable, Equatable {
     let sourceId: String
     let providerResult: RememberedProviderResult?
+    let streamSelection: RememberedStreamSelection?
+    let subtitleSelection: RememberedSubtitleSelection?
 }
 
 final class EpisodeSourcePreferenceStore {
@@ -98,19 +148,58 @@ final class EpisodeSourcePreferenceStore {
         rememberedMatch(showId: showId)?.providerResult
     }
 
+    func rememberedStreamSelection(showId: Int) -> RememberedStreamSelection? {
+        rememberedMatch(showId: showId)?.streamSelection
+    }
+
+    func rememberedSubtitleSelection(showId: Int) -> RememberedSubtitleSelection? {
+        rememberedMatch(showId: showId)?.subtitleSelection
+    }
+
     func setRememberedMatch(sourceId: String, providerResult: SearchItem?, for showId: Int) {
         var values = allPreferences()
         values[String(showId)] = RememberedEpisodeMatch(
             sourceId: sourceId,
-            providerResult: providerResult.map(RememberedProviderResult.init(result:))
+            providerResult: providerResult.map(RememberedProviderResult.init(result:)),
+            streamSelection: nil,
+            subtitleSelection: nil
         )
         persist(values)
     }
 
     func setRememberedSourceId(_ sourceId: String, for showId: Int) {
-        let existingResult = rememberedProviderResult(showId: showId)
+        let existingMatch = rememberedMatch(showId: showId)
         var values = allPreferences()
-        values[String(showId)] = RememberedEpisodeMatch(sourceId: sourceId, providerResult: existingResult)
+        values[String(showId)] = RememberedEpisodeMatch(
+            sourceId: sourceId,
+            providerResult: existingMatch?.providerResult,
+            streamSelection: existingMatch?.streamSelection,
+            subtitleSelection: existingMatch?.subtitleSelection
+        )
+        persist(values)
+    }
+
+    func setRememberedStreamSelection(_ option: StreamOption, for showId: Int) {
+        guard let existingMatch = rememberedMatch(showId: showId) else { return }
+        var values = allPreferences()
+        values[String(showId)] = RememberedEpisodeMatch(
+            sourceId: existingMatch.sourceId,
+            providerResult: existingMatch.providerResult,
+            streamSelection: RememberedStreamSelection(option: option),
+            subtitleSelection: existingMatch.subtitleSelection
+        )
+        persist(values)
+    }
+
+    func setRememberedSubtitleSelection(_ selection: RememberedSubtitleSelection, for showId: Int) {
+        guard let existingMatch = rememberedMatch(showId: showId) else { return }
+        var values = allPreferences()
+        values[String(showId)] = RememberedEpisodeMatch(
+            sourceId: existingMatch.sourceId,
+            providerResult: existingMatch.providerResult,
+            streamSelection: existingMatch.streamSelection,
+            subtitleSelection: selection
+        )
         persist(values)
     }
 

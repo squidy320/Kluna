@@ -308,6 +308,14 @@ struct ModulesSearchResultsSheet: View {
         rememberedSourceStore.rememberedMatch(showId: tmdbId)
     }
 
+    private var rememberedStreamSelection: RememberedStreamSelection? {
+        rememberedEpisodeMatch?.streamSelection
+    }
+
+    private var rememberedSubtitleSelection: RememberedSubtitleSelection? {
+        rememberedEpisodeMatch?.subtitleSelection
+    }
+
     private var resolvedForcedSource: RememberedSource? {
         guard let forcedSourceId else { return nil }
         return rememberedSourceStore.resolve(
@@ -345,6 +353,19 @@ struct ModulesSearchResultsSheet: View {
             return hrefMatch
         }
         return results.first(where: rememberedProviderResult.matches)
+    }
+
+    @MainActor
+    private func rememberStreamSelectionIfNeeded(_ option: StreamOption) {
+        guard autoModeOnly, usesRememberedEpisodeSourceFlow else { return }
+        rememberedSourceStore.setRememberedStreamSelection(option, for: tmdbId)
+    }
+
+    @MainActor
+    private func rememberSubtitleSelectionIfNeeded(url: String?, title: String?, isNone: Bool = false) {
+        guard autoModeOnly, usesRememberedEpisodeSourceFlow else { return }
+        let selection = isNone ? RememberedSubtitleSelection.none : RememberedSubtitleSelection(url: url, title: title, isNone: false)
+        rememberedSourceStore.setRememberedSubtitleSelection(selection, for: tmdbId)
     }
 
     @ViewBuilder
@@ -592,6 +613,7 @@ struct ModulesSearchResultsSheet: View {
         ForEach(viewModel.streamOptions) { option in
             Button(option.name) {
                 if let service = viewModel.pendingService {
+                    rememberStreamSelectionIfNeeded(option)
                     resolveSubtitleSelection(
                         subtitles: viewModel.pendingSubtitles,
                         defaultSubtitle: option.subtitle,
@@ -657,6 +679,7 @@ struct ModulesSearchResultsSheet: View {
         ForEach(viewModel.subtitleOptions, id: \.url) { option in
             Button(option.title) {
                 viewModel.showingSubtitlePicker = false
+                rememberSubtitleSelectionIfNeeded(url: option.url, title: option.title)
                 if let service = viewModel.pendingService,
                    let streamURL = viewModel.pendingStreamURL {
                     dispatchStreamAction(streamURL, service: service, subtitle: option.url, headers: viewModel.pendingHeaders, serviceHref: viewModel.pendingServiceHref)
@@ -665,6 +688,7 @@ struct ModulesSearchResultsSheet: View {
         }
         Button("No Subtitles") {
             viewModel.showingSubtitlePicker = false
+            rememberSubtitleSelectionIfNeeded(url: nil, title: nil, isNone: true)
             if let service = viewModel.pendingService,
                let streamURL = viewModel.pendingStreamURL {
                 dispatchStreamAction(streamURL, service: service, subtitle: nil, headers: viewModel.pendingHeaders, serviceHref: viewModel.pendingServiceHref)
@@ -2306,6 +2330,25 @@ struct ModulesSearchResultsSheet: View {
         let availableStreams = parseStreamOptions(streams: streams, sources: sources)
         
         if availableStreams.count > 1 {
+            if autoModeOnly,
+               usesRememberedEpisodeSourceFlow,
+               let rememberedStream = rememberedStreamSelection {
+                if let matchedStream = availableStreams.first(where: rememberedStream.matches) {
+                    rememberStreamSelectionIfNeeded(matchedStream)
+                    resolveSubtitleSelection(
+                        subtitles: subtitles,
+                        defaultSubtitle: matchedStream.subtitle,
+                        service: service,
+                        streamURL: matchedStream.url,
+                        headers: matchedStream.headers,
+                        serviceHref: viewModel.pendingServiceHref
+                    )
+                    return
+                }
+
+                rememberedSourceStore.clearRememberedMatch(for: tmdbId)
+            }
+
             Logger.shared.log("Found \(availableStreams.count) stream options, showing selection", type: "Stream")
             viewModel.streamOptions = availableStreams
             viewModel.pendingSubtitles = subtitles
@@ -2316,6 +2359,7 @@ struct ModulesSearchResultsSheet: View {
         }
         
         if let firstStream = availableStreams.first {
+            rememberStreamSelectionIfNeeded(firstStream)
             resolveSubtitleSelection(
                 subtitles: subtitles,
                 defaultSubtitle: firstStream.subtitle,
@@ -2325,6 +2369,14 @@ struct ModulesSearchResultsSheet: View {
                 serviceHref: viewModel.pendingServiceHref
             )
         } else if let streamURL = extractSingleStreamURL(streams: streams, sources: sources) {
+            rememberStreamSelectionIfNeeded(
+                StreamOption(
+                    name: "Stream",
+                    url: streamURL.url,
+                    headers: streamURL.headers,
+                    subtitle: nil
+                )
+            )
             resolveSubtitleSelection(
                 subtitles: subtitles,
                 defaultSubtitle: nil,
@@ -2416,19 +2468,46 @@ struct ModulesSearchResultsSheet: View {
     @MainActor
     private func resolveSubtitleSelection(subtitles: [String]?, defaultSubtitle: String?, service: Service, streamURL: String, headers: [String: String]?, serviceHref: String? = nil) {
         guard let subtitles = subtitles, !subtitles.isEmpty else {
+            if let defaultSubtitle {
+                rememberSubtitleSelectionIfNeeded(url: defaultSubtitle, title: nil)
+            } else {
+                rememberSubtitleSelectionIfNeeded(url: nil, title: nil, isNone: true)
+            }
             dispatchStreamAction(streamURL, service: service, subtitle: defaultSubtitle, headers: headers, serviceHref: serviceHref)
             return
         }
         
         let options = parseSubtitleOptions(from: subtitles)
         guard !options.isEmpty else {
+            if let defaultSubtitle {
+                rememberSubtitleSelectionIfNeeded(url: defaultSubtitle, title: nil)
+            } else {
+                rememberSubtitleSelectionIfNeeded(url: nil, title: nil, isNone: true)
+            }
             dispatchStreamAction(streamURL, service: service, subtitle: defaultSubtitle, headers: headers, serviceHref: serviceHref)
             return
         }
         
         if options.count == 1 {
+            rememberSubtitleSelectionIfNeeded(url: options[0].url, title: options[0].title)
             dispatchStreamAction(streamURL, service: service, subtitle: options[0].url, headers: headers, serviceHref: serviceHref)
             return
+        }
+
+        if autoModeOnly, usesRememberedEpisodeSourceFlow, let rememberedSubtitleSelection {
+            if rememberedSubtitleSelection.isNone {
+                rememberSubtitleSelectionIfNeeded(url: nil, title: nil, isNone: true)
+                dispatchStreamAction(streamURL, service: service, subtitle: nil, headers: headers, serviceHref: serviceHref)
+                return
+            }
+
+            if let matchedSubtitle = options.first(where: { rememberedSubtitleSelection.matches(url: $0.url) }) {
+                rememberSubtitleSelectionIfNeeded(url: matchedSubtitle.url, title: matchedSubtitle.title)
+                dispatchStreamAction(streamURL, service: service, subtitle: matchedSubtitle.url, headers: headers, serviceHref: serviceHref)
+                return
+            }
+
+            rememberedSourceStore.clearRememberedMatch(for: tmdbId)
         }
         
         viewModel.subtitleOptions = options

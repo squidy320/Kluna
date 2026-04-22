@@ -566,27 +566,30 @@ struct MediaDetailView: View {
                 Button(action: {
                     EpisodeSourcePreferenceStore.shared.clearRememberedMatch(for: searchResult.id)
                 }) {
-                    ZStack(alignment: .topTrailing) {
+                    HStack(spacing: 8) {
                         KFImage(rememberedEpisodeSource.logoURL.flatMap(URL.init(string:)))
                             .placeholder {
                                 Image(systemName: "tv")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(.white)
                             }
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(width: 20, height: 20)
-                            .frame(width: 42, height: 42)
-                            .applyLiquidGlassBackground(cornerRadius: 12)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .frame(width: 18, height: 18)
 
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.9))
-                            .background(Color.black.opacity(0.35))
-                            .clipShape(Circle())
-                            .offset(x: 4, y: -4)
+                        Text("Reset")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.85))
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .applyLiquidGlassBackground(cornerRadius: 12)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
 
