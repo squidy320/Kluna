@@ -44,9 +44,9 @@ jobs:
 
           BUILD_SETTINGS="$(xcodebuild -project "$PROJECT_PATH" -scheme "$SCHEME" -configuration "$CONFIGURATION" -showBuildSettings)"
 
-          APP_VERSION="$(printf '%s\n' "$BUILD_SETTINGS" | awk -F' = ' '/MARKETING_VERSION/ {print $2; exit}')"
-          BUILD_NUMBER="$(printf '%s\n' "$BUILD_SETTINGS" | awk -F' = ' '/CURRENT_PROJECT_VERSION/ {print $2; exit}')"
-          PRODUCT_NAME="$(printf '%s\n' "$BUILD_SETTINGS" | awk -F' = ' '/PRODUCT_NAME/ {print $2; exit}')"
+          APP_VERSION="$(awk -F' = ' '/MARKETING_VERSION/ {print $2; exit}' <<< "$BUILD_SETTINGS")"
+          BUILD_NUMBER="$(awk -F' = ' '/CURRENT_PROJECT_VERSION/ {print $2; exit}' <<< "$BUILD_SETTINGS")"
+          PRODUCT_NAME="$(awk -F' = ' '/PRODUCT_NAME/ {print $2; exit}' <<< "$BUILD_SETTINGS")"
 
           if [[ -z "${APP_VERSION:-}" || -z "${BUILD_NUMBER:-}" || -z "${PRODUCT_NAME:-}" ]]; then
             echo "Failed to resolve MARKETING_VERSION, CURRENT_PROJECT_VERSION, or PRODUCT_NAME from Xcode build settings."
