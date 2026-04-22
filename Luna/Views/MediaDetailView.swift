@@ -8,8 +8,6 @@
 import SwiftUI
 import Kingfisher
 
-private let enableRelatedAnimeDetailRendering = false
-
 // MARK: - View-Level Detail Cache
 // Stores the fully-loaded state for a media detail screen so back-navigation is instant.
 private final class MediaDetailCacheStore {
@@ -25,8 +23,7 @@ private final class MediaDetailCacheStore {
         let isAnimeShow: Bool
         let anilistEpisodes: [AniListEpisode]?
         let animeSeasonTitles: [Int: String]?
-        let relatedAnimeEntries: [AniListRelatedAnimeEntry]
-        let initialRelatedAniListId: Int?
+        let animeSpecialEntries: [AniListSpecialEntry]
         let castMembers: [TMDBCastMember]
         let timestamp: Date
     }
@@ -80,9 +77,10 @@ struct MediaDetailView: View {
     @State private var isAnimeShow = false
     @State private var anilistEpisodes: [AniListEpisode]? = nil
     @State private var animeSeasonTitles: [Int: String]? = nil
-    @State private var relatedAnimeEntries: [AniListRelatedAnimeEntry] = []
-    @State private var allowRelatedAnimeRendering = false
-    @State private var initialRelatedAniListId: Int?
+    @State private var animeSpecialEntries: [AniListSpecialEntry] = []
+    @State private var selectedSpecialEntry: AniListSpecialEntry?
+    @State private var selectedSpecialEpisode: TMDBEpisode?
+    @State private var showingSpecialSearchResults = false
     
     @State private var castMembers: [TMDBCastMember] = []
     @State private var hasLoadedContent = false
@@ -308,6 +306,23 @@ struct MediaDetailView: View {
             let _ = Logger.shared.log("MediaDetailView constructing add-to-collection sheet: id=\(searchResult.id)", type: "CrashProbe")
             AddToCollectionView(searchResult: searchResult)
         }
+        .sheet(isPresented: $showingSpecialSearchResults) {
+            let _ = Logger.shared.log("MediaDetailView constructing special search sheet: id=\(searchResult.id) special=\(selectedSpecialEntry?.id.description ?? "nil") episode=\(selectedSpecialEpisode?.episodeNumber.description ?? "nil")", type: "CrashProbe")
+            ModulesSearchResultsSheet(
+                mediaTitle: selectedSpecialEntry?.title ?? searchResult.displayTitle,
+                seasonTitleOverride: selectedSpecialEntry?.title,
+                originalTitle: romajiTitle,
+                isMovie: false,
+                isAnimeContent: true,
+                selectedEpisode: selectedSpecialEpisode,
+                tmdbId: searchResult.id,
+                animeSeasonTitle: "anime",
+                posterPath: tvShowDetail?.posterPath,
+                imdbId: tvShowDetail?.externalIds?.imdbId,
+                specialTitleOnlySearch: selectedSpecialEntry?.episodeCount == 1,
+                autoModeOnly: UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled")
+            )
+        }
     }
     
     @ViewBuilder
@@ -372,7 +387,7 @@ struct MediaDetailView: View {
     
     @ViewBuilder
     private var mainScrollView: some View {
-        let _ = Logger.shared.log("MediaDetailView construct mainScrollView: id=\(searchResult.id) isLoading=\(isLoading) hasLoaded=\(hasLoadedContent) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") relatedState=\(relatedAnimeEntries.count) allowRelated=\(allowRelatedAnimeRendering)", type: "CrashProbe")
+        let _ = Logger.shared.log("MediaDetailView construct mainScrollView: id=\(searchResult.id) isLoading=\(isLoading) hasLoaded=\(hasLoadedContent) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
         ScrollView(showsIndicators: false) {
             LazyVStack(spacing: 0) {
                 heroImageSection
@@ -408,7 +423,7 @@ struct MediaDetailView: View {
     
     @ViewBuilder
     private var contentContainer: some View {
-        let _ = Logger.shared.log("MediaDetailView construct contentContainer: id=\(searchResult.id) movie=\(searchResult.isMovie) cast=\(castMembers.count) relatedState=\(relatedAnimeEntries.count) allowRelated=\(allowRelatedAnimeRendering)", type: "CrashProbe")
+        let _ = Logger.shared.log("MediaDetailView construct contentContainer: id=\(searchResult.id) movie=\(searchResult.isMovie) cast=\(castMembers.count)", type: "CrashProbe")
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 16) {
                 synopsisSection
@@ -620,7 +635,7 @@ struct MediaDetailView: View {
     @ViewBuilder
     private var episodesSection: some View {
         if !searchResult.isMovie {
-            let _ = Logger.shared.log("MediaDetailView construct episodesSection: tmdbId=\(searchResult.id) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(anilistEpisodes?.count ?? 0) relatedPassed=\(allowRelatedAnimeRendering ? relatedAnimeEntries.count : 0) relatedState=\(relatedAnimeEntries.count)", type: "CrashProbe")
+            let _ = Logger.shared.log("MediaDetailView construct episodesSection: tmdbId=\(searchResult.id) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(anilistEpisodes?.count ?? 0)", type: "CrashProbe")
             TVShowSeasonsSection(
                 tvShow: tvShowDetail,
                 isAnime: isAnimeShow,
@@ -629,8 +644,6 @@ struct MediaDetailView: View {
                 selectedEpisodeForSearch: $selectedEpisodeForSearch,
                 animeEpisodes: anilistEpisodes,
                 animeSeasonTitles: animeSeasonTitles,
-                relatedAnimeEntries: allowRelatedAnimeRendering ? relatedAnimeEntries : [],
-                initialRelatedAniListId: allowRelatedAnimeRendering ? initialRelatedAniListId : nil,
                 tmdbService: tmdbService
             ) {
                 if !castMembers.isEmpty {
@@ -638,11 +651,122 @@ struct MediaDetailView: View {
                 }
                 
                 StarRatingView(mediaId: searchResult.id)
+                animeSpecialsSection
             }
             .onAppear {
-                Logger.shared.log("MediaDetailView episodesSection appeared: tmdbId=\(searchResult.id) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(anilistEpisodes?.count ?? 0) related=\(relatedAnimeEntries.count) allowRelated=\(allowRelatedAnimeRendering)", type: "CrashProbe")
+                Logger.shared.log("MediaDetailView episodesSection appeared: tmdbId=\(searchResult.id) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(anilistEpisodes?.count ?? 0)", type: "CrashProbe")
             }
         }
+    }
+
+    @ViewBuilder
+    private var animeSpecialsSection: some View {
+        if isAnimeShow && !animeSpecialEntries.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Specials & OVAs")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(animeSpecialEntries) { entry in
+                            Button(action: {
+                                selectSpecial(entry)
+                            }) {
+                                VStack(spacing: 8) {
+                                    KFImage(URL(string: entry.posterUrl ?? tvShowDetail?.fullPosterURL ?? ""))
+                                        .placeholder {
+                                            Rectangle()
+                                                .fill(Color.gray.opacity(0.3))
+                                                .frame(width: 80, height: 120)
+                                                .overlay(
+                                                    VStack(spacing: 6) {
+                                                        Image(systemName: "sparkles")
+                                                            .font(.title2)
+                                                            .foregroundColor(.white.opacity(0.7))
+                                                        Text(entry.format ?? "Special")
+                                                            .font(.caption2)
+                                                            .fontWeight(.bold)
+                                                            .foregroundColor(.white.opacity(0.7))
+                                                    }
+                                                )
+                                        }
+                                        .resizable()
+                                        .aspectRatio(2/3, contentMode: .fill)
+                                        .frame(width: 80, height: 120)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(selectedSpecialEntry?.id == entry.id ? Color.accentColor : Color.clear, lineWidth: 2)
+                                        )
+
+                                    Text(entry.title)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                        .frame(width: 90, height: 34)
+                                        .foregroundColor(selectedSpecialEntry?.id == entry.id ? .accentColor : .white)
+                                }
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
+                if let selectedSpecialEntry, selectedSpecialEntry.episodeCount > 1 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(selectedSpecialEntry.episodes, id: \.number) { episode in
+                                Button(action: {
+                                    openSpecialEpisode(episode, in: selectedSpecialEntry)
+                                }) {
+                                    Text("E\(episode.number)")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.white)
+                                        .frame(width: 54, height: 36)
+                                        .applyLiquidGlassBackground(cornerRadius: 10)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .disabled(!hasActiveSources)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private func selectSpecial(_ entry: AniListSpecialEntry) {
+        selectedSpecialEntry = entry
+        Logger.shared.log("MediaDetailView selectSpecial: tmdbId=\(searchResult.id) anilistId=\(entry.id) episodes=\(entry.episodeCount)", type: "CrashProbe")
+        if entry.episodeCount == 1, let first = entry.episodes.first, hasActiveSources {
+            openSpecialEpisode(first, in: entry)
+        }
+    }
+
+    private func openSpecialEpisode(_ episode: AniListEpisode, in entry: AniListSpecialEntry) {
+        selectedSpecialEntry = entry
+        selectedSpecialEpisode = TMDBEpisode(
+            id: entry.id * 1000 + episode.number,
+            name: episode.title,
+            overview: episode.description,
+            stillPath: episode.stillPath,
+            episodeNumber: episode.number,
+            seasonNumber: 0,
+            airDate: episode.airDate,
+            runtime: episode.runtime,
+            voteAverage: 0,
+            voteCount: 0
+        )
+        Logger.shared.log("MediaDetailView openSpecialEpisode: tmdbId=\(searchResult.id) anilistId=\(entry.id) episode=\(episode.number)", type: "CrashProbe")
+        showingSpecialSearchResults = true
     }
     
     private func toggleBookmark() {
@@ -715,36 +839,9 @@ struct MediaDetailView: View {
             )
     }
     
-    // MARK: - Related Section
-    
     private func updateBookmarkStatus() {
         isBookmarked = libraryManager.isBookmarked(searchResult)
         Logger.shared.log("MediaDetailView updateBookmarkStatus: id=\(searchResult.id) isBookmarked=\(isBookmarked)", type: "CrashProbe")
-    }
-
-    private func scheduleRelatedAnimeRendering(entries: [AniListRelatedAnimeEntry], initialRelatedId: Int?, reason: String) {
-        let count = entries.count
-        guard enableRelatedAnimeDetailRendering else {
-            Logger.shared.log("MediaDetailView: related render disabled reason=\(reason) count=\(count)", type: "CrashProbe")
-            return
-        }
-        guard count > 0 else {
-            Logger.shared.log("MediaDetailView: related render skipped reason=\(reason) count=0", type: "CrashProbe")
-            return
-        }
-
-        Logger.shared.log("MediaDetailView: related render scheduled reason=\(reason) count=\(count)", type: "CrashProbe")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            guard self.hasLoadedContent, !self.isLoading, !self.searchResult.isMovie else {
-                Logger.shared.log("MediaDetailView: related render enable aborted reason=\(reason) hasLoaded=\(self.hasLoadedContent) isLoading=\(self.isLoading)", type: "CrashProbe")
-                return
-            }
-            Logger.shared.log("MediaDetailView: related state assigning reason=\(reason) count=\(entries.count) initial=\(initialRelatedId?.description ?? "nil")", type: "CrashProbe")
-            self.relatedAnimeEntries = entries
-            self.initialRelatedAniListId = initialRelatedId
-            Logger.shared.log("MediaDetailView: related render enabling reason=\(reason) count=\(self.relatedAnimeEntries.count)", type: "CrashProbe")
-            self.allowRelatedAnimeRendering = true
-        }
     }
     
     private func searchInServices() {
@@ -862,17 +959,11 @@ struct MediaDetailView: View {
                 self.isAnimeShow = cached.isAnimeShow
                 self.anilistEpisodes = cached.anilistEpisodes
                 self.animeSeasonTitles = cached.animeSeasonTitles
-                self.allowRelatedAnimeRendering = false
-                self.relatedAnimeEntries = []
-                self.initialRelatedAniListId = nil
+                self.animeSpecialEntries = cached.animeSpecialEntries
                 self.castMembers = cached.castMembers
                 self.isLoading = false
                 self.hasLoadedContent = true
-                Logger.shared.log("MediaDetail cache state applied: key=\(detailCacheKey) tvSeasons=\(cached.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(cached.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(cached.anilistEpisodes?.count ?? 0) related=\(cached.relatedAnimeEntries.count) initialRelated=\(cached.initialRelatedAniListId?.description ?? "nil")", type: "CrashProbe")
-                self.scheduleRelatedAnimeRendering(entries: cached.relatedAnimeEntries, initialRelatedId: cached.initialRelatedAniListId, reason: "cache")
-                DispatchQueue.main.async {
-                    Logger.shared.log("MediaDetailView: cache post-state next-runloop reached key=\(detailCacheKey) hasLoaded=\(self.hasLoadedContent) isLoading=\(self.isLoading) tvSeasons=\(self.tvShowDetail?.seasons.count ?? 0)", type: "CrashProbe")
-                }
+                Logger.shared.log("MediaDetail cache state applied: key=\(detailCacheKey) tvSeasons=\(cached.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(cached.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(cached.anilistEpisodes?.count ?? 0)", type: "CrashProbe")
             }
             return
         }
@@ -937,15 +1028,11 @@ struct MediaDetailView: View {
                             isAnimeShow: false,
                             anilistEpisodes: nil,
                             animeSeasonTitles: nil,
-                            relatedAnimeEntries: [],
-                            initialRelatedAniListId: nil,
+                            animeSpecialEntries: [],
                             castMembers: self.castMembers,
                             timestamp: Date()
                         ))
                         Logger.shared.log("Movie detail apply state complete: tmdbId=\(searchResult.id) cast=\(self.castMembers.count) logo=\(self.logoURL != nil)", type: "CrashProbe")
-                    }
-                    DispatchQueue.main.async {
-                        Logger.shared.log("Movie detail post-state next-runloop reached: tmdbId=\(searchResult.id) hasLoaded=\(self.hasLoadedContent) isLoading=\(self.isLoading)", type: "CrashProbe")
                     }
                 } else {
                     Logger.shared.log("TV detail fetch begin: tmdbId=\(searchResult.id)", type: "CrashProbe")
@@ -1095,13 +1182,10 @@ struct MediaDetailView: View {
                                 allEpisodes.append(contentsOf: season.episodes)
                             }
                             Logger.shared.log("MediaDetailView: AniList season conversion complete tmdbId=\(detail.id) aniSeasons=\(aniSeasons.count) summary=\(aniSeasons.prefix(8).map { "s\($0.seasonNumber):id\($0.id):eps\($0.episodeCount)" }.joined(separator: "|"))", type: "CrashProbe")
-                            Logger.shared.log("MediaDetailView: anime state preassign tmdbId=\(detail.id) aniSeasons=\(aniSeasons.count) allEpisodes=\(allEpisodes.count) seasonTitles=\(seasonTitles.count) related=\(animeData.relatedEntries.count) relatedSummary=\(animeData.relatedEntries.prefix(8).map { "\($0.id):\($0.format ?? "nil"):\($0.relationType):eps\($0.episodeCount)" }.joined(separator: "|"))", type: "CrashProbe")
+                            Logger.shared.log("MediaDetailView: anime state preassign tmdbId=\(detail.id) aniSeasons=\(aniSeasons.count) allEpisodes=\(allEpisodes.count) seasonTitles=\(seasonTitles.count)", type: "CrashProbe")
                             self.animeSeasonTitles = seasonTitles
                             self.anilistEpisodes = allEpisodes
-                            self.allowRelatedAnimeRendering = false
-                            self.relatedAnimeEntries = []
-                            self.initialRelatedAniListId = nil
-                            Logger.shared.log("MediaDetailView: related anime entries=\(animeData.relatedEntries.count) initial=\(animeData.initialRelatedAniListId.map(String.init) ?? "none")", type: "CrashProbe")
+                            self.animeSpecialEntries = animeData.specialEntries
                             
                             if let firstSeason = aniSeasons.first {
                                 self.selectedSeason = firstSeason
@@ -1114,9 +1198,9 @@ struct MediaDetailView: View {
                             // Fallback to TMDB seasons
                             Logger.shared.log("MediaDetailView: animeData is nil — falling back to pure TMDB seasons (\(detail.seasons.count) seasons)", type: "AniList")
                             self.tvShowDetail = detail
-                            self.relatedAnimeEntries = []
-                            self.allowRelatedAnimeRendering = false
-                            self.initialRelatedAniListId = nil
+                            self.anilistEpisodes = nil
+                            self.animeSeasonTitles = nil
+                            self.animeSpecialEntries = []
                             if let firstSeason = detail.seasons.first(where: { $0.seasonNumber > 0 }) {
                                 self.selectedSeason = firstSeason
                                 Logger.shared.log("MediaDetailView: selected first TMDB season tmdbId=\(detail.id) season=\(firstSeason.seasonNumber) episodeCount=\(firstSeason.episodeCount)", type: "CrashProbe")
@@ -1135,7 +1219,7 @@ struct MediaDetailView: View {
                         self.selectedEpisodeForSearch = nil
                         self.isLoading = false
                         self.hasLoadedContent = true
-                        Logger.shared.log("MediaDetailView: state applied tmdbId=\(searchResult.id) isAnime=\(self.isAnimeShow) tvSeasons=\(self.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(self.anilistEpisodes?.count ?? 0) relatedState=\(self.relatedAnimeEntries.count) pendingRelated=\(animeData?.relatedEntries.count ?? 0) hasLoaded=\(self.hasLoadedContent)", type: "CrashProbe")
+                        Logger.shared.log("MediaDetailView: state applied tmdbId=\(searchResult.id) isAnime=\(self.isAnimeShow) tvSeasons=\(self.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(self.anilistEpisodes?.count ?? 0) hasLoaded=\(self.hasLoadedContent)", type: "CrashProbe")
                         
                         // Store in view-level cache for instant back-navigation
                         MediaDetailCacheStore.shared.set(key: detailCacheKey, detail: .init(
@@ -1148,22 +1232,13 @@ struct MediaDetailView: View {
                             isAnimeShow: self.isAnimeShow,
                             anilistEpisodes: self.anilistEpisodes,
                             animeSeasonTitles: self.animeSeasonTitles,
-                            relatedAnimeEntries: enableRelatedAnimeDetailRendering ? (animeData?.relatedEntries ?? []) : [],
-                            initialRelatedAniListId: enableRelatedAnimeDetailRendering ? animeData?.initialRelatedAniListId : nil,
+                            animeSpecialEntries: self.animeSpecialEntries,
                             castMembers: self.castMembers,
                             timestamp: Date()
                         ))
-                        Logger.shared.log("MediaDetailView: cache stored key=\(detailCacheKey) related=\(enableRelatedAnimeDetailRendering ? (animeData?.relatedEntries.count ?? 0) : 0) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
-                        if let animeData {
-                            self.scheduleRelatedAnimeRendering(entries: animeData.relatedEntries, initialRelatedId: animeData.initialRelatedAniListId, reason: "fresh-load")
-                        } else {
-                            self.scheduleRelatedAnimeRendering(entries: [], initialRelatedId: nil, reason: "fresh-load-no-anime")
-                        }
+                        Logger.shared.log("MediaDetailView: cache stored key=\(detailCacheKey) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
                     }
                     Logger.shared.log("TV detail fetch complete: tmdbId=\(searchResult.id)", type: "CrashProbe")
-                    DispatchQueue.main.async {
-                        Logger.shared.log("MediaDetailView: post-state next-runloop reached tmdbId=\(searchResult.id) hasLoaded=\(self.hasLoadedContent) isLoading=\(self.isLoading) relatedState=\(self.relatedAnimeEntries.count)", type: "CrashProbe")
-                    }
                 }
             } catch is CancellationError {
                 Logger.shared.log("MediaDetail load cancelled: id=\(searchResult.id) type=\(searchResult.mediaType)", type: "CrashProbe")
