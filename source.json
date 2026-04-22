@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Luna.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Luna.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-22T10:58:28Z",
-      "date": "2026-04-22T10:58:28Z",
-      "size": 64309554,
-      "versionDescription": "anime hero banner "
+      "versionDate": "2026-04-22T15:48:11Z",
+      "date": "2026-04-22T15:48:11Z",
+      "size": 64309140,
+      "versionDescription": "Merge branch 'Soupy-dev:main' into main "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Merge branch 'Soupy-dev:main' into main ",
+      "date": "2026-04-22T15:48:11Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "anime hero banner ",
