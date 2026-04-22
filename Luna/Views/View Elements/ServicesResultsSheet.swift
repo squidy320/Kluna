@@ -2501,7 +2501,9 @@ struct ModulesSearchResultsSheet: View {
                 return
             }
 
-            if let matchedSubtitle = options.first(where: { rememberedSubtitleSelection.matches(url: $0.url) }) {
+            if let matchedSubtitle = options.first(where: {
+                rememberedSubtitleSelection.matches(title: $0.title, url: $0.url)
+            }) {
                 rememberSubtitleSelectionIfNeeded(url: matchedSubtitle.url, title: matchedSubtitle.title)
                 dispatchStreamAction(streamURL, service: service, subtitle: matchedSubtitle.url, headers: headers, serviceHref: serviceHref)
                 return

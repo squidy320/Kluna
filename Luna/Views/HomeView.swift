@@ -642,6 +642,7 @@ struct ContinueWatchingCard: View {
     @AppStorage("tmdbLanguage") private var selectedLanguage = "en-US"
 
     @State private var backdropURL: String?
+    @State private var episodeThumbnailURL: String?
     @State private var logoURL: String?
     @State private var title: String = ""
     @State private var isHovering = false
@@ -664,6 +665,13 @@ struct ContinueWatchingCard: View {
 
     private var displayTitle: String {
         title.isEmpty ? item.title : title
+    }
+
+    private var cardArtworkURL: String? {
+        if !item.isMovie, let episodeThumbnailURL {
+            return episodeThumbnailURL
+        }
+        return backdropURL
     }
 
     /// Title to pass to the search sheet – uses the AniList season title for anime, matching MediaDetailView's logic
@@ -715,17 +723,17 @@ struct ContinueWatchingCard: View {
     }
 
     var body: some View {
-        Button {
+                Button {
             if isMetadataReady {
                 showingSearchResults = true
             } else {
                 pendingOpenSheet = true
             }
-        } label: {
+                } label: {
             ZStack(alignment: .bottomLeading) {
                 ZStack {
-                    if let backdropURL {
-                        KFImage(URL(string: backdropURL))
+                    if let cardArtworkURL {
+                        KFImage(URL(string: cardArtworkURL))
                             .placeholder { backdropPlaceholder }
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -926,12 +934,22 @@ struct ContinueWatchingCard: View {
                 await MainActor.run {
                     self.title = details.name
                     self.backdropURL = details.fullBackdropURL ?? details.fullPosterURL ?? item.posterURL
+                    self.episodeThumbnailURL = nil
                     if let logo = tmdbService.getBestLogo(from: images, preferredLanguage: selectedLanguage) {
                         self.logoURL = logo.fullURL
                     }
                     self.originalTitle = romaji
                     self.imdbId = details.externalIds?.imdbId
                     self.isLoaded = true
+                }
+
+                if let seasonNumber = item.seasonNumber,
+                   let episodeNumber = item.episodeNumber,
+                   let seasonDetail = try? await tmdbService.getSeasonDetails(tvShowId: item.tmdbId, seasonNumber: seasonNumber),
+                   let matchedEpisode = seasonDetail.episodes.first(where: { $0.episodeNumber == episodeNumber }) {
+                    await MainActor.run {
+                        self.episodeThumbnailURL = matchedEpisode.fullStillURL
+                    }
                 }
 
                 if detectedAsAnime {
@@ -996,6 +1014,7 @@ struct ContinueWatchingCard: View {
                 if self.title.isEmpty {
                     self.title = item.title
                 }
+                self.episodeThumbnailURL = nil
                 self.backdropURL = item.posterURL
                 self.isLoaded = true
                 self.isMetadataReady = true

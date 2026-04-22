@@ -460,6 +460,48 @@ class TMDBService: ObservableObject {
             )
         }
     }
+
+    // MARK: - Get Currently Airing Anime (Animation TV Shows from Japan)
+    func getCurrentlyAiringAnime(page: Int = 1) async throws -> [TMDBTVShow] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let today = formatter.string(from: Date())
+
+        let urlString = "\(baseURL)/discover/tv?api_key=\(apiKey)&language=\(currentLanguage)&page=\(page)&with_genres=16&with_origin_country=JP&air_date.lte=\(today)&with_status=0&sort_by=popularity.desc&include_adult=false"
+
+        guard let url = URL(string: urlString) else {
+            throw TMDBError.invalidURL
+        }
+
+        do {
+            let (data, _) = try await throttledData(from: url)
+            let response = try JSONDecoder().decode(TMDBTVSearchResponse.self, from: data)
+            return response.results
+        } catch {
+            throw TMDBError.networkError(error)
+        }
+    }
+
+    func getCurrentlyAiringAnimeResults(page: Int = 1) async throws -> [TMDBSearchResult] {
+        try await getCurrentlyAiringAnime(page: page).map {
+            TMDBSearchResult(
+                id: $0.id,
+                mediaType: "tv",
+                title: nil,
+                name: $0.name,
+                overview: $0.overview,
+                posterPath: $0.posterPath,
+                backdropPath: $0.backdropPath,
+                releaseDate: nil,
+                firstAirDate: $0.firstAirDate,
+                voteAverage: $0.voteAverage,
+                popularity: $0.popularity,
+                adult: nil,
+                genreIds: $0.genreIds
+            )
+        }
+    }
     
     // MARK: - Get Top Rated Anime (Animation TV Shows from Japan)
     func getTopRatedAnime(page: Int = 1) async throws -> [TMDBTVShow] {

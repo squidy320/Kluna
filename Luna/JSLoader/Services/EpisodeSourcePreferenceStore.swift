@@ -86,12 +86,21 @@ struct RememberedStreamSelection: Codable, Equatable {
     }
 
     func matches(_ option: StreamOption) -> Bool {
+        let candidateName = Self.normalize(option.name)
+        let candidateSubtitle = Self.normalize(option.subtitle ?? "")
+
+        if !normalizedName.isEmpty, normalizedName == candidateName {
+            if normalizedSubtitle.isEmpty || candidateSubtitle.isEmpty {
+                return true
+            }
+            return normalizedSubtitle == candidateSubtitle
+        }
+
         if !url.isEmpty {
             return url == option.url
         }
 
-        return normalizedName == Self.normalize(option.name)
-            && normalizedSubtitle == Self.normalize(option.subtitle ?? "")
+        return !normalizedSubtitle.isEmpty && normalizedSubtitle == candidateSubtitle
     }
 
     private var normalizedName: String {
@@ -116,9 +125,23 @@ struct RememberedSubtitleSelection: Codable, Equatable {
 
     static let none = RememberedSubtitleSelection(url: nil, title: nil, isNone: true)
 
-    func matches(url candidateURL: String) -> Bool {
-        guard !isNone, let url else { return false }
+    func matches(title candidateTitle: String, url candidateURL: String) -> Bool {
+        guard !isNone else { return false }
+
+        let normalizedTitle = Self.normalize(title)
+        let normalizedCandidateTitle = Self.normalize(candidateTitle)
+        if !normalizedTitle.isEmpty, normalizedTitle == normalizedCandidateTitle {
+            return true
+        }
+
+        guard let url else { return false }
         return url == candidateURL
+    }
+
+    private static func normalize(_ value: String?) -> String {
+        (value ?? "")
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
