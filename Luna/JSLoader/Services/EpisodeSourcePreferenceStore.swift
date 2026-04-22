@@ -64,8 +64,8 @@ final class EpisodeSourcePreferenceStore {
 
     func resolveRememberedSource(
         showId: Int,
-        services: [Service] = ServiceManager.shared.activeServices,
-        addons: [StremioAddon] = StremioAddonManager.shared.activeAddons
+        services: [Service],
+        addons: [StremioAddon]
     ) -> RememberedSource? {
         guard let sourceId = rememberedSourceId(showId: showId) else { return nil }
         return resolve(sourceId: sourceId, services: services, addons: addons)
@@ -73,8 +73,8 @@ final class EpisodeSourcePreferenceStore {
 
     func resolve(
         sourceId: String,
-        services: [Service] = ServiceManager.shared.activeServices,
-        addons: [StremioAddon] = StremioAddonManager.shared.activeAddons
+        services: [Service],
+        addons: [StremioAddon]
     ) -> RememberedSource? {
         if sourceId.hasPrefix("service:") {
             let value = String(sourceId.dropFirst("service:".count))

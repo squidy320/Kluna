@@ -1081,7 +1081,11 @@ struct ModulesSearchResultsSheet: View {
     private func initializeSearchFlow() {
         autoModeDidRun = false
         if autoModeOnly && usesRememberedEpisodeSourceFlow {
-            if let remembered = rememberedSourceStore.resolveRememberedSource(showId: tmdbId) {
+            if let remembered = rememberedSourceStore.resolveRememberedSource(
+                showId: tmdbId,
+                services: serviceManager.activeServices,
+                addons: stremioManager.activeAddons
+            ) {
                 forcedSourceId = remembered.id
                 startScopedSearches()
             } else {
