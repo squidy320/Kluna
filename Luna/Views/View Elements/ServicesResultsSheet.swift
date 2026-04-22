@@ -1388,6 +1388,8 @@ struct ModulesSearchResultsSheet: View {
             viewModel.isSearching = false
             return
         }
+
+        viewModel.isSearching = true
         
         // Check if anime via TrackerManager (for logging)
         let isAnime = TrackerManager.shared.cachedAniListId(for: tmdbId) != nil
