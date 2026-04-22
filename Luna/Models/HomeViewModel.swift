@@ -331,16 +331,16 @@ final class HomeViewModel: ObservableObject {
             
             // Featured — pick a random popular genre
             if enabledCatalogs.contains(where: { $0.id == "featured" }) {
-                let randomGenre = WidgetGenre.curated.randomElement() ?? WidgetGenre.curated[0]
-                let results = (try? await tmdbService.discoverByGenre(genreId: randomGenre.id, mediaType: "tv")) ?? []
+                var results = (try? await tmdbService.getPopularAnimeResults()) ?? []
                 if !results.isEmpty {
+                    let randomIndex = Int.random(in: 0..<results.count)
+                    let spotlight = results.remove(at: randomIndex)
+                    results.insert(spotlight, at: 0)
+
                     await MainActor.run {
                         self.widgetData["featured"] = results
                         self.widgetData["featured_genreName"] = [] // Store genre name via key convention
-                    }
-                    // Store the genre name for display
-                    await MainActor.run {
-                        self.featuredGenreName = randomGenre.name
+                        self.featuredGenreName = "Anime"
                     }
                 }
             }

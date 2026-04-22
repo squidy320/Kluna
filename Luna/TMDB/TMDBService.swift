@@ -440,6 +440,26 @@ class TMDBService: ObservableObject {
             throw TMDBError.networkError(error)
         }
     }
+
+    func getPopularAnimeResults(page: Int = 1) async throws -> [TMDBSearchResult] {
+        try await getPopularAnime(page: page).map {
+            TMDBSearchResult(
+                id: $0.id,
+                mediaType: "tv",
+                title: nil,
+                name: $0.name,
+                overview: $0.overview,
+                posterPath: $0.posterPath,
+                backdropPath: $0.backdropPath,
+                releaseDate: nil,
+                firstAirDate: $0.firstAirDate,
+                voteAverage: $0.voteAverage,
+                popularity: $0.popularity,
+                adult: nil,
+                genreIds: $0.genreIds
+            )
+        }
+    }
     
     // MARK: - Get Top Rated Anime (Animation TV Shows from Japan)
     func getTopRatedAnime(page: Int = 1) async throws -> [TMDBTVShow] {

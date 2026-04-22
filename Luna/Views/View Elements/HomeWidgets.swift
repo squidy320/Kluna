@@ -395,6 +395,10 @@ struct FeaturedSpotlightWidget: View {
     let widgetData: [String: [TMDBSearchResult]]
     let genreName: String
     let tmdbService: TMDBService
+
+    private var isAnimeSpotlight: Bool {
+        genreName == "Anime"
+    }
     
     var body: some View {
         let items = widgetData["featured"] ?? []
@@ -404,10 +408,13 @@ struct FeaturedSpotlightWidget: View {
                 // Main spotlight banner
                 if let spotlight = items.first {
                     NavigationLink(destination: DiscoverDetailView(
-                        title: "Popular \u{00B7} \(genreName)",
+                        title: isAnimeSpotlight ? "Popular Anime" : "Popular \u{00B7} \(genreName)",
                         initialItems: items,
                         heroItem: spotlight,
                         loadMore: { page in
+                            if isAnimeSpotlight {
+                                return (try? await tmdbService.getPopularAnimeResults(page: page)) ?? []
+                            }
                             guard let genre = WidgetGenre.curated.first(where: { $0.name == genreName }) else { return [] }
                             return (try? await tmdbService.discoverByGenre(genreId: genre.id, mediaType: "tv", page: page)) ?? []
                         }
@@ -463,7 +470,7 @@ struct FeaturedSpotlightWidget: View {
                         .font(.caption)
                         .foregroundColor(.yellow.opacity(0.8))
                     
-                    Text("Popular \u{00B7} \(genreName)")
+                    Text(isAnimeSpotlight ? "Popular Anime" : "Popular \u{00B7} \(genreName)")
                         .font(.headline)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
