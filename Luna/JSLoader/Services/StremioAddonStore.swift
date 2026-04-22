@@ -35,7 +35,7 @@ final class StremioAddonStore {
 
     // MARK: - CRUD
 
-    func storeAddon(id: UUID, configuredURL: String, manifestJSON: String, isActive: Bool) {
+    func storeAddon(id: UUID, configuredURL: String, manifestJSON: String, isActive: Bool, sortIndex: Int64? = nil) {
         guard let container = container else {
             Logger.shared.log("Stremio: Container not initialized: storeAddon", type: "Storage")
             return
@@ -60,12 +60,15 @@ final class StremioAddonStore {
                     let countRequest: NSFetchRequest<StremioAddonEntity> = StremioAddonEntity.fetchRequest()
                     countRequest.includesSubentities = false
                     let count = try context.count(for: countRequest)
-                    entity.sortIndex = Int64(count)
+                    entity.sortIndex = sortIndex ?? Int64(count)
                 }
 
                 entity.configuredURL = configuredURL
                 entity.manifestJSON = manifestJSON
                 entity.isActive = isActive
+                if let sortIndex {
+                    entity.sortIndex = sortIndex
+                }
 
                 if context.hasChanges {
                     try context.save()
@@ -131,6 +134,32 @@ final class StremioAddonStore {
                 }
             } catch {
                 Logger.shared.log("Stremio: Remove addon failed: \(error.localizedDescription)", type: "Storage")
+            }
+        }
+    }
+
+    func removeAll() {
+        guard let container = container else { return }
+
+        container.viewContext.performAndWait {
+            let request = NSFetchRequest<NSFetchRequestResult>(entityName: "StremioAddonEntity")
+            let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
+            deleteRequest.resultType = .resultTypeObjectIDs
+
+            do {
+                let result = try container.viewContext.execute(deleteRequest) as? NSBatchDeleteResult
+                let objectIDs = result?.result as? [NSManagedObjectID] ?? []
+                if !objectIDs.isEmpty {
+                    NSManagedObjectContext.mergeChanges(
+                        fromRemoteContextSave: [NSDeletedObjectsKey: objectIDs],
+                        into: [container.viewContext]
+                    )
+                }
+                if container.viewContext.hasChanges {
+                    try container.viewContext.save()
+                }
+            } catch {
+                Logger.shared.log("Stremio: Remove all addons failed: \(error.localizedDescription)", type: "Storage")
             }
         }
     }
