@@ -656,7 +656,7 @@ struct ModulesSearchResultsSheet: View {
 
     @ViewBuilder
     private var sourcePickerDialogContent: some View {
-        ForEach(sortedResultItems) { item in
+        ForEach(sortedResultItems, id: \.id) { item in
             switch item {
             case .service(let service):
                 Button(service.metadata.sourceName) {
