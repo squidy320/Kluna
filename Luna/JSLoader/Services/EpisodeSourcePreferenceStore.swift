@@ -39,27 +39,89 @@ enum RememberedSource: Equatable {
     }
 }
 
+struct RememberedProviderResult: Codable, Equatable {
+    let title: String
+    let imageUrl: String
+    let href: String
+
+    init(result: SearchItem) {
+        self.title = result.title
+        self.imageUrl = result.imageUrl
+        self.href = result.href
+    }
+
+    func matches(_ result: SearchItem) -> Bool {
+        if !href.isEmpty {
+            return href == result.href
+        }
+
+        return normalizedTitle == Self.normalize(result.title)
+            && normalizedImageUrl == Self.normalize(result.imageUrl)
+    }
+
+    private var normalizedTitle: String {
+        Self.normalize(title)
+    }
+
+    private var normalizedImageUrl: String {
+        Self.normalize(imageUrl)
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+struct RememberedEpisodeMatch: Codable, Equatable {
+    let sourceId: String
+    let providerResult: RememberedProviderResult?
+}
+
 final class EpisodeSourcePreferenceStore {
     static let shared = EpisodeSourcePreferenceStore()
 
-    private let key = "rememberedEpisodeSourcesByShow"
+    private let key = "rememberedEpisodeMatchesByShow"
 
     private init() {}
 
-    func rememberedSourceId(showId: Int) -> String? {
+    func rememberedMatch(showId: Int) -> RememberedEpisodeMatch? {
         allPreferences()[String(showId)]
     }
 
-    func setRememberedSourceId(_ sourceId: String, for showId: Int) {
+    func rememberedSourceId(showId: Int) -> String? {
+        rememberedMatch(showId: showId)?.sourceId
+    }
+
+    func rememberedProviderResult(showId: Int) -> RememberedProviderResult? {
+        rememberedMatch(showId: showId)?.providerResult
+    }
+
+    func setRememberedMatch(sourceId: String, providerResult: SearchItem?, for showId: Int) {
         var values = allPreferences()
-        values[String(showId)] = sourceId
-        UserDefaults.standard.set(values, forKey: key)
+        values[String(showId)] = RememberedEpisodeMatch(
+            sourceId: sourceId,
+            providerResult: providerResult.map(RememberedProviderResult.init(result:))
+        )
+        persist(values)
+    }
+
+    func setRememberedSourceId(_ sourceId: String, for showId: Int) {
+        let existingResult = rememberedProviderResult(showId: showId)
+        var values = allPreferences()
+        values[String(showId)] = RememberedEpisodeMatch(sourceId: sourceId, providerResult: existingResult)
+        persist(values)
+    }
+
+    func clearRememberedMatch(for showId: Int) {
+        var values = allPreferences()
+        values.removeValue(forKey: String(showId))
+        persist(values)
     }
 
     func clearRememberedSource(for showId: Int) {
-        var values = allPreferences()
-        values.removeValue(forKey: String(showId))
-        UserDefaults.standard.set(values, forKey: key)
+        clearRememberedMatch(for: showId)
     }
 
     func resolveRememberedSource(
@@ -93,7 +155,23 @@ final class EpisodeSourcePreferenceStore {
         return nil
     }
 
-    private func allPreferences() -> [String: String] {
-        UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
+    private func allPreferences() -> [String: RememberedEpisodeMatch] {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return [:] }
+
+        do {
+            return try JSONDecoder().decode([String: RememberedEpisodeMatch].self, from: data)
+        } catch {
+            Logger.shared.log("Failed to decode remembered episode matches: \(error.localizedDescription)", type: "Error")
+            return [:]
+        }
+    }
+
+    private func persist(_ values: [String: RememberedEpisodeMatch]) {
+        do {
+            let data = try JSONEncoder().encode(values)
+            UserDefaults.standard.set(data, forKey: key)
+        } catch {
+            Logger.shared.log("Failed to encode remembered episode matches: \(error.localizedDescription)", type: "Error")
+        }
     }
 }

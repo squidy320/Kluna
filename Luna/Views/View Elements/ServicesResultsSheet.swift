@@ -131,8 +131,8 @@ struct ModulesSearchResultsSheet: View {
     @State private var autoModeRunToken: String?
     @State private var autoModeCancelled = false
     @State private var showManualPicker = false
-    @State private var showingSourcePicker = false
     @State private var forcedSourceId: String?
+    @State private var rememberedMatchDidAttempt = false
 
     private var effectiveTitle: String { seasonTitleOverride ?? mediaTitle }
     private var animeEffectiveTitle: String {
@@ -304,6 +304,10 @@ struct ModulesSearchResultsSheet: View {
         EpisodeSourcePreferenceStore.shared
     }
 
+    private var rememberedEpisodeMatch: RememberedEpisodeMatch? {
+        rememberedSourceStore.rememberedMatch(showId: tmdbId)
+    }
+
     private var resolvedForcedSource: RememberedSource? {
         guard let forcedSourceId else { return nil }
         return rememberedSourceStore.resolve(
@@ -333,6 +337,14 @@ struct ModulesSearchResultsSheet: View {
     private var visibleResultItems: [ResultItem] {
         guard let forcedSourceId else { return sortedResultItems }
         return sortedResultItems.filter { autoModeSourceId(for: $0) == forcedSourceId }
+    }
+
+    private func rememberedProviderResult(in results: [SearchItem]) -> SearchItem? {
+        guard let rememberedProviderResult = rememberedEpisodeMatch?.providerResult else { return nil }
+        if let hrefMatch = results.first(where: { rememberedProviderResult.href == $0.href }) {
+            return hrefMatch
+        }
+        return results.first(where: rememberedProviderResult.matches)
     }
 
     @ViewBuilder
@@ -486,6 +498,15 @@ struct ModulesSearchResultsSheet: View {
         Button(actionVerb) {
             viewModel.showingPlayAlert = false
             if let result = viewModel.selectedResult {
+                if autoModeOnly && usesRememberedEpisodeSourceFlow,
+                   let service = viewModel.selectedResultService {
+                    rememberedSourceStore.setRememberedMatch(
+                        sourceId: "service:\(service.id.uuidString)",
+                        providerResult: result,
+                        for: tmdbId
+                    )
+                    forcedSourceId = "service:\(service.id.uuidString)"
+                }
                 Task {
                     try? await Task.sleep(nanoseconds: 300_000_000)
                     await playContent(result, serviceOverride: viewModel.selectedResultService)
@@ -662,31 +683,6 @@ struct ModulesSearchResultsSheet: View {
         Text("Choose a subtitle track")
     }
 
-    @ViewBuilder
-    private var sourcePickerDialogContent: some View {
-        ForEach(sortedResultItems, id: \.id) { item in
-            switch item {
-            case .service(let service):
-                Button(service.metadata.sourceName) {
-                    chooseRememberedSource(.service(service))
-                }
-            case .stremio(let addon):
-                Button(addon.manifest.name) {
-                    chooseRememberedSource(.stremio(addon))
-                }
-            }
-        }
-
-        Button("Cancel", role: .cancel) {
-            presentationMode.wrappedValue.dismiss()
-        }
-    }
-
-    @ViewBuilder
-    private var sourcePickerDialogMessage: some View {
-        Text("Choose the service or addon to use for this show. We'll remember it until you clear it.")
-    }
-    
     private func filterResults(for results: [SearchItem]) -> (highQuality: [SearchItem], lowQuality: [SearchItem]) {
         let sortedResults = results.enumerated().map { index, result -> (index: Int, result: SearchItem, similarity: Double) in
             let primarySimilarity = algorithmManager.calculateSimilarity(original: mediaTitle, result: result.title)
@@ -1090,6 +1086,7 @@ struct ModulesSearchResultsSheet: View {
     @MainActor
     private func initializeSearchFlow() {
         autoModeDidRun = false
+        rememberedMatchDidAttempt = false
         if autoModeOnly && usesRememberedEpisodeSourceFlow {
             if let remembered = rememberedSourceStore.resolveRememberedSource(
                 showId: tmdbId,
@@ -1099,12 +1096,11 @@ struct ModulesSearchResultsSheet: View {
                 forcedSourceId = remembered.id
                 startScopedSearches()
             } else {
-                if rememberedSourceStore.rememberedSourceId(showId: tmdbId) != nil {
-                    rememberedSourceStore.clearRememberedSource(for: tmdbId)
+                if rememberedEpisodeMatch != nil {
+                    rememberedSourceStore.clearRememberedMatch(for: tmdbId)
                 }
                 forcedSourceId = nil
-                resetSearchState()
-                showingSourcePicker = true
+                startFullSearches()
             }
         } else {
             forcedSourceId = nil
@@ -1135,12 +1131,19 @@ struct ModulesSearchResultsSheet: View {
     }
 
     @MainActor
+    private func startFullSearches() {
+        resetSearchState()
+        startProgressiveSearch()
+        startStremioSearch()
+    }
+
+    @MainActor
     private func startScopedSearches() {
         resetSearchState()
         guard let remembered = resolvedForcedSource else {
-            EpisodeSourcePreferenceStore.shared.clearRememberedSource(for: tmdbId)
+            EpisodeSourcePreferenceStore.shared.clearRememberedMatch(for: tmdbId)
             forcedSourceId = nil
-            showingSourcePicker = true
+            startFullSearches()
             return
         }
 
@@ -1155,37 +1158,38 @@ struct ModulesSearchResultsSheet: View {
     }
 
     @MainActor
-    private func chooseRememberedSource(_ source: RememberedSource) {
-        forcedSourceId = source.id
-        rememberedSourceStore.setRememberedSourceId(source.id, for: tmdbId)
-        showingSourcePicker = false
-        startScopedSearches()
-    }
-
-    @MainActor
-    private func clearRememberedSourceAndPrompt() {
-        rememberedSourceStore.clearRememberedSource(for: tmdbId)
+    private func clearRememberedMatchAndResumeSelection() {
+        rememberedSourceStore.clearRememberedMatch(for: tmdbId)
         forcedSourceId = nil
-        resetSearchState()
-        showingSourcePicker = true
+        rememberedMatchDidAttempt = false
+        startFullSearches()
     }
 
     @MainActor
-    private func maybePromptForDifferentSource() {
-        guard autoModeOnly, usesRememberedEpisodeSourceFlow, !showingSourcePicker,
+    private func maybeContinueWithRememberedMatch() {
+        guard autoModeOnly, usesRememberedEpisodeSourceFlow,
+              !rememberedMatchDidAttempt,
               !viewModel.isSearching, !viewModel.isSearchingStremio,
               let remembered = resolvedForcedSource else { return }
+
+        rememberedMatchDidAttempt = true
 
         switch remembered {
         case .service(let service):
             let results = viewModel.moduleResults[service.id] ?? []
-            if results.isEmpty {
-                clearRememberedSourceAndPrompt()
+            if let rememberedResult = rememberedProviderResult(in: results) {
+                Task {
+                    await playContent(rememberedResult, serviceOverride: service)
+                }
+            } else {
+                clearRememberedMatchAndResumeSelection()
             }
         case .stremio(let addon):
             let streams = viewModel.stremioResults[addon.id] ?? []
-            if streams.isEmpty {
-                clearRememberedSourceAndPrompt()
+            if let stream = bestStremioStream(from: streams) {
+                playStremioStream(stream, addon: addon)
+            } else {
+                clearRememberedMatchAndResumeSelection()
             }
         }
     }
@@ -1277,11 +1281,11 @@ struct ModulesSearchResultsSheet: View {
         }
         .onChangeComp(of: viewModel.isSearching) { _, _ in
             maybeRunAutoModeSelection()
-            maybePromptForDifferentSource()
+            maybeContinueWithRememberedMatch()
         }
         .onChangeComp(of: viewModel.isSearchingStremio) { _, _ in
             maybeRunAutoModeSelection()
-            maybePromptForDifferentSource()
+            maybeContinueWithRememberedMatch()
         }
         .alert("Quality Threshold", isPresented: $viewModel.showingFilterEditor) {
             qualityThresholdAlertContent
@@ -1308,11 +1312,6 @@ struct ModulesSearchResultsSheet: View {
         } message: {
             subtitlePickerDialogMessage
         }
-        .adaptiveConfirmationDialog("Choose Source", isPresented: $showingSourcePicker, titleVisibility: .visible) {
-            sourcePickerDialogContent
-        } message: {
-            sourcePickerDialogMessage
-        }
         .alert("Stream Error", isPresented: $viewModel.showingStreamError) {
             if autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker {
                 if downloadMode && onSkipRequested != nil {
@@ -1334,7 +1333,7 @@ struct ModulesSearchResultsSheet: View {
             } else if autoModeOnly && usesRememberedEpisodeSourceFlow {
                 Button("Choose Again") {
                     viewModel.streamError = nil
-                    clearRememberedSourceAndPrompt()
+                    clearRememberedMatchAndResumeSelection()
                 }
                 Button("Cancel", role: .cancel) {
                     viewModel.streamError = nil
@@ -1354,6 +1353,14 @@ struct ModulesSearchResultsSheet: View {
                 viewModel.showingStremioPlayAlert = false
                 if let stream = viewModel.selectedStremioStream,
                    let addon = viewModel.selectedStremioAddon {
+                    if autoModeOnly && usesRememberedEpisodeSourceFlow {
+                        rememberedSourceStore.setRememberedMatch(
+                            sourceId: "stremio:\(addon.id.uuidString)",
+                            providerResult: nil,
+                            for: tmdbId
+                        )
+                        forcedSourceId = "stremio:\(addon.id.uuidString)"
+                    }
                     playStremioStream(stream, addon: addon)
                 }
             }
@@ -1707,6 +1714,14 @@ struct ModulesSearchResultsSheet: View {
                 Button {
                     viewModel.showingStremioStreamPicker = false
                     if let addon = viewModel.selectedStremioAddon {
+                        if autoModeOnly && usesRememberedEpisodeSourceFlow {
+                            rememberedSourceStore.setRememberedMatch(
+                                sourceId: "stremio:\(addon.id.uuidString)",
+                                providerResult: nil,
+                                for: tmdbId
+                            )
+                            forcedSourceId = "stremio:\(addon.id.uuidString)"
+                        }
                         playStremioStream(stream, addon: addon)
                     }
                 } label: {

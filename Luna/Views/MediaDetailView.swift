@@ -564,7 +564,7 @@ struct MediaDetailView: View {
             
             if let rememberedEpisodeSource {
                 Button(action: {
-                    EpisodeSourcePreferenceStore.shared.clearRememberedSource(for: searchResult.id)
+                    EpisodeSourcePreferenceStore.shared.clearRememberedMatch(for: searchResult.id)
                 }) {
                     ZStack(alignment: .topTrailing) {
                         KFImage(rememberedEpisodeSource.logoURL.flatMap(URL.init(string:)))
