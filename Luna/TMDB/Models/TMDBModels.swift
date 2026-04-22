@@ -170,6 +170,8 @@ struct TMDBTVShow: Codable, Identifiable {
     let voteAverage: Double
     let popularity: Double
     let genreIds: [Int]?
+    let originalLanguage: String?
+    let originCountry: [String]?
     
     enum CodingKeys: String, CodingKey {
         case id, name, overview, popularity
@@ -178,6 +180,8 @@ struct TMDBTVShow: Codable, Identifiable {
         case firstAirDate = "first_air_date"
         case voteAverage = "vote_average"
         case genreIds = "genre_ids"
+        case originalLanguage = "original_language"
+        case originCountry = "origin_country"
     }
     
     var fullPosterURL: String? {

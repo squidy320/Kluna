@@ -426,7 +426,7 @@ class TMDBService: ObservableObject {
     
     // MARK: - Get Popular Anime (Animation TV Shows from Japan)
     func getPopularAnime(page: Int = 1) async throws -> [TMDBTVShow] {
-        let urlString = "\(baseURL)/discover/tv?api_key=\(apiKey)&language=\(currentLanguage)&page=\(page)&with_genres=16&with_origin_country=JP&sort_by=popularity.desc&include_adult=false"
+        let urlString = "\(baseURL)/discover/tv?api_key=\(apiKey)&language=\(currentLanguage)&page=\(page)&with_genres=16&with_origin_country=JP&with_original_language=ja&sort_by=popularity.desc&include_adult=false"
         
         guard let url = URL(string: urlString) else {
             throw TMDBError.invalidURL
@@ -463,23 +463,12 @@ class TMDBService: ObservableObject {
 
     // MARK: - Get Currently Airing Anime (Animation TV Shows from Japan)
     func getCurrentlyAiringAnime(page: Int = 1) async throws -> [TMDBTVShow] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        let today = formatter.string(from: Date())
-
-        let urlString = "\(baseURL)/discover/tv?api_key=\(apiKey)&language=\(currentLanguage)&page=\(page)&with_genres=16&with_origin_country=JP&air_date.lte=\(today)&with_status=0&sort_by=popularity.desc&include_adult=false"
-
-        guard let url = URL(string: urlString) else {
-            throw TMDBError.invalidURL
-        }
-
-        do {
-            let (data, _) = try await throttledData(from: url)
-            let response = try JSONDecoder().decode(TMDBTVSearchResponse.self, from: data)
-            return response.results
-        } catch {
-            throw TMDBError.networkError(error)
+        let onTheAir = try await getOnTheAirTVShows(page: page)
+        return onTheAir.filter { show in
+            let isAnimation = show.genreIds?.contains(16) ?? false
+            let isJapaneseLanguage = show.originalLanguage?.lowercased() == "ja"
+            let isJapaneseOrigin = show.originCountry?.contains("JP") ?? false
+            return isAnimation && (isJapaneseLanguage || isJapaneseOrigin)
         }
     }
 
@@ -505,7 +494,7 @@ class TMDBService: ObservableObject {
     
     // MARK: - Get Top Rated Anime (Animation TV Shows from Japan)
     func getTopRatedAnime(page: Int = 1) async throws -> [TMDBTVShow] {
-        let urlString = "\(baseURL)/discover/tv?api_key=\(apiKey)&language=\(currentLanguage)&page=\(page)&with_genres=16&with_origin_country=JP&sort_by=vote_average.desc&vote_count.gte=100&include_adult=false"
+        let urlString = "\(baseURL)/discover/tv?api_key=\(apiKey)&language=\(currentLanguage)&page=\(page)&with_genres=16&with_origin_country=JP&with_original_language=ja&sort_by=vote_average.desc&vote_count.gte=100&include_adult=false"
         
         guard let url = URL(string: urlString) else {
             throw TMDBError.invalidURL

@@ -300,6 +300,10 @@ struct ModulesSearchResultsSheet: View {
         !isMovie && selectedEpisode != nil && UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled")
     }
 
+    private var shouldShowRememberedAutoProgressView: Bool {
+        autoModeOnly && usesRememberedEpisodeSourceFlow && !showManualPicker && forcedSourceId != nil
+    }
+
     private var rememberedSourceStore: EpisodeSourcePreferenceStore {
         EpisodeSourcePreferenceStore.shared
     }
@@ -1221,7 +1225,8 @@ struct ModulesSearchResultsSheet: View {
     var body: some View {
         NavigationView {
             Group {
-                if autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker {
+                if (autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker)
+                    || shouldShowRememberedAutoProgressView {
                     autoModeProgressView
                 } else {
                     List {
@@ -1237,7 +1242,7 @@ struct ModulesSearchResultsSheet: View {
                     .lunaSettingsStyle()
                 }
             }
-            .navigationTitle(autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker ? (downloadMode ? "Auto Download" : "Auto Mode") : (downloadMode ? "Download Source" : "Services Result"))
+            .navigationTitle(((autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker) || shouldShowRememberedAutoProgressView) ? (downloadMode ? "Auto Download" : "Auto Mode") : (downloadMode ? "Download Source" : "Services Result"))
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
