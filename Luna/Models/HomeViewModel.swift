@@ -331,6 +331,7 @@ final class HomeViewModel: ObservableObject {
             
             // Featured — pick a random trending anime
             if enabledCatalogs.contains(where: { $0.id == "featured" }) {
+                let trendingAnime = currentResults["trendingAnime"] ?? []
                 var results = trendingAnime
                 if !results.isEmpty {
                     let randomIndex = Int.random(in: 0..<results.count)

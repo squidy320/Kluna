@@ -703,9 +703,6 @@ struct MediaDetailView: View {
                 if let episodes = tvShowDetail.numberOfEpisodes, episodes > 0 {
                     immersiveMetadataChip("\(episodes) EPS")
                 }
-                if let studio = tvShowDetail.networks.first?.name {
-                    immersiveMetadataChip(studio)
-                }
                 if tvShowDetail.voteAverage > 0 {
                     immersiveMetadataChip(String(format: "%.0f%%", tvShowDetail.voteAverage * 10))
                 }
