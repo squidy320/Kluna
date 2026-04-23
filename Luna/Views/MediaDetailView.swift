@@ -425,6 +425,10 @@ struct MediaDetailView: View {
     private var immersiveIPadTVDetailLayout: some View {
         GeometryReader { proxy in
             ZStack(alignment: .topLeading) {
+                Rectangle()
+                    .fill(LunaTheme.shared.backgroundBase)
+                    .ignoresSafeArea()
+
                 KFImage(URL(string: tvShowDetail?.fullBackdropURL ?? tvShowDetail?.fullPosterURL ?? ""))
                     .placeholder {
                         Rectangle()
@@ -433,6 +437,7 @@ struct MediaDetailView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: proxy.size.width, height: proxy.size.height)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     .clipped()
                     .ignoresSafeArea()
 
@@ -457,22 +462,21 @@ struct MediaDetailView: View {
                 .frame(width: min(proxy.size.width * 0.62, 900))
                 .ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: 18) {
-                    Spacer(minLength: max(110, proxy.size.height * 0.16))
+                VStack(alignment: .leading, spacing: 20) {
+                    Spacer(minLength: max(76, proxy.size.height * 0.11))
                     immersiveHeroInfoSection
-                    specialsOVASection
                     episodesSection
-                    Spacer(minLength: 24)
+                    Spacer(minLength: 20)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
-                .padding(.leading, 28)
-                .padding(.trailing, 28)
-                .padding(.top, 20)
-                .padding(.bottom, 24)
+                .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
+                .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
+                .padding(.top, max(20, proxy.safeAreaInsets.top + 6))
+                .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 20))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .ignoresSafeArea(edges: [.top, .leading, .trailing])
+        .ignoresSafeArea()
     }
     
     @ViewBuilder
@@ -538,11 +542,10 @@ struct MediaDetailView: View {
         VStack(alignment: .leading, spacing: 18) {
             immersiveHeaderSection
             immersiveMetadataSection
-            immersiveSynopsisSection
             playAndBookmarkSection
         }
         .padding(24)
-        .frame(maxWidth: 760, alignment: .leading)
+        .frame(maxWidth: 720, alignment: .leading)
         .applyLiquidGlassBackground(
             cornerRadius: 28,
             fallbackFill: Color.black.opacity(0.18),
@@ -705,11 +708,14 @@ struct MediaDetailView: View {
     private var immersiveMetadataSection: some View {
         HStack(spacing: 10) {
             if let tvShowDetail {
+                if let firstAirDate = tvShowDetail.firstAirDate, !firstAirDate.isEmpty {
+                    immersiveMetadataChip(String(firstAirDate.prefix(4)))
+                }
                 if let episodes = tvShowDetail.numberOfEpisodes, episodes > 0 {
                     immersiveMetadataChip("\(episodes) EPS")
                 }
-                if tvShowDetail.voteAverage > 0 {
-                    immersiveMetadataChip(String(format: "%.0f%%", tvShowDetail.voteAverage * 10))
+                if let status = tvShowDetail.status, !status.isEmpty {
+                    immersiveMetadataChip(status)
                 }
                 ForEach(Array(tvShowDetail.genres.prefix(3)), id: \.id) { genre in
                     immersiveMetadataChip(genre.name)
@@ -827,13 +833,18 @@ struct MediaDetailView: View {
                 seasonSelectorInsertedContent: AnyView(specialsOVASection),
                 animeEpisodes: anilistEpisodes,
                 animeSeasonTitles: animeSeasonTitles,
-                tmdbService: tmdbService
+                tmdbService: tmdbService,
+                showsInlineDetails: !usesImmersiveIPadTVLayout,
+                forceHorizontalEpisodeList: usesImmersiveIPadTVLayout,
+                immersiveHorizontalEpisodes: usesImmersiveIPadTVLayout
             ) {
-                if !castMembers.isEmpty {
-                    castSection
+                if !usesImmersiveIPadTVLayout {
+                    if !castMembers.isEmpty {
+                        castSection
+                    }
+
+                    StarRatingView(mediaId: searchResult.id)
                 }
-                
-                StarRatingView(mediaId: searchResult.id)
             }
             .onAppear {
                 Logger.shared.log("MediaDetailView episodesSection appeared: tmdbId=\(searchResult.id) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(anilistEpisodes?.count ?? 0)", type: "CrashProbe")

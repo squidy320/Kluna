@@ -19,6 +19,9 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     var animeEpisodes: [AniListEpisode]? = nil
     var animeSeasonTitles: [Int: String]? = nil
     let tmdbService: TMDBService
+    let showsInlineDetails: Bool
+    let forceHorizontalEpisodeList: Bool
+    let immersiveHorizontalEpisodes: Bool
     @ViewBuilder let insertedContent: () -> InsertedContent
     
     @State private var isLoadingSeason = false
@@ -45,6 +48,10 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     
     private var useSeasonMenu: Bool {
         return UserDefaults.standard.bool(forKey: "seasonMenu")
+    }
+
+    private var usesHorizontalEpisodeList: Bool {
+        forceHorizontalEpisodeList || horizontalEpisodeList
     }
 
     private var hasActiveSources: Bool {
@@ -107,52 +114,54 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             if let tvShow = tvShow {
                 let _ = Logger.shared.log("TVShowSeasonsSection body branch tvShow: showId=\(tvShow.id) seasons=\(tvShow.seasons.count) grouped=\(isGroupedBySeasons) menu=\(useSeasonMenu)", type: "CrashProbe")
-                Text("Details")
-                    .font(.title2)
-                    .fontWeight(.bold)
+                if showsInlineDetails {
+                    Text("Details")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal)
+                        .padding(.top)
+                        .foregroundColor(.white)
+                    
+                    VStack(spacing: 12) {
+                        if let numberOfSeasons = tvShow.numberOfSeasons, numberOfSeasons > 0 {
+                            DetailRow(title: "Seasons", value: "\(numberOfSeasons)")
+                        }
+
+                        if let numberOfEpisodes = tvShow.numberOfEpisodes, numberOfEpisodes > 0 {
+                            DetailRow(title: "Episodes", value: "\(numberOfEpisodes)")
+                        }
+
+                        if !tvShow.genres.isEmpty {
+                            DetailRow(title: "Genres", value: tvShow.genres.map { $0.name }.joined(separator: ", "))
+                        }
+
+                        if tvShow.voteAverage > 0 {
+                            DetailRow(title: "Rating", value: String(format: "%.1f/10", tvShow.voteAverage))
+                        }
+
+                        if let ageRating = getAgeRating(from: tvShow.contentRatings) {
+                            DetailRow(title: "Age Rating", value: ageRating)
+                        }
+
+                        if let firstAirDate = tvShow.firstAirDate, !firstAirDate.isEmpty {
+                            DetailRow(title: "First aired", value: "\(firstAirDate)")
+                        }
+
+                        if let lastAirDate = tvShow.lastAirDate, !lastAirDate.isEmpty {
+                            DetailRow(title: "Last aired", value: "\(lastAirDate)")
+                        }
+
+                        if let status = tvShow.status {
+                            DetailRow(title: "Status", value: status)
+                        }
+                    }
                     .padding(.horizontal)
-                    .padding(.top)
-                    .foregroundColor(.white)
-                
-                VStack(spacing: 12) {
-                    if let numberOfSeasons = tvShow.numberOfSeasons, numberOfSeasons > 0 {
-                        DetailRow(title: "Seasons", value: "\(numberOfSeasons)")
-                    }
-                    
-                    if let numberOfEpisodes = tvShow.numberOfEpisodes, numberOfEpisodes > 0 {
-                        DetailRow(title: "Episodes", value: "\(numberOfEpisodes)")
-                    }
-                    
-                    if !tvShow.genres.isEmpty {
-                        DetailRow(title: "Genres", value: tvShow.genres.map { $0.name }.joined(separator: ", "))
-                    }
-                    
-                    if tvShow.voteAverage > 0 {
-                        DetailRow(title: "Rating", value: String(format: "%.1f/10", tvShow.voteAverage))
-                    }
-                    
-                    if let ageRating = getAgeRating(from: tvShow.contentRatings) {
-                        DetailRow(title: "Age Rating", value: ageRating)
-                    }
-                    
-                    if let firstAirDate = tvShow.firstAirDate, !firstAirDate.isEmpty {
-                        DetailRow(title: "First aired", value: "\(firstAirDate)")
-                    }
-                    
-                    if let lastAirDate = tvShow.lastAirDate, !lastAirDate.isEmpty {
-                        DetailRow(title: "Last aired", value: "\(lastAirDate)")
-                    }
-                    
-                    if let status = tvShow.status {
-                        DetailRow(title: "Status", value: status)
-                    }
+                    .padding(.vertical, 16)
+                    .applyLiquidGlassBackground(cornerRadius: 16)
+                    .padding(.horizontal)
+
+                    insertedContent()
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 16)
-                .applyLiquidGlassBackground(cornerRadius: 16)
-                .padding(.horizontal)
-                
-                insertedContent()
                 
                 if !tvShow.seasons.isEmpty {
                     let _ = Logger.shared.log("TVShowSeasonsSection body branch seasons-present: showId=\(tvShow.id) seasons=\(tvShow.seasons.count)", type: "CrashProbe")
@@ -460,8 +469,8 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
         Group {
             if let detail = activeSeasonDetail {
                 let episodeItems = episodeRenderItems(for: detail)
-                let _ = Logger.shared.log("TVShowSeasonsSection construct episodeListSection with detail: showId=\(tvShow?.id ?? 0) season=\(detail.seasonNumber) count=\(episodeItems.count) horizontal=\(horizontalEpisodeList) special=\(specialEpisodeContext != nil)", type: "CrashProbe")
-                if horizontalEpisodeList {
+                let _ = Logger.shared.log("TVShowSeasonsSection construct episodeListSection with detail: showId=\(tvShow?.id ?? 0) season=\(detail.seasonNumber) count=\(episodeItems.count) horizontal=\(usesHorizontalEpisodeList) special=\(specialEpisodeContext != nil)", type: "CrashProbe")
+                if usesHorizontalEpisodeList {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(alignment: .top, spacing: 15) {
                             ForEach(episodeItems) { item in
@@ -538,7 +547,8 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                         showingNoServicesAlert = true
                         Logger.shared.log("TVShowSeasonsSection episode download blocked no sources: showId=\(tvShow.id) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
                     }
-                }
+                },
+                layout: immersiveHorizontalEpisodes ? .immersiveHorizontal : (usesHorizontalEpisodeList ? .horizontal : .automatic)
             )
         } else {
             EmptyView()
