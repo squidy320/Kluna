@@ -610,7 +610,13 @@ struct ServiceSearchDetailSheet: View {
                                     }
                                     .padding(.horizontal)
                                     .padding(.vertical, 10)
-                                    .background(Color(.secondarySystemBackground))
+                                    .background(
+#if os(tvOS)
+                                        Color.white.opacity(0.08)
+#else
+                                        Color(.secondarySystemBackground)
+#endif
+                                    )
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                                     .padding(.horizontal)
                                 }
