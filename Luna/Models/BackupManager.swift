@@ -85,6 +85,9 @@ struct BackupData: Codable {
     // Services (custom JS modules)
     var services: [BackupService] = []
 
+    // Stremio addons. Nil means the backup predates this field and restore should leave existing addons alone.
+    var stremioAddons: [BackupStremioAddon]? = nil
+
     // Manga / Kanzen data
     var mangaCollections: [BackupMangaCollection] = []
     var mangaReadingProgress: [String: MangaProgress] = [:]
@@ -106,7 +109,7 @@ struct BackupData: Codable {
         case readingMode
         case readerFontSize, readerFontFamily, readerFontWeight, readerColorPreset, readerTextAlignment, readerLineSpacing, readerMargin
         case autoClearCacheEnabled, autoClearCacheThresholdMB, highQualityThreshold
-        case collections, progressData, trackerState, catalogs, services
+        case collections, progressData, trackerState, catalogs, services, stremioAddons
         case mangaCollections, mangaReadingProgress, mangaCatalogs, kanzenModules
         case recommendationCache
         case userRatings
@@ -180,6 +183,7 @@ struct BackupData: Codable {
         trackerState = try container.decodeIfPresent(TrackerState.self, forKey: .trackerState) ?? TrackerState()
         catalogs = try container.decodeIfPresent([Catalog].self, forKey: .catalogs) ?? []
         services = try container.decodeIfPresent([BackupService].self, forKey: .services) ?? []
+        stremioAddons = try container.decodeIfPresent([BackupStremioAddon].self, forKey: .stremioAddons)
         mangaCollections = try container.decodeIfPresent([BackupMangaCollection].self, forKey: .mangaCollections) ?? []
         mangaReadingProgress = try container.decodeIfPresent([String: MangaProgress].self, forKey: .mangaReadingProgress) ?? [:]
         mangaCatalogs = try container.decodeIfPresent([MangaCatalog].self, forKey: .mangaCatalogs) ?? []
@@ -252,6 +256,7 @@ struct BackupData: Codable {
         try container.encode(trackerState, forKey: .trackerState)
         try container.encode(catalogs, forKey: .catalogs)
         try container.encode(services, forKey: .services)
+        try container.encodeIfPresent(stremioAddons, forKey: .stremioAddons)
         try container.encode(mangaCollections, forKey: .mangaCollections)
         try container.encode(mangaReadingProgress, forKey: .mangaReadingProgress)
         try container.encode(mangaCatalogs, forKey: .mangaCatalogs)
@@ -323,6 +328,7 @@ struct BackupData: Codable {
         trackerState: TrackerState = TrackerState(),
         catalogs: [Catalog] = [],
         services: [BackupService] = [],
+        stremioAddons: [BackupStremioAddon]? = nil,
         mangaCollections: [BackupMangaCollection] = [],
         mangaReadingProgress: [String: MangaProgress] = [:],
         mangaCatalogs: [MangaCatalog] = [],
@@ -386,6 +392,7 @@ struct BackupData: Codable {
         self.trackerState = trackerState
         self.catalogs = catalogs
         self.services = services
+        self.stremioAddons = stremioAddons
         self.mangaCollections = mangaCollections
         self.mangaReadingProgress = mangaReadingProgress
         self.mangaCatalogs = mangaCatalogs
@@ -404,6 +411,31 @@ struct BackupService: Codable {
     let jsScript: String
     let isActive: Bool
     let sortIndex: Int64
+}
+
+struct BackupStremioAddon: Codable {
+    let id: UUID
+    let configuredURL: String
+    let manifestJSON: String
+    let isActive: Bool
+    let sortIndex: Int64
+
+    init(id: UUID, configuredURL: String, manifestJSON: String, isActive: Bool, sortIndex: Int64) {
+        self.id = id
+        self.configuredURL = configuredURL
+        self.manifestJSON = manifestJSON
+        self.isActive = isActive
+        self.sortIndex = sortIndex
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        configuredURL = try container.decodeIfPresent(String.self, forKey: .configuredURL) ?? ""
+        manifestJSON = try container.decodeIfPresent(String.self, forKey: .manifestJSON) ?? ""
+        isActive = try container.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
+        sortIndex = try container.decodeIfPresent(Int64.self, forKey: .sortIndex) ?? 0
+    }
 }
 
 // Codable wrapper for MangaLibraryCollection
@@ -581,6 +613,25 @@ class BackupManager {
             return BackupService(id: service.id, url: service.url, jsonMetadata: metadataString, jsScript: service.jsScript, isActive: service.isActive, sortIndex: service.sortIndex)
         }
 
+        // Get Stremio addons directly from CoreData entities so configured URLs and raw manifests survive backup exactly.
+        let stremioAddons = StremioAddonStore.shared.getEntities().compactMap { entity -> BackupStremioAddon? in
+            guard
+                let id = entity.id,
+                let configuredURL = entity.configuredURL,
+                let manifestJSON = entity.manifestJSON
+            else {
+                return nil
+            }
+
+            return BackupStremioAddon(
+                id: id,
+                configuredURL: configuredURL,
+                manifestJSON: manifestJSON,
+                isActive: entity.isActive,
+                sortIndex: entity.sortIndex
+            )
+        }
+
         // Get manga library collections
         let mangaLibraryManager = MangaLibraryManager.shared
         let mangaCollections = mangaLibraryManager.collections.map { collection in
@@ -669,6 +720,7 @@ class BackupManager {
             trackerState: trackerState,
             catalogs: catalogs,
             services: services,
+            stremioAddons: stremioAddons,
             mangaCollections: mangaCollections,
             mangaReadingProgress: mangaReadingProgress,
             mangaCatalogs: mangaCatalogs,
@@ -846,6 +898,18 @@ class BackupManager {
             }
         }
 
+        var stremioAddons: [BackupStremioAddon]? = nil
+        if let stremioData = json["stremioAddons"] as? [[String: Any]] {
+            var decodedAddons: [BackupStremioAddon] = []
+            for addonDict in stremioData {
+                if let addonJSON = try? JSONSerialization.data(withJSONObject: addonDict),
+                   let addon = try? JSONDecoder().decode(BackupStremioAddon.self, from: addonJSON) {
+                    decodedAddons.append(addon)
+                }
+            }
+            stremioAddons = decodedAddons
+        }
+
         // Manga data
         var mangaCollections: [BackupMangaCollection] = []
         if let mangaColData = json["mangaCollections"] as? [[String: Any]] {
@@ -951,6 +1015,7 @@ class BackupManager {
             trackerState: trackerState,
             catalogs: catalogs,
             services: services,
+            stremioAddons: stremioAddons,
             mangaCollections: mangaCollections,
             mangaReadingProgress: mangaReadingProgress,
             mangaCatalogs: mangaCatalogs,
@@ -1078,6 +1143,43 @@ class BackupManager {
         existingServices.forEach { serviceStore.remove($0) }
         for svc in backup.services {
             serviceStore.storeService(id: svc.id, url: svc.url, jsonMetadata: svc.jsonMetadata, jsScript: svc.jsScript, isActive: svc.isActive)
+        }
+
+        // Restore Stremio addons only when the backup explicitly contains this field.
+        // Older backups did not know about Stremio addons, so they must not wipe the current device's addons.
+        if let stremioAddons = backup.stremioAddons {
+            let stremioStore = StremioAddonStore.shared
+            stremioStore.removeAll()
+
+            let sortedAddons = stremioAddons.sorted {
+                if $0.sortIndex == $1.sortIndex {
+                    return $0.id.uuidString < $1.id.uuidString
+                }
+                return $0.sortIndex < $1.sortIndex
+            }
+
+            for addon in sortedAddons {
+                let configuredURL = addon.configuredURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !configuredURL.isEmpty,
+                      let manifestData = addon.manifestJSON.data(using: .utf8),
+                      let manifest = try? JSONDecoder().decode(StremioManifest.self, from: manifestData),
+                      manifest.supportsStreams else {
+                    Logger.shared.log("Skipping invalid Stremio addon from backup: \(addon.id)", type: "Stremio")
+                    continue
+                }
+
+                stremioStore.storeAddon(
+                    id: addon.id,
+                    configuredURL: configuredURL,
+                    manifestJSON: addon.manifestJSON,
+                    isActive: addon.isActive,
+                    sortIndex: addon.sortIndex
+                )
+            }
+
+            Task { @MainActor in
+                StremioAddonManager.shared.loadAddons()
+            }
         }
 
         // Restore manga library collections
