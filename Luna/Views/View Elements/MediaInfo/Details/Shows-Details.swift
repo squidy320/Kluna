@@ -87,54 +87,62 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             if let tvShow = tvShow {
                 let _ = Logger.shared.log("TVShowSeasonsSection body branch tvShow: showId=\(tvShow.id) seasons=\(tvShow.seasons.count) grouped=\(isGroupedBySeasons) menu=\(useSeasonMenu)", type: "CrashProbe")
-                detailsSection(for: tvShow)
-                insertedContent()
-                
-                if !tvShow.seasons.isEmpty {
-                    let _ = Logger.shared.log("TVShowSeasonsSection body branch seasons-present: showId=\(tvShow.id) seasons=\(tvShow.seasons.count)", type: "CrashProbe")
-                    if immersiveIPadLayout {
+                if immersiveIPadLayout {
+                    if !tvShow.seasons.isEmpty {
+                        let _ = Logger.shared.log("TVShowSeasonsSection body branch immersive seasons-present: showId=\(tvShow.id) seasons=\(tvShow.seasons.count)", type: "CrashProbe")
                         immersiveSeasonAndEpisodeSection(for: tvShow)
-                    } else if isGroupedBySeasons && !useSeasonMenu {
-                        let _ = Logger.shared.log("TVShowSeasonsSection body branch styled selector: showId=\(tvShow.id)", type: "CrashProbe")
-                        HStack {
-                            Text("Seasons")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Spacer()
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal)
-                        .padding(.top)
-                        
-                        seasonSelectorStyled
-                        HStack {
-                            Text("Episodes")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            
-                            Spacer()
-                            
-                            if seasonDetail != nil && hasActiveSources {
-                                Button(action: startDownloadAllSeason) {
-                                    Image(systemName: "arrow.down.circle")
-                                        .font(.title3)
-                                        .foregroundColor(.white)
-                                }
-                                .disabled(isDownloadingAll)
-                            }
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal)
-                        .padding(.top)
                     } else {
-                        let _ = Logger.shared.log("TVShowSeasonsSection body branch header/menu selector: showId=\(tvShow.id)", type: "CrashProbe")
-                        episodesSectionHeader
+                        let _ = Logger.shared.log("TVShowSeasonsSection body branch immersive no seasons: showId=\(tvShow.id)", type: "CrashProbe")
+                        EmptyView()
                     }
-                    
-                    episodeListSection
                 } else {
-                    let _ = Logger.shared.log("TVShowSeasonsSection body branch no seasons: showId=\(tvShow.id)", type: "CrashProbe")
-                    EmptyView()
+                    detailsSection(for: tvShow)
+                    insertedContent()
+
+                    if !tvShow.seasons.isEmpty {
+                        let _ = Logger.shared.log("TVShowSeasonsSection body branch seasons-present: showId=\(tvShow.id) seasons=\(tvShow.seasons.count)", type: "CrashProbe")
+                        if isGroupedBySeasons && !useSeasonMenu {
+                            let _ = Logger.shared.log("TVShowSeasonsSection body branch styled selector: showId=\(tvShow.id)", type: "CrashProbe")
+                            HStack {
+                                Text("Seasons")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                Spacer()
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal)
+                            .padding(.top)
+
+                            seasonSelectorStyled
+                            HStack {
+                                Text("Episodes")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+
+                                Spacer()
+
+                                if seasonDetail != nil && hasActiveSources {
+                                    Button(action: startDownloadAllSeason) {
+                                        Image(systemName: "arrow.down.circle")
+                                            .font(.title3)
+                                            .foregroundColor(.white)
+                                    }
+                                    .disabled(isDownloadingAll)
+                                }
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal)
+                            .padding(.top)
+                        } else {
+                            let _ = Logger.shared.log("TVShowSeasonsSection body branch header/menu selector: showId=\(tvShow.id)", type: "CrashProbe")
+                            episodesSectionHeader
+                        }
+
+                        episodeListSection
+                    } else {
+                        let _ = Logger.shared.log("TVShowSeasonsSection body branch no seasons: showId=\(tvShow.id)", type: "CrashProbe")
+                        EmptyView()
+                    }
                 }
             } else {
                 let _ = Logger.shared.log("TVShowSeasonsSection body branch missing tvShow", type: "CrashProbe")
@@ -395,6 +403,11 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                 Spacer()
+                if let selectedSeason {
+                    Text(currentSeasonTitle ?? selectedSeason.name)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.white.opacity(0.78))
+                }
                 if seasonDetail != nil && hasActiveSources {
                     Button(action: startDownloadAllSeason) {
                         Label("Download All", systemImage: "arrow.down.circle")
@@ -406,11 +419,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
             }
 
             if isGroupedBySeasons {
-                if useSeasonMenu {
-                    seasonMenu(for: tvShow)
-                } else {
-                    seasonSelectorStyled
-                }
+                seasonMenu(for: tvShow)
             }
 
             HStack {

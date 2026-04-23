@@ -86,6 +86,7 @@ struct MediaDetailView: View {
     @State private var hasLoadedContent = false
     @State private var detailLoadTask: Task<Void, Never>?
     @State private var specialsLoadTask: Task<Void, Never>?
+    @State private var showingImmersiveInfoSheet = false
     
     @StateObject private var serviceManager = ServiceManager.shared
     @StateObject private var stremioManager = StremioAddonManager.shared
@@ -339,6 +340,11 @@ struct MediaDetailView: View {
             let _ = Logger.shared.log("MediaDetailView constructing add-to-collection sheet: id=\(searchResult.id)", type: "CrashProbe")
             AddToCollectionView(searchResult: searchResult)
         }
+        .sheet(isPresented: $showingImmersiveInfoSheet) {
+            immersiveTVInfoSheet
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
     
     @ViewBuilder
@@ -419,51 +425,54 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var immersiveIPadTVDetailLayout: some View {
-        ZStack(alignment: .top) {
-            KFImage(URL(string: tvShowDetail?.fullBackdropURL ?? tvShowDetail?.fullPosterURL ?? ""))
-                .placeholder {
-                    Rectangle()
-                        .fill(LunaTheme.shared.backgroundBase)
-                }
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                KFImage(URL(string: tvShowDetail?.fullBackdropURL ?? tvShowDetail?.fullPosterURL ?? ""))
+                    .placeholder {
+                        Rectangle()
+                            .fill(LunaTheme.shared.backgroundBase)
+                    }
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+                    .ignoresSafeArea()
+
+                LinearGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: Color.black.opacity(0.14), location: 0.0),
+                        .init(color: Color.black.opacity(0.28), location: 0.24),
+                        .init(color: Color.black.opacity(0.56), location: 0.54),
+                        .init(color: ambientColor.opacity(0.9), location: 0.82),
+                        .init(color: LunaTheme.shared.backgroundBase, location: 1.0)
+                    ]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
                 .ignoresSafeArea()
 
-            LinearGradient(
-                gradient: Gradient(stops: [
-                    .init(color: Color.black.opacity(0.18), location: 0.0),
-                    .init(color: Color.black.opacity(0.32), location: 0.22),
-                    .init(color: Color.black.opacity(0.58), location: 0.52),
-                    .init(color: ambientColor.opacity(0.92), location: 0.82),
-                    .init(color: LunaTheme.shared.backgroundBase, location: 1.0)
-                ]),
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+                LinearGradient(
+                    colors: [Color.black.opacity(0.72), Color.black.opacity(0.24), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: min(proxy.size.width * 0.62, 900))
+                .ignoresSafeArea()
 
-            LinearGradient(
-                colors: [Color.black.opacity(0.55), .clear],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .ignoresSafeArea()
-
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    Spacer()
-                        .frame(height: 320)
-
+                VStack(alignment: .leading, spacing: 18) {
+                    Spacer(minLength: max(110, proxy.size.height * 0.16))
                     immersiveHeroInfoSection
                     specialsOVASection
                     episodesSection
-
-                    Spacer(minLength: 80)
+                    Spacer(minLength: 24)
                 }
-                .padding(.top, 30)
-                .padding(.bottom, 40)
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                .padding(.leading, 28)
+                .padding(.trailing, 28)
+                .padding(.top, 20)
+                .padding(.bottom, 24)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .ignoresSafeArea(edges: [.top, .leading, .trailing])
     }
@@ -547,8 +556,7 @@ struct MediaDetailView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
-        .padding(.horizontal, 28)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: min(UIScreen.main.bounds.width * 0.56, 760), alignment: .leading)
     }
     
     @ViewBuilder
@@ -790,6 +798,20 @@ struct MediaDetailView: View {
                     .foregroundColor(.white)
                     .cornerRadius(8)
             }
+
+            if usesImmersiveIPadTVLayout {
+                Button(action: {
+                    showingImmersiveInfoSheet = true
+                }) {
+                    Label("More Info", systemImage: "info.circle")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .frame(height: 42)
+                        .applyLiquidGlassBackground(cornerRadius: 12)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+            }
         }
         .padding(.horizontal)
     }
@@ -940,6 +962,112 @@ struct MediaDetailView: View {
             }
             .padding(.top, 4)
         }
+    }
+
+    @ViewBuilder
+    private var immersiveTVInfoSheet: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let tvShowDetail {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Overview")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+
+                            let overviewText = !synopsis.isEmpty ? synopsis : (tvShowDetail.overview ?? "")
+                            if !overviewText.isEmpty {
+                                Text(overviewText)
+                                    .font(.body)
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(20)
+                        .applyLiquidGlassBackground(cornerRadius: 22)
+
+                        immersiveTVDetailsSheetSection(tvShowDetail)
+                    }
+
+                    if !castMembers.isEmpty {
+                        castSection
+                    }
+
+                    StarRatingView(mediaId: searchResult.id)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 32)
+            }
+            .background(LunaTheme.shared.backgroundBase.ignoresSafeArea())
+            .navigationTitle("More Info")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private func immersiveTVDetailsSheetSection(_ tvShow: TMDBTVShowWithSeasons) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Details")
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+
+            VStack(spacing: 12) {
+                if let numberOfSeasons = tvShow.numberOfSeasons, numberOfSeasons > 0 {
+                    DetailRow(title: "Seasons", value: "\(numberOfSeasons)")
+                }
+
+                if let numberOfEpisodes = tvShow.numberOfEpisodes, numberOfEpisodes > 0 {
+                    DetailRow(title: "Episodes", value: "\(numberOfEpisodes)")
+                }
+
+                if !tvShow.genres.isEmpty {
+                    DetailRow(title: "Genres", value: tvShow.genres.map { $0.name }.joined(separator: ", "))
+                }
+
+                if tvShow.voteAverage > 0 {
+                    DetailRow(title: "Rating", value: String(format: "%.1f/10", tvShow.voteAverage))
+                }
+
+                if let ageRating = immersiveTVAgeRating(from: tvShow.contentRatings) {
+                    DetailRow(title: "Age Rating", value: ageRating)
+                }
+
+                if let firstAirDate = tvShow.firstAirDate, !firstAirDate.isEmpty {
+                    DetailRow(title: "First aired", value: firstAirDate)
+                }
+
+                if let lastAirDate = tvShow.lastAirDate, !lastAirDate.isEmpty {
+                    DetailRow(title: "Last aired", value: lastAirDate)
+                }
+
+                if let status = tvShow.status, !status.isEmpty {
+                    DetailRow(title: "Status", value: status)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 16)
+            .applyLiquidGlassBackground(cornerRadius: 16)
+        }
+    }
+
+    private func immersiveTVAgeRating(from contentRatings: TMDBContentRatings?) -> String? {
+        guard let contentRatings else { return nil }
+
+        for rating in contentRatings.results {
+            if rating.iso31661 == "US" && !rating.rating.isEmpty {
+                return rating.rating
+            }
+        }
+
+        for rating in contentRatings.results where !rating.rating.isEmpty {
+            return rating.rating
+        }
+
+        return nil
     }
 
     @ViewBuilder
