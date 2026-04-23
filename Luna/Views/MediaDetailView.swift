@@ -342,8 +342,6 @@ struct MediaDetailView: View {
         }
         .sheet(isPresented: $showingImmersiveInfoSheet) {
             immersiveTVInfoSheet
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
         }
     }
     
@@ -966,7 +964,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var immersiveTVInfoSheet: some View {
-        NavigationStack {
+        NavigationView {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
                     if let tvShowDetail {
