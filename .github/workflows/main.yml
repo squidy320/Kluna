@@ -23,6 +23,7 @@ jobs:
       PROJECT_PATH: Luna.xcodeproj
       SCHEME: Luna
       CONFIGURATION: Release
+      FEED_NAME: Eclipse
       IOS_IPA_NAME: Luna.ipa
       TVOS_IPA_NAME: Luna-tvOS.ipa
       SOURCE_JSON: source.json
@@ -47,16 +48,21 @@ jobs:
           APP_VERSION="$(awk -F' = ' '/MARKETING_VERSION/ {print $2; exit}' <<< "$BUILD_SETTINGS")"
           BUILD_NUMBER="$(awk -F' = ' '/CURRENT_PROJECT_VERSION/ {print $2; exit}' <<< "$BUILD_SETTINGS")"
           PRODUCT_NAME="$(awk -F' = ' '/PRODUCT_NAME/ {print $2; exit}' <<< "$BUILD_SETTINGS")"
+          APP_NAME="$(awk -F' = ' '/APP_NAME/ {print $2; exit}' <<< "$BUILD_SETTINGS")"
 
           if [[ -z "${APP_VERSION:-}" || -z "${BUILD_NUMBER:-}" || -z "${PRODUCT_NAME:-}" ]]; then
             echo "Failed to resolve MARKETING_VERSION, CURRENT_PROJECT_VERSION, or PRODUCT_NAME from Xcode build settings."
             exit 1
           fi
 
+          if [[ -z "${APP_NAME:-}" ]]; then
+            APP_NAME="$FEED_NAME"
+          fi
+
           DATE_STAMP="$(date -u +%Y%m%d)"
           RELEASE_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           TAG_NAME="v${APP_VERSION}-${DATE_STAMP}.${BUILD_NUMBER}"
-          RELEASE_NAME="${PRODUCT_NAME} ${APP_VERSION} (${BUILD_NUMBER})"
+          RELEASE_NAME="${APP_NAME} ${APP_VERSION} (${BUILD_NUMBER})"
           COMMIT_MESSAGE="$(git log -1 --pretty=%s | tr '\n' ' ' | sed 's/"/\\"/g')"
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/latest/download/$IOS_IPA_NAME"
 
@@ -64,6 +70,7 @@ jobs:
             echo "APP_VERSION=$APP_VERSION"
             echo "BUILD_NUMBER=$BUILD_NUMBER"
             echo "PRODUCT_NAME=$PRODUCT_NAME"
+            echo "APP_NAME=$APP_NAME"
             echo "DATE_STAMP=$DATE_STAMP"
             echo "RELEASE_DATE=$RELEASE_DATE"
             echo "TAG_NAME=$TAG_NAME"
@@ -127,17 +134,17 @@ jobs:
           if [[ ! -s "$SOURCE_JSON" ]]; then
             cat <<'EOF' > "$SOURCE_JSON"
           {
-            "name": "Luna",
+            "name": "Eclipse",
             "identifier": "me.cranci.solar",
-            "subtitle": "SideStore source for Luna",
-            "description": "Automated releases for Luna.",
+            "subtitle": "SideStore source for Eclipse",
+            "description": "Automated releases for Eclipse.",
             "apps": [
               {
-                "name": "Luna",
+                "name": "Eclipse",
                 "bundleIdentifier": "me.cranci.solar",
                 "developerName": "Squidy",
                 "iconURL": "",
-                "localizedDescription": "Automated SideStore distribution for Luna.",
+                "localizedDescription": "Automated SideStore distribution for Eclipse.",
                 "downloadURL": "",
                 "version": "",
                 "versionDate": "",
@@ -160,17 +167,17 @@ jobs:
             echo "source.json is invalid JSON; replacing it with a default structure."
             cat <<'EOF' > "$SOURCE_JSON"
           {
-            "name": "Luna",
+            "name": "Eclipse",
             "identifier": "me.cranci.solar",
-            "subtitle": "SideStore source for Luna",
-            "description": "Automated releases for Luna.",
+            "subtitle": "SideStore source for Eclipse",
+            "description": "Automated releases for Eclipse.",
             "apps": [
               {
-                "name": "Luna",
+                "name": "Eclipse",
                 "bundleIdentifier": "me.cranci.solar",
                 "developerName": "Squidy",
                 "iconURL": "",
-                "localizedDescription": "Automated SideStore distribution for Luna.",
+                "localizedDescription": "Automated SideStore distribution for Eclipse.",
                 "downloadURL": "",
                 "version": "",
                 "versionDate": "",
@@ -185,7 +192,7 @@ jobs:
           fi
 
           jq \
-            --arg productName "$PRODUCT_NAME" \
+            --arg productName "$APP_NAME" \
             --arg version "$APP_VERSION" \
             --arg releaseDate "$RELEASE_DATE" \
             --arg downloadURL "$DOWNLOAD_URL" \
@@ -201,7 +208,7 @@ jobs:
                   "bundleIdentifier": "me.cranci.solar",
                   "developerName": "Squidy",
                   "iconURL": "",
-                  "localizedDescription": "Automated SideStore distribution for Luna.",
+                  "localizedDescription": "Automated SideStore distribution for Eclipse.",
                   "downloadURL": "",
                   "version": "",
                   "versionDate": "",

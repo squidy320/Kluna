@@ -1,15 +1,15 @@
 {
-  "name": "Luna",
+  "name": "Eclipse",
   "identifier": "me.cranci.solar",
-  "subtitle": "SideStore source for Luna",
-  "description": "Automated releases for Luna.",
+  "subtitle": "SideStore source for Eclipse",
+  "description": "Automated releases for Eclipse.",
   "apps": [
     {
-      "name": "Luna",
+      "name": "Eclipse",
       "bundleIdentifier": "me.cranci.solar",
       "developerName": "Squidy",
       "iconURL": "",
-      "localizedDescription": "Automated SideStore distribution for Luna.",
+      "localizedDescription": "Automated SideStore distribution for Eclipse.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Luna.ipa",
       "version": "1.0.1",
       "versionDate": "2026-04-23T01:54:48Z",

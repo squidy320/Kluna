@@ -538,8 +538,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                         showingNoServicesAlert = true
                         Logger.shared.log("TVShowSeasonsSection episode download blocked no sources: showId=\(tvShow.id) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
                     }
-                },
-                playbackContext: playbackContext
+                }
             )
         } else {
             EmptyView()

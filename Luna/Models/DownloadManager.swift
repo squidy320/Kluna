@@ -79,6 +79,10 @@ struct DownloadItem: Codable, Identifiable {
 
 final class DownloadManager: NSObject, ObservableObject {
     static let shared = DownloadManager()
+    static let backgroundSessionIdentifier: String = {
+        let bundleId = Bundle.main.bundleIdentifier ?? "me.cranci.solar"
+        return "\(bundleId).downloads"
+    }()
     
     @Published private(set) var downloads: [DownloadItem] = []
     
@@ -111,7 +115,7 @@ final class DownloadManager: NSObject, ObservableObject {
     private override init() {
         super.init()
         
-        let config = URLSessionConfiguration.background(withIdentifier: "com.luna.downloads")
+        let config = URLSessionConfiguration.background(withIdentifier: Self.backgroundSessionIdentifier)
         config.isDiscretionary = false
         config.sessionSendsLaunchEvents = true
         config.allowsCellularAccess = true

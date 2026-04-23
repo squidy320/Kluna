@@ -827,8 +827,7 @@ struct MediaDetailView: View {
                 seasonSelectorInsertedContent: AnyView(specialsOVASection),
                 animeEpisodes: anilistEpisodes,
                 animeSeasonTitles: animeSeasonTitles,
-                tmdbService: tmdbService,
-                immersiveIPadLayout: usesImmersiveIPadTVLayout
+                tmdbService: tmdbService
             ) {
                 if !castMembers.isEmpty {
                     castSection

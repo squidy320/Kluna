@@ -17,8 +17,8 @@ extension Bundle {
 }
 
 enum GitHubReleaseChecker {
-    private static let owner = "Soupy-dev"
-    private static let repo = "Luna"
+    private static let owner = "squidy320"
+    private static let repo = "Kluna"
 
     private static let autoCheckEnabledKey = "githubReleaseAutoCheckEnabled"
     private static let lastCheckTimestampKey = "githubReleaseLastCheckTimestamp"
