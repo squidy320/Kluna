@@ -22,6 +22,7 @@ struct SearchView: View {
     @State private var searchHistory: [String] = []
     @State private var selectedService: Service?
     @State private var serviceSearchResults: [SearchItem] = []
+    @State private var selectedServiceSearchResult: ServiceSearchSelection?
     
     @StateObject private var tmdbService = TMDBService.shared
     @StateObject private var serviceManager = ServiceManager.shared
@@ -32,6 +33,12 @@ struct SearchView: View {
         case all = "All"
         case movies = "Movies"
         case tvShows = "TV Shows"
+    }
+
+    struct ServiceSearchSelection: Identifiable {
+        let id = UUID()
+        let item: SearchItem
+        let service: Service
     }
     
     var filteredResults: [TMDBSearchResult] {
@@ -182,7 +189,9 @@ struct SearchView: View {
             if selectedService != nil && !serviceSearchResults.isEmpty {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: columnsCount), spacing: 16) {
                     ForEach(serviceSearchResults) { item in
-                        ServiceSearchResultCard(item: item, service: selectedService!)
+                        ServiceSearchResultCard(item: item, service: selectedService!) {
+                            selectedServiceSearchResult = ServiceSearchSelection(item: item, service: selectedService!)
+                        }
                     }
                 }
                 .padding(.horizontal)
@@ -352,6 +361,9 @@ struct SearchView: View {
                 serviceSelector
             }
         }
+        .sheet(item: $selectedServiceSearchResult) { selection in
+            ServiceSearchDetailSheet(item: selection.item, service: selection.service)
+        }
         .onChangeComp(of: selectedLanguage) { _, _ in
             if !searchText.isEmpty && !searchResults.isEmpty {
                 performSearch()
@@ -475,33 +487,164 @@ struct SearchView: View {
 struct ServiceSearchResultCard: View {
     let item: SearchItem
     let service: Service
+    let onTap: () -> Void
     
     var body: some View {
-        VStack(spacing: 8) {
-            KFImage(URL(string: item.imageUrl))
-                .placeholder {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .overlay(
-                            Image(systemName: "photo")
-                                .foregroundColor(.gray)
-                        )
-                }
-                .resizable()
-                .aspectRatio(2/3, contentMode: .fill)
-                .frame(height: 180 * iPadScale)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
-            
-            Text(item.title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(height: 34)
-                .foregroundColor(.primary)
+        Button(action: onTap) {
+            VStack(spacing: 8) {
+                KFImage(URL(string: item.imageUrl))
+                    .placeholder {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .foregroundColor(.gray)
+                            )
+                    }
+                    .resizable()
+                    .aspectRatio(2/3, contentMode: .fill)
+                    .frame(height: 180 * iPadScale)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
+
+                Text(item.title)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(height: 34)
+                    .foregroundColor(.primary)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct ServiceSearchDetailSheet: View {
+    let item: SearchItem
+    let service: Service
+
+    @Environment(\.presentationMode) private var presentationMode
+    @State private var details: [MediaItem] = []
+    @State private var episodes: [EpisodeLink] = []
+    @State private var isLoading = true
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .top, spacing: 16) {
+                        KFImage(URL(string: item.imageUrl))
+                            .placeholder {
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .overlay(
+                                        Image(systemName: "photo")
+                                            .foregroundColor(.gray)
+                                    )
+                            }
+                            .resizable()
+                            .aspectRatio(2/3, contentMode: .fill)
+                            .frame(width: 120 * iPadScale, height: 180 * iPadScale)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(item.title)
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(.primary)
+
+                            Text(service.metadata.sourceName)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            if let metadata = details.first {
+                                if !metadata.aliases.isEmpty {
+                                    Text(metadata.aliases)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                if !metadata.airdate.isEmpty {
+                                    Text(metadata.airdate)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top)
+
+                    if isLoading {
+                        ProgressView("Loading details...")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding()
+                    } else {
+                        if let metadata = details.first, !metadata.description.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Overview")
+                                    .font(.headline)
+                                Text(metadata.description)
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal)
+                        }
+
+                        if !episodes.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Episodes")
+                                    .font(.headline)
+                                    .padding(.horizontal)
+
+                                ForEach(episodes) { episode in
+                                    HStack {
+                                        Text("Episode \(episode.number)")
+                                            .fontWeight(.medium)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 10)
+                                    .background(Color(.secondarySystemBackground))
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .padding(.horizontal)
+                                }
+                            }
+                            .padding(.bottom)
+                        }
+                    }
+                }
+            }
+            .navigationTitle(item.title)
+#if !os(tvOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+            }
+        }
+        .onAppear {
+            loadDetails()
+        }
+    }
+
+    private func loadDetails() {
+        let jsController = JSController()
+        jsController.loadScript(service.jsScript)
+        jsController.fetchDetailsJS(url: item.href) { details, episodes in
+            self.details = details
+            self.episodes = episodes
+            self.isLoading = false
+        }
     }
 }
 
