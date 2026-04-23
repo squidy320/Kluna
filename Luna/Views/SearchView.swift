@@ -530,6 +530,14 @@ struct ServiceSearchDetailSheet: View {
     @State private var episodes: [EpisodeLink] = []
     @State private var isLoading = true
 
+    private var episodeRowBackground: Color {
+#if os(tvOS)
+        return Color.white.opacity(0.08)
+#else
+        return Color(.secondarySystemBackground)
+#endif
+    }
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -610,13 +618,7 @@ struct ServiceSearchDetailSheet: View {
                                     }
                                     .padding(.horizontal)
                                     .padding(.vertical, 10)
-                                    .background(
-#if os(tvOS)
-                                        Color.white.opacity(0.08)
-#else
-                                        Color(.secondarySystemBackground)
-#endif
-                                    )
+                                    .background(episodeRowBackground)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                                     .padding(.horizontal)
                                 }
