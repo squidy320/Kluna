@@ -24,8 +24,8 @@ jobs:
       SCHEME: Luna
       CONFIGURATION: Release
       FEED_NAME: Eclipse
-      IOS_IPA_NAME: Luna.ipa
-      TVOS_IPA_NAME: Luna-tvOS.ipa
+      IOS_IPA_NAME: Eclipse.ipa
+      TVOS_IPA_NAME: Eclipse-tvOS.ipa
       SOURCE_JSON: source.json
     steps:
       - name: Checkout repository
