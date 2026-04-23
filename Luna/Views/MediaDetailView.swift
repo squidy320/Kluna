@@ -1000,7 +1000,9 @@ struct MediaDetailView: View {
             }
             .background(LunaTheme.shared.backgroundBase.ignoresSafeArea())
             .navigationTitle("More Info")
+#if !os(tvOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
         }
         .preferredColorScheme(.dark)
     }
