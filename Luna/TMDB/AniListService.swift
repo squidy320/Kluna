@@ -1046,7 +1046,7 @@ final class AniListService {
                     tmdbSeasonDetail?.episodes.first(where: { $0.episodeNumber == episodeNumber })
                 }
 
-                AniListEpisode(
+                return AniListEpisode(
                     number: number,
                     title: tmdbEpisode?.name ?? (episodeCount == 1 ? cleanTitle : "Episode \(number)"),
                     description: tmdbEpisode?.overview,
