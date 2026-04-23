@@ -38,7 +38,6 @@ final class ModulesSearchResultsViewModel: ObservableObject {
     @Published var showingStreamMenu = false
     
     @Published var selectedResult: SearchItem?
-    @Published var selectedResultService: Service?
     @Published var showingPlayAlert = false
     @Published var expandedServices: Set<UUID> = []
     @Published var showingFilterEditor = false
@@ -131,8 +130,6 @@ struct ModulesSearchResultsSheet: View {
     @State private var autoModeRunToken: String?
     @State private var autoModeCancelled = false
     @State private var showManualPicker = false
-    @State private var forcedSourceId: String?
-    @State private var rememberedMatchDidAttempt = false
 
     private var effectiveTitle: String { seasonTitleOverride ?? mediaTitle }
     private var animeEffectiveTitle: String {
@@ -296,39 +293,6 @@ struct ModulesSearchResultsSheet: View {
         }
     }
 
-    private var usesRememberedEpisodeSourceFlow: Bool {
-        !isMovie && selectedEpisode != nil && UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled")
-    }
-
-    private var shouldShowRememberedAutoProgressView: Bool {
-        autoModeOnly && usesRememberedEpisodeSourceFlow && !showManualPicker && forcedSourceId != nil
-    }
-
-    private var rememberedSourceStore: EpisodeSourcePreferenceStore {
-        EpisodeSourcePreferenceStore.shared
-    }
-
-    private var rememberedEpisodeMatch: RememberedEpisodeMatch? {
-        rememberedSourceStore.rememberedMatch(showId: tmdbId)
-    }
-
-    private var rememberedStreamSelection: RememberedStreamSelection? {
-        rememberedEpisodeMatch?.streamSelection
-    }
-
-    private var rememberedSubtitleSelection: RememberedSubtitleSelection? {
-        rememberedEpisodeMatch?.subtitleSelection
-    }
-
-    private var resolvedForcedSource: RememberedSource? {
-        guard let forcedSourceId else { return nil }
-        return rememberedSourceStore.resolve(
-            sourceId: forcedSourceId,
-            services: serviceManager.activeServices,
-            addons: stremioManager.activeAddons
-        )
-    }
-
     private var sortedResultItems: [ResultItem] {
         let services: [ResultItem] = serviceManager.activeServices.map { .service($0) }
         let addons: [ResultItem] = stremioManager.activeAddons.map { .stremio($0) }
@@ -346,35 +310,9 @@ struct ModulesSearchResultsSheet: View {
         return ordered
     }
 
-    private var visibleResultItems: [ResultItem] {
-        guard let forcedSourceId else { return sortedResultItems }
-        return sortedResultItems.filter { autoModeSourceId(for: $0) == forcedSourceId }
-    }
-
-    private func rememberedProviderResult(in results: [SearchItem]) -> SearchItem? {
-        guard let rememberedProviderResult = rememberedEpisodeMatch?.providerResult else { return nil }
-        if let hrefMatch = results.first(where: { rememberedProviderResult.href == $0.href }) {
-            return hrefMatch
-        }
-        return results.first(where: rememberedProviderResult.matches)
-    }
-
-    @MainActor
-    private func rememberStreamSelectionIfNeeded(_ option: StreamOption) {
-        guard autoModeOnly, usesRememberedEpisodeSourceFlow else { return }
-        rememberedSourceStore.setRememberedStreamSelection(option, for: tmdbId)
-    }
-
-    @MainActor
-    private func rememberSubtitleSelectionIfNeeded(url: String?, title: String?, isNone: Bool = false) {
-        guard autoModeOnly, usesRememberedEpisodeSourceFlow else { return }
-        let selection = isNone ? RememberedSubtitleSelection.none : RememberedSubtitleSelection(url: url, title: title, isNone: false)
-        rememberedSourceStore.setRememberedSubtitleSelection(selection, for: tmdbId)
-    }
-
     @ViewBuilder
     private var unifiedResultsSections: some View {
-        ForEach(visibleResultItems) { item in
+        ForEach(sortedResultItems) { item in
             switch item {
             case .service(let service):
                 serviceSection(service: service)
@@ -457,7 +395,6 @@ struct ModulesSearchResultsSheet: View {
                 episode: selectedEpisode,
                 onTap: {
                     viewModel.selectedResult = searchResult
-                    viewModel.selectedResultService = service
                     viewModel.showingPlayAlert = true
                 }, highQualityThreshold: viewModel.highQualityThreshold
             )
@@ -508,7 +445,6 @@ struct ModulesSearchResultsSheet: View {
                     episode: selectedEpisode,
                     onTap: {
                         viewModel.selectedResult = searchResult
-                        viewModel.selectedResultService = service
                         viewModel.showingPlayAlert = true
                     }, highQualityThreshold: viewModel.highQualityThreshold
                 )
@@ -523,24 +459,14 @@ struct ModulesSearchResultsSheet: View {
         Button(actionVerb) {
             viewModel.showingPlayAlert = false
             if let result = viewModel.selectedResult {
-                if autoModeOnly && usesRememberedEpisodeSourceFlow,
-                   let service = viewModel.selectedResultService {
-                    rememberedSourceStore.setRememberedMatch(
-                        sourceId: "service:\(service.id.uuidString)",
-                        providerResult: result,
-                        for: tmdbId
-                    )
-                    forcedSourceId = "service:\(service.id.uuidString)"
-                }
                 Task {
                     try? await Task.sleep(nanoseconds: 300_000_000)
-                    await playContent(result, serviceOverride: viewModel.selectedResultService)
+                    await playContent(result)
                 }
             }
         }
         Button("Cancel", role: .cancel) {
             viewModel.selectedResult = nil
-            viewModel.selectedResultService = nil
         }
     }
     
@@ -617,7 +543,6 @@ struct ModulesSearchResultsSheet: View {
         ForEach(viewModel.streamOptions) { option in
             Button(option.name) {
                 if let service = viewModel.pendingService {
-                    rememberStreamSelectionIfNeeded(option)
                     resolveSubtitleSelection(
                         subtitles: viewModel.pendingSubtitles,
                         defaultSubtitle: option.subtitle,
@@ -683,7 +608,6 @@ struct ModulesSearchResultsSheet: View {
         ForEach(viewModel.subtitleOptions, id: \.url) { option in
             Button(option.title) {
                 viewModel.showingSubtitlePicker = false
-                rememberSubtitleSelectionIfNeeded(url: option.url, title: option.title)
                 if let service = viewModel.pendingService,
                    let streamURL = viewModel.pendingStreamURL {
                     dispatchStreamAction(streamURL, service: service, subtitle: option.url, headers: viewModel.pendingHeaders, serviceHref: viewModel.pendingServiceHref)
@@ -692,7 +616,6 @@ struct ModulesSearchResultsSheet: View {
         }
         Button("No Subtitles") {
             viewModel.showingSubtitlePicker = false
-            rememberSubtitleSelectionIfNeeded(url: nil, title: nil, isNone: true)
             if let service = viewModel.pendingService,
                let streamURL = viewModel.pendingStreamURL {
                 dispatchStreamAction(streamURL, service: service, subtitle: nil, headers: viewModel.pendingHeaders, serviceHref: viewModel.pendingServiceHref)
@@ -710,7 +633,7 @@ struct ModulesSearchResultsSheet: View {
     private var subtitlePickerDialogMessage: some View {
         Text("Choose a subtitle track")
     }
-
+    
     private func filterResults(for results: [SearchItem]) -> (highQuality: [SearchItem], lowQuality: [SearchItem]) {
         let sortedResults = results.enumerated().map { index, result -> (index: Int, result: SearchItem, similarity: Double) in
             let primarySimilarity = algorithmManager.calculateSimilarity(original: mediaTitle, result: result.title)
@@ -1110,123 +1033,11 @@ struct ModulesSearchResultsSheet: View {
         startProgressiveSearch()
         startStremioSearch()
     }
-
-    @MainActor
-    private func initializeSearchFlow() {
-        autoModeDidRun = false
-        rememberedMatchDidAttempt = false
-        if autoModeOnly && usesRememberedEpisodeSourceFlow {
-            if let remembered = rememberedSourceStore.resolveRememberedSource(
-                showId: tmdbId,
-                services: serviceManager.activeServices,
-                addons: stremioManager.activeAddons
-            ) {
-                forcedSourceId = remembered.id
-                startScopedSearches()
-            } else {
-                if rememberedEpisodeMatch != nil {
-                    rememberedSourceStore.clearRememberedMatch(for: tmdbId)
-                }
-                forcedSourceId = nil
-                startFullSearches()
-            }
-        } else {
-            forcedSourceId = nil
-            if autoModeOnly && !showManualPicker {
-                startAutoModeIfNeeded()
-            } else {
-                startProgressiveSearch()
-                startStremioSearch()
-            }
-        }
-    }
-
-    @MainActor
-    private func resetSearchState() {
-        viewModel.moduleResults.removeAll()
-        viewModel.stremioResults.removeAll()
-        viewModel.searchedServices.removeAll()
-        viewModel.stremioSearchedAddons.removeAll()
-        viewModel.failedServices.removeAll()
-        viewModel.selectedResult = nil
-        viewModel.selectedResultService = nil
-        viewModel.selectedStremioAddon = nil
-        viewModel.selectedStremioStream = nil
-        viewModel.streamError = nil
-        viewModel.showingStreamError = false
-        viewModel.isSearching = false
-        viewModel.isSearchingStremio = false
-    }
-
-    @MainActor
-    private func startFullSearches() {
-        resetSearchState()
-        startProgressiveSearch()
-        startStremioSearch()
-    }
-
-    @MainActor
-    private func startScopedSearches() {
-        resetSearchState()
-        guard let remembered = resolvedForcedSource else {
-            EpisodeSourcePreferenceStore.shared.clearRememberedMatch(for: tmdbId)
-            forcedSourceId = nil
-            startFullSearches()
-            return
-        }
-
-        switch remembered {
-        case .service(let service):
-            startProgressiveSearch(services: [service])
-            viewModel.isSearchingStremio = false
-        case .stremio(let addon):
-            viewModel.isSearching = false
-            startStremioSearch(addons: [addon])
-        }
-    }
-
-    @MainActor
-    private func clearRememberedMatchAndResumeSelection() {
-        rememberedSourceStore.clearRememberedMatch(for: tmdbId)
-        forcedSourceId = nil
-        rememberedMatchDidAttempt = false
-        startFullSearches()
-    }
-
-    @MainActor
-    private func maybeContinueWithRememberedMatch() {
-        guard autoModeOnly, usesRememberedEpisodeSourceFlow,
-              !rememberedMatchDidAttempt,
-              !viewModel.isSearching, !viewModel.isSearchingStremio,
-              let remembered = resolvedForcedSource else { return }
-
-        rememberedMatchDidAttempt = true
-
-        switch remembered {
-        case .service(let service):
-            let results = viewModel.moduleResults[service.id] ?? []
-            if let rememberedResult = rememberedProviderResult(in: results) {
-                Task {
-                    await playContent(rememberedResult, serviceOverride: service)
-                }
-            } else {
-                clearRememberedMatchAndResumeSelection()
-            }
-        case .stremio(let addon):
-            let streams = viewModel.stremioResults[addon.id] ?? []
-            if let stream = bestStremioStream(from: streams) {
-                playStremioStream(stream, addon: addon)
-            } else {
-                clearRememberedMatchAndResumeSelection()
-            }
-        }
-    }
     
     var body: some View {
         NavigationView {
             Group {
-                if (autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker)
-                    || shouldShowRememberedAutoProgressView {
+                if autoModeOnly && !showManualPicker {
                     autoModeProgressView
                 } else {
                     List {
@@ -1242,7 +1053,7 @@ struct ModulesSearchResultsSheet: View {
                     .lunaSettingsStyle()
                 }
             }
-            .navigationTitle(((autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker) || shouldShowRememberedAutoProgressView) ? (downloadMode ? "Auto Download" : "Auto Mode") : (downloadMode ? "Download Source" : "Services Result"))
+            .navigationTitle(autoModeOnly && !showManualPicker ? (downloadMode ? "Auto Download" : "Auto Mode") : (downloadMode ? "Download Source" : "Services Result"))
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -1306,15 +1117,19 @@ struct ModulesSearchResultsSheet: View {
         }
         .overlay(streamFetchingOverlay)
         .onAppear {
-            initializeSearchFlow()
+            autoModeDidRun = false
+            if autoModeOnly && !showManualPicker {
+                startAutoModeIfNeeded()
+            } else {
+                startProgressiveSearch()
+                startStremioSearch()
+            }
         }
         .onChangeComp(of: viewModel.isSearching) { _, _ in
             maybeRunAutoModeSelection()
-            maybeContinueWithRememberedMatch()
         }
         .onChangeComp(of: viewModel.isSearchingStremio) { _, _ in
             maybeRunAutoModeSelection()
-            maybeContinueWithRememberedMatch()
         }
         .alert("Quality Threshold", isPresented: $viewModel.showingFilterEditor) {
             qualityThresholdAlertContent
@@ -1342,7 +1157,7 @@ struct ModulesSearchResultsSheet: View {
             subtitlePickerDialogMessage
         }
         .alert("Stream Error", isPresented: $viewModel.showingStreamError) {
-            if autoModeOnly && !usesRememberedEpisodeSourceFlow && !showManualPicker {
+            if autoModeOnly && !showManualPicker {
                 if downloadMode && onSkipRequested != nil {
                     Button("Skip Episode") {
                         autoModeCancelled = true
@@ -1359,14 +1174,6 @@ struct ModulesSearchResultsSheet: View {
                     viewModel.streamError = nil
                     presentationMode.wrappedValue.dismiss()
                 }
-            } else if autoModeOnly && usesRememberedEpisodeSourceFlow {
-                Button("Choose Again") {
-                    viewModel.streamError = nil
-                    clearRememberedMatchAndResumeSelection()
-                }
-                Button("Cancel", role: .cancel) {
-                    viewModel.streamError = nil
-                }
             } else {
                 Button("OK", role: .cancel) {
                     viewModel.streamError = nil
@@ -1382,14 +1189,6 @@ struct ModulesSearchResultsSheet: View {
                 viewModel.showingStremioPlayAlert = false
                 if let stream = viewModel.selectedStremioStream,
                    let addon = viewModel.selectedStremioAddon {
-                    if autoModeOnly && usesRememberedEpisodeSourceFlow {
-                        rememberedSourceStore.setRememberedMatch(
-                            sourceId: "stremio:\(addon.id.uuidString)",
-                            providerResult: nil,
-                            for: tmdbId
-                        )
-                        forcedSourceId = "stremio:\(addon.id.uuidString)"
-                    }
                     playStremioStream(stream, addon: addon)
                 }
             }
@@ -1409,16 +1208,14 @@ struct ModulesSearchResultsSheet: View {
         }
     }
     
-    private func startProgressiveSearch(services: [Service]? = nil) {
-        let activeServices = services ?? serviceManager.activeServices
+    private func startProgressiveSearch() {
+        let activeServices = serviceManager.activeServices
         viewModel.totalServicesCount = activeServices.count
         
         guard !activeServices.isEmpty else {
             viewModel.isSearching = false
             return
         }
-
-        viewModel.isSearching = true
         
         // Check if anime via TrackerManager (for logging)
         let isAnime = TrackerManager.shared.cachedAniListId(for: tmdbId) != nil
@@ -1441,8 +1238,7 @@ struct ModulesSearchResultsSheet: View {
         let hasAlternativeTitle = originalTitle.map { !$0.isEmpty && $0.lowercased() != effectiveTitle.lowercased() } ?? false
         
         Task {
-            await serviceManager.searchInServicesProgressively(
-                services: activeServices,
+            await serviceManager.searchInActiveServicesProgressively(
                 query: searchQuery,
                 onResult: { service, results in
                     Task { @MainActor in
@@ -1460,8 +1256,7 @@ struct ModulesSearchResultsSheet: View {
                     // Second tier: search with base title if different from primary query
                     if let baseTitleQuery = baseTitleQuery {
                         Task {
-                            await self.serviceManager.searchInServicesProgressively(
-                                services: activeServices,
+                            await self.serviceManager.searchInActiveServicesProgressively(
                                 query: baseTitleQuery,
                                 onResult: { service, additionalResults in
                                     Task { @MainActor in
@@ -1480,8 +1275,7 @@ struct ModulesSearchResultsSheet: View {
                                     // Third tier: search with romaji/original title
                                     if hasAlternativeTitle, let altTitle = self.originalTitle {
                                         Task {
-                                            await self.serviceManager.searchInServicesProgressively(
-                                                services: activeServices,
+                                            await self.serviceManager.searchInActiveServicesProgressively(
                                                 query: altTitle,
                                                 onResult: { service, additionalResults in
                                                     Task { @MainActor in
@@ -1514,8 +1308,7 @@ struct ModulesSearchResultsSheet: View {
                     } else if hasAlternativeTitle, let altTitle = self.originalTitle {
                         // No base title query, go straight to romaji
                         Task {
-                            await self.serviceManager.searchInServicesProgressively(
-                                services: activeServices,
+                            await self.serviceManager.searchInActiveServicesProgressively(
                                 query: altTitle,
                                 onResult: { service, additionalResults in
                                     Task { @MainActor in
@@ -1549,12 +1342,9 @@ struct ModulesSearchResultsSheet: View {
 
     // MARK: - Stremio Addon Search
 
-    private func startStremioSearch(addons: [StremioAddon]? = nil) {
-        let active = addons ?? stremioManager.activeAddons
-        guard !active.isEmpty else {
-            viewModel.isSearchingStremio = false
-            return
-        }
+    private func startStremioSearch() {
+        let active = stremioManager.activeAddons
+        guard !active.isEmpty else { return }
 
         viewModel.isSearchingStremio = true
 
@@ -1566,7 +1356,6 @@ struct ModulesSearchResultsSheet: View {
 
         Task {
             await stremioManager.fetchStreamsFromAddons(
-                addons: active,
                 tmdbId: tmdbId,
                 imdbId: imdbId,
                 type: type,
@@ -1745,14 +1534,6 @@ struct ModulesSearchResultsSheet: View {
                 Button {
                     viewModel.showingStremioStreamPicker = false
                     if let addon = viewModel.selectedStremioAddon {
-                        if autoModeOnly && usesRememberedEpisodeSourceFlow {
-                            rememberedSourceStore.setRememberedMatch(
-                                sourceId: "stremio:\(addon.id.uuidString)",
-                                providerResult: nil,
-                                for: tmdbId
-                            )
-                            forcedSourceId = "stremio:\(addon.id.uuidString)"
-                        }
                         playStremioStream(stream, addon: addon)
                     }
                 } label: {
@@ -2181,14 +1962,14 @@ struct ModulesSearchResultsSheet: View {
     }
     
     @MainActor
-    private func playContent(_ result: SearchItem, serviceOverride: Service? = nil) async {
+    private func playContent(_ result: SearchItem) async {
         Logger.shared.log("Starting playback for: \(result.title)", type: "Stream")
         
         viewModel.isFetchingStreams = true
         viewModel.currentFetchingTitle = result.title
         viewModel.streamFetchProgress = "Initializing..."
         
-        guard let service = serviceOverride ?? serviceManager.activeServices.first(where: { service in
+        guard let service = serviceManager.activeServices.first(where: { service in
             viewModel.moduleResults[service.id]?.contains { $0.id == result.id } ?? false
         }) else {
             Logger.shared.log("Could not find service for result: \(result.title)", type: "Error")
@@ -2335,25 +2116,6 @@ struct ModulesSearchResultsSheet: View {
         let availableStreams = parseStreamOptions(streams: streams, sources: sources)
         
         if availableStreams.count > 1 {
-            if autoModeOnly,
-               usesRememberedEpisodeSourceFlow,
-               let rememberedStream = rememberedStreamSelection {
-                if let matchedStream = availableStreams.first(where: rememberedStream.matches) {
-                    rememberStreamSelectionIfNeeded(matchedStream)
-                    resolveSubtitleSelection(
-                        subtitles: subtitles,
-                        defaultSubtitle: matchedStream.subtitle,
-                        service: service,
-                        streamURL: matchedStream.url,
-                        headers: matchedStream.headers,
-                        serviceHref: viewModel.pendingServiceHref
-                    )
-                    return
-                }
-
-                rememberedSourceStore.clearRememberedMatch(for: tmdbId)
-            }
-
             Logger.shared.log("Found \(availableStreams.count) stream options, showing selection", type: "Stream")
             viewModel.streamOptions = availableStreams
             viewModel.pendingSubtitles = subtitles
@@ -2364,7 +2126,6 @@ struct ModulesSearchResultsSheet: View {
         }
         
         if let firstStream = availableStreams.first {
-            rememberStreamSelectionIfNeeded(firstStream)
             resolveSubtitleSelection(
                 subtitles: subtitles,
                 defaultSubtitle: firstStream.subtitle,
@@ -2374,14 +2135,6 @@ struct ModulesSearchResultsSheet: View {
                 serviceHref: viewModel.pendingServiceHref
             )
         } else if let streamURL = extractSingleStreamURL(streams: streams, sources: sources) {
-            rememberStreamSelectionIfNeeded(
-                StreamOption(
-                    name: "Stream",
-                    url: streamURL.url,
-                    headers: streamURL.headers,
-                    subtitle: nil
-                )
-            )
             resolveSubtitleSelection(
                 subtitles: subtitles,
                 defaultSubtitle: nil,
@@ -2473,48 +2226,19 @@ struct ModulesSearchResultsSheet: View {
     @MainActor
     private func resolveSubtitleSelection(subtitles: [String]?, defaultSubtitle: String?, service: Service, streamURL: String, headers: [String: String]?, serviceHref: String? = nil) {
         guard let subtitles = subtitles, !subtitles.isEmpty else {
-            if let defaultSubtitle {
-                rememberSubtitleSelectionIfNeeded(url: defaultSubtitle, title: nil)
-            } else {
-                rememberSubtitleSelectionIfNeeded(url: nil, title: nil, isNone: true)
-            }
             dispatchStreamAction(streamURL, service: service, subtitle: defaultSubtitle, headers: headers, serviceHref: serviceHref)
             return
         }
         
         let options = parseSubtitleOptions(from: subtitles)
         guard !options.isEmpty else {
-            if let defaultSubtitle {
-                rememberSubtitleSelectionIfNeeded(url: defaultSubtitle, title: nil)
-            } else {
-                rememberSubtitleSelectionIfNeeded(url: nil, title: nil, isNone: true)
-            }
             dispatchStreamAction(streamURL, service: service, subtitle: defaultSubtitle, headers: headers, serviceHref: serviceHref)
             return
         }
         
         if options.count == 1 {
-            rememberSubtitleSelectionIfNeeded(url: options[0].url, title: options[0].title)
             dispatchStreamAction(streamURL, service: service, subtitle: options[0].url, headers: headers, serviceHref: serviceHref)
             return
-        }
-
-        if autoModeOnly, usesRememberedEpisodeSourceFlow, let rememberedSubtitleSelection {
-            if rememberedSubtitleSelection.isNone {
-                rememberSubtitleSelectionIfNeeded(url: nil, title: nil, isNone: true)
-                dispatchStreamAction(streamURL, service: service, subtitle: nil, headers: headers, serviceHref: serviceHref)
-                return
-            }
-
-            if let matchedSubtitle = options.first(where: {
-                rememberedSubtitleSelection.matches(title: $0.title, url: $0.url)
-            }) {
-                rememberSubtitleSelectionIfNeeded(url: matchedSubtitle.url, title: matchedSubtitle.title)
-                dispatchStreamAction(streamURL, service: service, subtitle: matchedSubtitle.url, headers: headers, serviceHref: serviceHref)
-                return
-            }
-
-            rememberedSourceStore.clearRememberedMatch(for: tmdbId)
         }
         
         viewModel.subtitleOptions = options

@@ -100,16 +100,6 @@ struct MediaDetailView: View {
         !serviceManager.activeServices.isEmpty || !stremioManager.activeAddons.isEmpty
     }
 
-    private var rememberedEpisodeSource: RememberedSource? {
-        guard !searchResult.isMovie,
-              UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled") else { return nil }
-        return EpisodeSourcePreferenceStore.shared.resolveRememberedSource(
-            showId: searchResult.id,
-            services: serviceManager.activeServices,
-            addons: stremioManager.activeAddons
-        )
-    }
-
     private var headerHeight: CGFloat {
 #if os(tvOS)
         UIScreen.main.bounds.height * 0.8
@@ -568,7 +558,7 @@ struct MediaDetailView: View {
                 HStack {
                     Image(systemName: hasActiveSources ? "play.fill" : "exclamationmark.triangle")
                     
-                    Text(hasActiveSources ? playButtonText : "No Sources")
+                    Text(hasActiveSources ? playButtonText : "No Services")
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
@@ -585,37 +575,6 @@ struct MediaDetailView: View {
             }
             .disabled(!hasActiveSources)
             
-            if let rememberedEpisodeSource {
-                Button(action: {
-                    EpisodeSourcePreferenceStore.shared.clearRememberedMatch(for: searchResult.id)
-                }) {
-                    HStack(spacing: 8) {
-                        KFImage(rememberedEpisodeSource.logoURL.flatMap(URL.init(string:)))
-                            .placeholder {
-                                Image(systemName: "tv")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.white)
-                            }
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 18, height: 18)
-
-                        Text("Reset")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.85))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 12)
-                    .applyLiquidGlassBackground(cornerRadius: 12)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-            }
-
             Button(action: {
                 toggleBookmark()
             }) {

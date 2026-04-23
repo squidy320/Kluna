@@ -93,7 +93,6 @@
 		13F0729D2E4B2D9200EF90EB /* JSController-Search.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F072702E4B2D9000EF90EB /* JSController-Search.swift */; };
 		13F0729E2E4B2D9200EF90EB /* JSController-Details.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F072712E4B2D9000EF90EB /* JSController-Details.swift */; };
 		13F0729F2E4B2D9200EF90EB /* ServiceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F072722E4B2D9000EF90EB /* ServiceManager.swift */; };
-		E5A100012FD9A00100A0A001 /* EpisodeSourcePreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5A100002FD9A00100A0A001 /* EpisodeSourcePreferenceStore.swift */; };
 		13F072A02E4B2D9200EF90EB /* JSController-Streams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F072732E4B2D9000EF90EB /* JSController-Streams.swift */; };
 		13F072A12E4B2D9200EF90EB /* JSController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F072742E4B2D9000EF90EB /* JSController.swift */; };
 		13F072A22E4B2D9200EF90EB /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F072772E4B2D9000EF90EB /* SettingsView.swift */; };
@@ -271,7 +270,6 @@
 		13F072702E4B2D9000EF90EB /* JSController-Search.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "JSController-Search.swift"; sourceTree = "<group>"; };
 		13F072712E4B2D9000EF90EB /* JSController-Details.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "JSController-Details.swift"; sourceTree = "<group>"; };
 		13F072722E4B2D9000EF90EB /* ServiceManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ServiceManager.swift; sourceTree = "<group>"; };
-		E5A100002FD9A00100A0A001 /* EpisodeSourcePreferenceStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EpisodeSourcePreferenceStore.swift; sourceTree = "<group>"; };
 		13F072732E4B2D9000EF90EB /* JSController-Streams.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "JSController-Streams.swift"; sourceTree = "<group>"; };
 		13F072742E4B2D9000EF90EB /* JSController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JSController.swift; sourceTree = "<group>"; };
 		13F072772E4B2D9000EF90EB /* SettingsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -851,7 +849,6 @@
 				12201F502EBE91870033073C /* ServiceStore.swift */,
 				13F0726E2E4B2D9000EF90EB /* ServicesEntity.swift */,
 				13F072722E4B2D9000EF90EB /* ServiceManager.swift */,
-				E5A100002FD9A00100A0A001 /* EpisodeSourcePreferenceStore.swift */,
 				12201F522EBE922D0033073C /* ServiceModels.xcdatamodeld */,
 				5E1111102F60000000AE1110 /* StremioModels.swift */,
 				5E2222202F60000000AE2220 /* StremioClient.swift */,
@@ -1158,7 +1155,6 @@
 				13830AF42E55F5FF00B3CDE4 /* AccentColorManager.swift in Sources */,
 				13F072A12E4B2D9200EF90EB /* JSController.swift in Sources */,
 				13F0729F2E4B2D9200EF90EB /* ServiceManager.swift in Sources */,
-				E5A100012FD9A00100A0A001 /* EpisodeSourcePreferenceStore.swift in Sources */,
 				12201F512EBE918D0033073C /* ServiceStore.swift in Sources */,
 				5E1111112F60000000AE1111 /* StremioModels.swift in Sources */,
 				5E2222212F60000000AE2221 /* StremioClient.swift in Sources */,

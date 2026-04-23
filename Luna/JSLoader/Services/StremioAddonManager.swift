@@ -182,29 +182,7 @@ class StremioAddonManager: ObservableObject {
         onResult: @escaping (StremioAddon, [StremioStream]) -> Void,
         onComplete: @escaping () -> Void
     ) async {
-        await fetchStreamsFromAddons(
-            addons: activeAddons,
-            tmdbId: tmdbId,
-            imdbId: imdbId,
-            type: type,
-            season: season,
-            episode: episode,
-            onResult: onResult,
-            onComplete: onComplete
-        )
-    }
-
-    func fetchStreamsFromAddons(
-        addons: [StremioAddon],
-        tmdbId: Int,
-        imdbId: String?,
-        type: String,
-        season: Int?,
-        episode: Int?,
-        onResult: @escaping (StremioAddon, [StremioStream]) -> Void,
-        onComplete: @escaping () -> Void
-    ) async {
-        let active = addons
+        let active = activeAddons
         Logger.shared.log("Stremio: fetchStreamsFromAddons — \(active.count) active addon(s), tmdbId=\(tmdbId) imdbId=\(imdbId ?? "nil") type=\(type) s=\(season?.description ?? "nil") e=\(episode?.description ?? "nil")", type: "Stremio")
         guard !active.isEmpty else {
             Logger.shared.log("Stremio: No active addons, skipping", type: "Stremio")
