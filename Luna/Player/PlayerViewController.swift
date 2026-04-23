@@ -2055,15 +2055,6 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         closeTapped()
     }
 
-    private func dispatchPendingNextEpisodeRequestIfNeeded() {
-        guard !didDispatchNextEpisodeRequest,
-              let request = pendingNextEpisodeRequest else { return }
-
-        didDispatchNextEpisodeRequest = true
-        pendingNextEpisodeRequest = nil
-        onRequestNextEpisode?(request.seasonNumber, request.episodeNumber)
-    }
-
     private func showSkipButton() {
         guard skipButton.isHidden || skipButton.alpha < 1 else { return }
         skipButton.isHidden = false
@@ -2128,6 +2119,15 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         }
     }
 #endif
+
+    private func dispatchPendingNextEpisodeRequestIfNeeded() {
+        guard !didDispatchNextEpisodeRequest,
+              let request = pendingNextEpisodeRequest else { return }
+
+        didDispatchNextEpisodeRequest = true
+        pendingNextEpisodeRequest = nil
+        onRequestNextEpisode?(request.seasonNumber, request.episodeNumber)
+    }
 
     private func isLocalFile() -> Bool {
         return initialURL?.isFileURL == true
