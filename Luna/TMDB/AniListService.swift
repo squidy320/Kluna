@@ -886,6 +886,7 @@ final class AniListService {
         
         for (currentAnime, _, posterUrl) in allAnimeToProcess {
             // Get the full AniList title for this season/sequel
+            // Keep core anime season naming aligned with the user's preferred title language.
             let seasonTitle = AniListTitlePicker.title(from: currentAnime.title, preferredLanguageCode: preferredLanguageCode)
             
             // Use AniList episode count - this is authoritative
@@ -967,7 +968,11 @@ final class AniListService {
         return animeWithSeasons
     }
 
-    func fetchSpecialSearchEntries(tmdbShowId: Int, fallbackPosterURL: String?) async -> [AniListSpecialSearchEntry] {
+    func fetchSpecialSearchEntries(
+        tmdbShowId: Int,
+        fallbackPosterURL: String?,
+        tmdbService: TMDBService
+    ) async -> [AniListSpecialSearchEntry] {
         let mappings = await AniMapSpecialsService.shared.specialMappings(forTMDBShowId: tmdbShowId)
         let uniqueMappings = mappings.reduce(into: [Int: AniMapMapping]()) { result, mapping in
             guard let anilistId = mapping.anilistId, result[anilistId] == nil else { return }
@@ -977,44 +982,99 @@ final class AniListService {
         guard !uniqueMappings.isEmpty else { return [] }
 
         let nodesById = await batchFetchAniListNodes(ids: Array(uniqueMappings.keys))
+        // Some AniMap specials only expose a fallback season number for metadata.
+        // Keep playback/search tied to tmdbSeason so specials stay isolated from the main anime flow.
+        let metadataSeasonNumbers = Set(uniqueMappings.values.compactMap { $0.tmdbSeason ?? $0.tvdbSeason })
+        var seasonDetailsByNumber: [Int: TMDBSeasonDetail] = [:]
+
+        if !metadataSeasonNumbers.isEmpty {
+            await withTaskGroup(of: (Int, TMDBSeasonDetail?).self) { group in
+                for seasonNumber in metadataSeasonNumbers {
+                    group.addTask {
+                        do {
+                            let detail = try await tmdbService.getSeasonDetails(
+                                tvShowId: tmdbShowId,
+                                seasonNumber: seasonNumber
+                            )
+                            return (seasonNumber, detail)
+                        } catch {
+                            Logger.shared.log(
+                                "AniListService: Failed to fetch TMDB metadata for special season \(seasonNumber) on show \(tmdbShowId): \(error.localizedDescription)",
+                                type: "AniList"
+                            )
+                            return (seasonNumber, nil)
+                        }
+                    }
+                }
+
+                for await (seasonNumber, detail) in group {
+                    if let detail {
+                        seasonDetailsByNumber[seasonNumber] = detail
+                    }
+                }
+            }
+        }
 
         let entries = uniqueMappings.compactMap { element -> AniListSpecialSearchEntry? in
             let anilistId = element.key
             let mapping = element.value
             let node = nodesById[anilistId]
             let title: String
+            let englishTitle: String?
+            let romajiTitle: String?
+            let nativeTitle: String?
             if let node {
-                title = AniListTitlePicker.title(from: node.title, preferredLanguageCode: preferredLanguageCode)
+                title = AniListTitlePicker.englishPreferredTitle(from: node.title)
+                englishTitle = node.title.english.map(AniListTitlePicker.cleanedTitle)
+                romajiTitle = node.title.romaji.map(AniListTitlePicker.cleanedTitle)
+                nativeTitle = node.title.native.map(AniListTitlePicker.cleanedTitle)
             } else {
                 title = "Special \(anilistId)"
+                englishTitle = nil
+                romajiTitle = nil
+                nativeTitle = nil
             }
 
             let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !cleanTitle.isEmpty else { return nil }
 
             let episodeCount = max(1, node?.episodes ?? 1)
-            let mappedSeason = mapping.tmdbSeason ?? mapping.tvdbSeason
+            let mappedSeason = mapping.tmdbSeason
+            let metadataSeason = mapping.tmdbSeason ?? mapping.tvdbSeason
             let episodeOffset = mapping.tvdbEpisodeOffset ?? 0
+            let tmdbSeasonDetail = metadataSeason.flatMap { seasonDetailsByNumber[$0] }
             let episodes = (1...episodeCount).map { number in
-                AniListEpisode(
+                let mappedEpisodeNumber = mappedSeason.map { _ in episodeOffset + number }
+                let metadataEpisodeNumber = metadataSeason.map { _ in episodeOffset + number }
+                let tmdbEpisode = metadataEpisodeNumber.flatMap { episodeNumber in
+                    tmdbSeasonDetail?.episodes.first(where: { $0.episodeNumber == episodeNumber })
+                }
+
+                return AniListEpisode(
                     number: number,
-                    title: episodeCount == 1 ? cleanTitle : "Episode \(number)",
-                    description: nil,
+                    title: tmdbEpisode?.name ?? (episodeCount == 1 ? cleanTitle : "Episode \(number)"),
+                    description: tmdbEpisode?.overview,
                     seasonNumber: mappedSeason ?? 0,
-                    stillPath: nil,
-                    airDate: nil,
-                    runtime: nil,
+                    stillPath: tmdbEpisode?.stillPath,
+                    airDate: tmdbEpisode?.airDate,
+                    runtime: tmdbEpisode?.runtime,
                     tmdbSeasonNumber: mappedSeason,
-                    tmdbEpisodeNumber: mappedSeason == nil ? nil : episodeOffset + number
+                    tmdbEpisodeNumber: mappedEpisodeNumber
                 )
             }
 
             return AniListSpecialSearchEntry(
                 id: anilistId,
                 title: cleanTitle,
+                englishTitle: englishTitle,
+                romajiTitle: romajiTitle,
+                nativeTitle: nativeTitle,
                 format: mapping.mediaType?.uppercased() ?? node?.format,
                 episodeCount: episodeCount,
-                posterUrl: node?.coverImage?.large ?? node?.coverImage?.medium ?? fallbackPosterURL,
+                posterUrl: node?.coverImage?.large
+                    ?? node?.coverImage?.medium
+                    ?? tmdbSeasonDetail?.fullPosterURL
+                    ?? fallbackPosterURL,
                 tmdbSeasonNumber: mapping.tmdbSeason,
                 tvdbSeasonNumber: mapping.tvdbSeason,
                 episodeOffset: mapping.tvdbEpisodeOffset,
@@ -1810,6 +1870,9 @@ struct AniListSeasonWithPoster {
 struct AniListSpecialSearchEntry: Identifiable {
     let id: Int
     let title: String
+    let englishTitle: String?
+    let romajiTitle: String?
+    let nativeTitle: String?
     let format: String?
     let episodeCount: Int
     let posterUrl: String?
@@ -1917,6 +1980,26 @@ enum AniListTitlePicker {
             .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
             .trimmingCharacters(in: .whitespaces)
         return cleaned.isEmpty ? title : cleaned
+    }
+
+    static func cleanedTitle(_ title: String) -> String {
+        cleanTitle(title)
+    }
+
+    static func englishPreferredTitle(from title: AniListAnime.AniListTitle) -> String {
+        if let english = title.english, !english.isEmpty {
+            return cleanTitle(english)
+        }
+
+        if let romaji = title.romaji, !romaji.isEmpty {
+            return cleanTitle(romaji)
+        }
+
+        if let native = title.native, !native.isEmpty {
+            return cleanTitle(native)
+        }
+
+        return "Unknown"
     }
     
     static func title(from title: AniListAnime.AniListTitle, preferredLanguageCode: String) -> String {
