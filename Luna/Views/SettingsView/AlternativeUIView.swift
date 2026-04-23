@@ -104,27 +104,29 @@ struct AlternativeUIView: View {
                         .tint(accentColorManager.currentAccentColor)
                 }
                 
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
+                if !isIPad {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
                         Text("Horizontal Episode list ")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        
+
                         Text("Use Horizontal list instead of vertical episode list")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.leading)
                     }
-                    
+
                     Spacer()
-                    
+
                     Toggle("", isOn: $horizontalEpisodeList)
                         .tint(accentColorManager.currentAccentColor)
+                    }
                 }
             } header: {
                 Text("DISPLAY OPTIONS")
             } footer: {
-                Text("The alternative season menu uses a dropdown instead of a horizontal scroll for selecting seasons.")
+                Text(isIPad ? "iPad always uses the immersive horizontal episode layout. The alternative season menu uses a dropdown instead of a horizontal scroll for selecting seasons." : "The alternative season menu uses a dropdown instead of a horizontal scroll for selecting seasons.")
             }
         }
         .navigationTitle("Appearance")

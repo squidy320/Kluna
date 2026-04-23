@@ -397,7 +397,7 @@ struct FeaturedSpotlightWidget: View {
     let tmdbService: TMDBService
 
     private var isAnimeSpotlight: Bool {
-        genreName == "Anime" || genreName == "Currently Airing Anime"
+        genreName == "Anime" || genreName == "Currently Airing Anime" || genreName == "Trending Anime"
     }
     
     var body: some View {
@@ -412,6 +412,10 @@ struct FeaturedSpotlightWidget: View {
                         initialItems: items,
                         heroItem: spotlight,
                         loadMore: { page in
+                            if genreName == "Trending Anime" {
+                                let catalogs = (try? await AniListService.shared.fetchAllAnimeCatalogs(tmdbService: tmdbService)) ?? [:]
+                                return catalogs[.trending] ?? []
+                            }
                             if isAnimeSpotlight {
                                 return (try? await tmdbService.getCurrentlyAiringAnimeResults(page: page)) ?? []
                             }

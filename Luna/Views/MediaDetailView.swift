@@ -126,6 +126,10 @@ struct MediaDetailView: View {
             return "Play"
         }
     }
+
+    private var usesImmersiveIPadTVLayout: Bool {
+        isIPad && !searchResult.isMovie
+    }
     
     var body: some View {
         let _ = Logger.shared.log("MediaDetailView body evaluate: id=\(searchResult.id) type=\(searchResult.mediaType) isLoading=\(isLoading) hasLoaded=\(hasLoadedContent) error=\(errorMessage != nil) movieDetail=\(movieDetail != nil) tvDetail=\(tvShowDetail != nil) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") seasonDetailEpisodes=\(seasonDetail?.episodes.count ?? 0) selectedEpisode=\(selectedEpisodeForSearch.map { "S\($0.seasonNumber)E\($0.episodeNumber)" } ?? "nil") sheets=play:\(showingSearchResults),download:\(showingDownloadSheet)", type: "CrashProbe")
@@ -400,10 +404,65 @@ struct MediaDetailView: View {
     @ViewBuilder
     private var mainScrollView: some View {
         let _ = Logger.shared.log("MediaDetailView construct mainScrollView: id=\(searchResult.id) isLoading=\(isLoading) hasLoaded=\(hasLoadedContent) isAnime=\(isAnimeShow) tvSeasons=\(tvShowDetail?.seasons.count ?? 0) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 0) {
-                heroImageSection
-                contentContainer
+        if usesImmersiveIPadTVLayout {
+            immersiveIPadTVDetailLayout
+        } else {
+            ScrollView(showsIndicators: false) {
+                LazyVStack(spacing: 0) {
+                    heroImageSection
+                    contentContainer
+                }
+            }
+            .ignoresSafeArea(edges: [.top, .leading, .trailing])
+        }
+    }
+
+    @ViewBuilder
+    private var immersiveIPadTVDetailLayout: some View {
+        ZStack(alignment: .top) {
+            KFImage(URL(string: tvShowDetail?.fullBackdropURL ?? tvShowDetail?.fullPosterURL ?? ""))
+                .placeholder {
+                    Rectangle()
+                        .fill(LunaTheme.shared.backgroundBase)
+                }
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+
+            LinearGradient(
+                gradient: Gradient(stops: [
+                    .init(color: Color.black.opacity(0.18), location: 0.0),
+                    .init(color: Color.black.opacity(0.32), location: 0.22),
+                    .init(color: Color.black.opacity(0.58), location: 0.52),
+                    .init(color: ambientColor.opacity(0.92), location: 0.82),
+                    .init(color: LunaTheme.shared.backgroundBase, location: 1.0)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            LinearGradient(
+                colors: [Color.black.opacity(0.55), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    Spacer()
+                        .frame(height: 320)
+
+                    immersiveHeroInfoSection
+                    specialsOVASection
+                    episodesSection
+
+                    Spacer(minLength: 80)
+                }
+                .padding(.top, 30)
+                .padding(.bottom, 40)
             }
         }
         .ignoresSafeArea(edges: [.top, .leading, .trailing])
@@ -467,6 +526,30 @@ struct MediaDetailView: View {
             )
         }
     }
+
+    @ViewBuilder
+    private var immersiveHeroInfoSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            immersiveHeaderSection
+            immersiveMetadataSection
+            immersiveSynopsisSection
+            playAndBookmarkSection
+        }
+        .padding(24)
+        .frame(maxWidth: 760, alignment: .leading)
+        .applyLiquidGlassBackground(
+            cornerRadius: 28,
+            fallbackFill: Color.black.opacity(0.18),
+            fallbackMaterial: .ultraThinMaterial,
+            glassTint: Color.white.opacity(0.03)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .padding(.horizontal, 28)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
     
     @ViewBuilder
     private var gradientOverlay: some View {
@@ -504,6 +587,25 @@ struct MediaDetailView: View {
         .padding(.bottom, 10)
         .padding(.horizontal)
     }
+
+    @ViewBuilder
+    private var immersiveHeaderSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let logoURL = logoURL {
+                KFImage(URL(string: logoURL))
+                    .placeholder {
+                        immersiveTitleText
+                    }
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: 420, maxHeight: 150, alignment: .leading)
+                    .shadow(color: .black.opacity(0.45), radius: 8, x: 0, y: 4)
+            } else {
+                immersiveTitleText
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
     
     @ViewBuilder
     private var titleText: some View {
@@ -515,6 +617,17 @@ struct MediaDetailView: View {
             .multilineTextAlignment(.center)
             .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
             .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    @ViewBuilder
+    private var immersiveTitleText: some View {
+        Text(searchResult.displayTitle)
+            .font(.system(size: 44, weight: .bold, design: .default))
+            .foregroundColor(.white)
+            .lineLimit(3)
+            .multilineTextAlignment(.leading)
+            .shadow(color: .black.opacity(0.55), radius: 6, x: 0, y: 3)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     @ViewBuilder
@@ -547,6 +660,73 @@ struct MediaDetailView: View {
                     }
             }
         }
+    }
+
+    @ViewBuilder
+    private var immersiveSynopsisSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Overview")
+                .font(.headline)
+                .foregroundColor(.white.opacity(0.85))
+
+            if !synopsis.isEmpty {
+                Text(showFullSynopsis ? synopsis : String(synopsis.prefix(240)) + (synopsis.count > 240 ? "..." : ""))
+                    .font(.body)
+                    .foregroundColor(.white.opacity(0.9))
+                    .lineLimit(showFullSynopsis ? nil : 4)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showFullSynopsis.toggle()
+                        }
+                    }
+            } else if let overview = searchResult.isMovie ? movieDetail?.overview : tvShowDetail?.overview,
+                      !overview.isEmpty {
+                Text(showFullSynopsis ? overview : String(overview.prefix(240)) + (overview.count > 240 ? "..." : ""))
+                    .font(.body)
+                    .foregroundColor(.white.opacity(0.9))
+                    .lineLimit(showFullSynopsis ? nil : 4)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showFullSynopsis.toggle()
+                        }
+                    }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var immersiveMetadataSection: some View {
+        HStack(spacing: 10) {
+            if let tvShowDetail {
+                if let episodes = tvShowDetail.numberOfEpisodes, episodes > 0 {
+                    immersiveMetadataChip("\(episodes) EPS")
+                }
+                if let studio = tvShowDetail.networks.first?.name {
+                    immersiveMetadataChip(studio)
+                }
+                if tvShowDetail.voteAverage > 0 {
+                    immersiveMetadataChip(String(format: "%.0f%%", tvShowDetail.voteAverage * 10))
+                }
+                ForEach(Array(tvShowDetail.genres.prefix(3)), id: \.id) { genre in
+                    immersiveMetadataChip(genre.name)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private func immersiveMetadataChip(_ text: String) -> some View {
+        Text(text)
+            .font(.subheadline.weight(.medium))
+            .foregroundColor(.white.opacity(0.92))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.08))
+            .clipShape(Capsule())
     }
     
     @ViewBuilder
@@ -629,7 +809,8 @@ struct MediaDetailView: View {
                 selectedEpisodeForSearch: $selectedEpisodeForSearch,
                 animeEpisodes: anilistEpisodes,
                 animeSeasonTitles: animeSeasonTitles,
-                tmdbService: tmdbService
+                tmdbService: tmdbService,
+                immersiveIPadLayout: usesImmersiveIPadTVLayout
             ) {
                 if !castMembers.isEmpty {
                     castSection

@@ -329,9 +329,9 @@ final class HomeViewModel: ObservableObject {
                 }
             }
             
-            // Featured — pick a random currently airing anime
+            // Featured — pick a random trending anime
             if enabledCatalogs.contains(where: { $0.id == "featured" }) {
-                var results = (try? await tmdbService.getCurrentlyAiringAnimeResults()) ?? []
+                var results = trendingAnime
                 if !results.isEmpty {
                     let randomIndex = Int.random(in: 0..<results.count)
                     let spotlight = results.remove(at: randomIndex)
@@ -340,7 +340,7 @@ final class HomeViewModel: ObservableObject {
                     await MainActor.run {
                         self.widgetData["featured"] = results
                         self.widgetData["featured_genreName"] = [] // Store genre name via key convention
-                        self.featuredGenreName = "Currently Airing Anime"
+                        self.featuredGenreName = "Trending Anime"
                     }
                 }
             }

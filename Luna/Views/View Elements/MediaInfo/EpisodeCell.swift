@@ -8,6 +8,12 @@
 import SwiftUI
 import Kingfisher
 
+enum EpisodeCellLayout {
+    case automatic
+    case horizontal
+    case immersiveHorizontal
+}
+
 struct EpisodeCell: View {
     let episode: TMDBEpisode
     let showId: Int
@@ -19,13 +25,42 @@ struct EpisodeCell: View {
     let onMarkWatched: () -> Void
     let onResetProgress: () -> Void
     var onDownload: (() -> Void)? = nil
+    var layout: EpisodeCellLayout = .automatic
     
     @State private var isWatched: Bool = false
     @State private var progressValue: Double = 0
     @AppStorage("horizontalEpisodeList") private var horizontalEpisodeList: Bool = false
+
+    private var usesHorizontalLayout: Bool {
+        switch layout {
+        case .automatic:
+            return horizontalEpisodeList
+        case .horizontal, .immersiveHorizontal:
+            return true
+        }
+    }
+
+    private var isImmersiveHorizontal: Bool {
+        if case .immersiveHorizontal = layout {
+            return true
+        }
+        return false
+    }
+
+    private var horizontalCardWidth: CGFloat {
+        isImmersiveHorizontal ? 320 : 240 * iPadScaleSmall
+    }
+
+    private var horizontalCardHeight: CGFloat {
+        isImmersiveHorizontal ? 180 : 135 * iPadScaleSmall
+    }
+
+    private var displayedEpisodeName: String {
+        episode.name.isEmpty ? "Episode \(episode.episodeNumber)" : episode.name
+    }
     
     var body: some View {
-        if horizontalEpisodeList {
+        if usesHorizontalLayout {
             horizontalLayout
         } else {
             verticalLayout
@@ -39,7 +74,7 @@ struct EpisodeCell: View {
                     KFImage(URL(string: episode.fullStillURL ?? ""))
                         .placeholder {
                             Rectangle()
-                                .fill(Color.gray.opacity(0.3))
+                                .fill(Color.gray.opacity(isImmersiveHorizontal ? 0.22 : 0.3))
                                 .overlay(
                                     Image(systemName: "tv")
                                         .font(.title2)
@@ -48,7 +83,7 @@ struct EpisodeCell: View {
                         }
                         .resizable()
                         .aspectRatio(16/9, contentMode: .fill)
-                        .frame(width: 240 * iPadScaleSmall, height: 135 * iPadScaleSmall)
+                        .frame(width: horizontalCardWidth, height: horizontalCardHeight)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     
                     if progressValue > 0 && progressValue < 0.85 {
@@ -60,13 +95,13 @@ struct EpisodeCell: View {
                                 .padding(.horizontal, 4)
                                 .padding(.bottom, 4)
                         }
-                        .frame(width: 240 * iPadScaleSmall, height: 135 * iPadScaleSmall)
+                        .frame(width: horizontalCardWidth, height: horizontalCardHeight)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
 
                 }
                 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: isImmersiveHorizontal ? 6 : 4) {
                     HStack {
                         Text("Episode \(episode.episodeNumber)")
                             .font(.caption)
@@ -108,24 +143,23 @@ struct EpisodeCell: View {
                         .clipShape(Capsule())
                     }
                     
-                    if !episode.name.isEmpty {
-                        Text(episode.name)
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                            .opacity(isWatched ? 0.45 : 1)
-                            .lineLimit(1)
-                    }
+                    Text(displayedEpisodeName)
+                        .font(isImmersiveHorizontal ? .headline : .subheadline)
+                        .fontWeight(isImmersiveHorizontal ? .semibold : .regular)
+                        .foregroundColor(.white)
+                        .opacity(isWatched ? 0.45 : 1)
+                        .lineLimit(2)
                     
                     if let overview = episode.overview, !overview.isEmpty {
                         Text(overview)
                             .font(.caption2)
                             .foregroundColor(.secondary)
-                            .lineLimit(3)
+                            .lineLimit(isImmersiveHorizontal ? 2 : 3)
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
                     }
                 }
-                .frame(width: 240 * iPadScaleSmall, alignment: .leading)
+                .frame(width: horizontalCardWidth, alignment: .leading)
             }
         }
         .buttonStyle(PlainButtonStyle())
