@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Luna.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Luna.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-23T01:12:19Z",
-      "date": "2026-04-23T01:12:19Z",
-      "size": 64356884,
-      "versionDescription": "fix "
+      "versionDate": "2026-04-23T01:54:48Z",
+      "date": "2026-04-23T01:54:48Z",
+      "size": 64373313,
+      "versionDescription": "Update MediaDetailView.swift "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Update MediaDetailView.swift ",
+      "date": "2026-04-23T01:54:48Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "fix ",
@@ -63,11 +68,6 @@
       "title": "Release 1.0.1",
       "caption": "anime hero banner ",
       "date": "2026-04-22T10:58:28Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "is wear ",
-      "date": "2026-04-22T10:20:35Z"
     }
   ]
 }
