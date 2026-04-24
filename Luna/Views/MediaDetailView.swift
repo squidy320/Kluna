@@ -918,7 +918,7 @@ struct MediaDetailView: View {
                 seasonDetail: $seasonDetail,
                 selectedEpisodeForSearch: $selectedEpisodeForSearch,
                 specialEpisodeContext: $selectedSpecialEpisodeContext,
-                seasonSelectorInsertedContent: AnyView(usesImmersiveIPadTVLayout ? compactSpecialsOVASelector : specialsOVASection),
+                seasonSelectorInsertedContent: seasonSelectorInsertedContentView,
                 animeEpisodes: anilistEpisodes,
                 animeSeasonTitles: animeSeasonTitles,
                 tmdbService: tmdbService,
@@ -1043,6 +1043,13 @@ struct MediaDetailView: View {
             }
             .padding(.top, 4)
         }
+    }
+
+    private var seasonSelectorInsertedContentView: AnyView {
+        if usesImmersiveIPadTVLayout {
+            return AnyView(compactSpecialsOVASelector)
+        }
+        return AnyView(specialsOVASection)
     }
 
     @ViewBuilder
