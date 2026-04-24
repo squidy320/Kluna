@@ -150,7 +150,7 @@ struct EpisodeCell: View {
                         .opacity(isWatched ? 0.45 : 1)
                         .lineLimit(2)
                     
-                    if !isImmersiveHorizontal, let overview = episode.overview, !overview.isEmpty {
+                    if let overview = episode.overview, !overview.isEmpty {
                         Text(overview)
                             .font(.caption2)
                             .foregroundColor(.secondary)

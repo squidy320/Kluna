@@ -489,6 +489,7 @@ struct MediaDetailView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         immersiveHeroInfoSection
                         episodesSection
+                            .frame(height: 250, alignment: .top)
                     }
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
