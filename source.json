@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Eclipse.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-24T14:58:38Z",
-      "date": "2026-04-24T14:58:38Z",
-      "size": 64449520,
-      "versionDescription": "Merge branch 'main' of https://github.com/squidy320/Kluna "
+      "versionDate": "2026-04-24T15:20:04Z",
+      "date": "2026-04-24T15:20:04Z",
+      "size": 64452080,
+      "versionDescription": "Lower iPad detail layout and prefer downloaded episodes "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Lower iPad detail layout and prefer downloaded episodes ",
+      "date": "2026-04-24T15:20:04Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
@@ -63,11 +68,6 @@
       "title": "Release 1.0.1",
       "caption": "Update README.md ",
       "date": "2026-04-23T20:20:56Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "Update SearchView.swift ",
-      "date": "2026-04-23T16:00:14Z"
     }
   ]
 }
