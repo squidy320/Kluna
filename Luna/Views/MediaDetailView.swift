@@ -483,14 +483,17 @@ struct MediaDetailView: View {
             ZStack(alignment: .topLeading) {
                 immersiveBackdrop(urlString: tvShowDetail?.fullBackdropURL ?? tvShowDetail?.fullPosterURL, proxy: proxy)
 
-                VStack(alignment: .leading, spacing: 16) {
-                    immersiveHeroInfoSection
-                    episodesSection
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer(minLength: 0)
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        immersiveHeroInfoSection
+                        episodesSection
+                    }
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottomLeading)
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
                 .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
                 .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
-                .padding(.top, max(44, proxy.safeAreaInsets.top + 24))
                 .padding(.bottom, max(34, proxy.safeAreaInsets.bottom + 30))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
@@ -504,13 +507,16 @@ struct MediaDetailView: View {
             ZStack(alignment: .topLeading) {
                 immersiveBackdrop(urlString: movieDetail?.fullBackdropURL ?? movieDetail?.fullPosterURL, proxy: proxy)
 
-                VStack(alignment: .leading, spacing: 16) {
-                    immersiveMovieHeroInfoSection
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer(minLength: 0)
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        immersiveMovieHeroInfoSection
+                    }
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottomLeading)
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
                 .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
                 .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
-                .padding(.top, max(56, proxy.safeAreaInsets.top + 36))
                 .padding(.bottom, max(42, proxy.safeAreaInsets.bottom + 38))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
