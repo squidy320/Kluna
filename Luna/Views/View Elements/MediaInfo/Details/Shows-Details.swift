@@ -23,6 +23,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     let forceHorizontalEpisodeList: Bool
     let immersiveHorizontalEpisodes: Bool
     let compactControlBand: Bool
+    let showSelectionControls: Bool
     @ViewBuilder let insertedContent: () -> InsertedContent
     
     @State private var isLoadingSeason = false
@@ -166,9 +167,29 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 
                 if !tvShow.seasons.isEmpty {
                     let _ = Logger.shared.log("TVShowSeasonsSection body branch seasons-present: showId=\(tvShow.id) seasons=\(tvShow.seasons.count)", type: "CrashProbe")
-                    if compactControlBand {
+                    if compactControlBand && showSelectionControls {
                         compactSelectorBand(for: tvShow)
 
+                        HStack {
+                            Text(specialEpisodeContext?.title ?? "Episodes")
+                                .font(.title2)
+                                .fontWeight(.bold)
+
+                            Spacer()
+
+                            if activeSeasonDetail != nil && hasActiveSources {
+                                Button(action: startDownloadAllSeason) {
+                                    Image(systemName: "arrow.down.circle")
+                                        .font(.title3)
+                                        .foregroundColor(.white)
+                                }
+                                .disabled(isDownloadingAll)
+                            }
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal)
+                        .padding(.top, 4)
+                    } else if compactControlBand {
                         HStack {
                             Text(specialEpisodeContext?.title ?? "Episodes")
                                 .font(.title2)

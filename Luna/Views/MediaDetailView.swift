@@ -504,14 +504,14 @@ struct MediaDetailView: View {
                 immersiveBackdrop(urlString: movieDetail?.fullBackdropURL ?? movieDetail?.fullPosterURL, proxy: proxy)
 
                 VStack(alignment: .leading, spacing: 18) {
-                    Spacer(minLength: max(148, proxy.size.height * 0.2))
+                    Spacer(minLength: max(220, proxy.size.height * 0.3))
                     immersiveMovieHeroInfoSection
                     Spacer(minLength: 20)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
                 .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
                 .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
-                .padding(.top, max(38, proxy.safeAreaInsets.top + 20))
+                .padding(.top, max(56, proxy.safeAreaInsets.top + 36))
                 .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 20))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
@@ -959,7 +959,8 @@ struct MediaDetailView: View {
                 showsInlineDetails: !usesImmersiveIPadTVLayout,
                 forceHorizontalEpisodeList: usesImmersiveIPadTVLayout,
                 immersiveHorizontalEpisodes: usesImmersiveIPadTVLayout,
-                compactControlBand: usesImmersiveIPadTVLayout
+                compactControlBand: usesImmersiveIPadTVLayout,
+                showSelectionControls: !usesImmersiveIPadTVLayout
             ) {
                 if !usesImmersiveIPadTVLayout {
                     if !castMembers.isEmpty {
@@ -1120,6 +1121,7 @@ struct MediaDetailView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
                     if let tvShowDetail {
+                        immersiveTVSeasonSelectionSheetSection(tvShowDetail)
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Overview")
                                 .font(.title3)
@@ -1158,6 +1160,42 @@ struct MediaDetailView: View {
 #endif
         }
         .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private func immersiveTVSeasonSelectionSheetSection(_ tvShow: TMDBTVShowWithSeasons) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if !tvShow.seasons.filter({ $0.seasonNumber > 0 }).isEmpty {
+                Text("Seasons")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(tvShow.seasons.filter { $0.seasonNumber > 0 }) { season in
+                            Button(action: {
+                                selectSeasonFromInfoSheet(season, tvShowId: tvShow.id)
+                            }) {
+                                Text(season.name)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundColor(selectedSeason?.id == season.id ? .black : .white)
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 34)
+                                    .background(selectedSeason?.id == season.id ? Color.white.opacity(0.95) : Color.white.opacity(0.08))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+            }
+
+            immersiveTVSpecialsSheetSection
+        }
+        .padding(20)
+        .applyLiquidGlassBackground(cornerRadius: 22)
     }
 
     @ViewBuilder
@@ -1389,6 +1427,58 @@ struct MediaDetailView: View {
             seasonNumber: context.localSeasonNumber,
             anilistId: context.anilistId
         )
+    }
+
+    private func selectSeasonFromInfoSheet(_ season: TMDBSeason, tvShowId: Int) {
+        selectedSpecialEpisodeContext = nil
+        selectedSeason = season
+        seasonDetail = nil
+        selectedEpisodeForSearch = nil
+
+        Task {
+            do {
+                if isAnimeShow, let animeEpisodes = anilistEpisodes {
+                    let seasonEpisodes = animeEpisodes.filter { $0.seasonNumber == season.seasonNumber }
+                    let tmdbEpisodes: [TMDBEpisode] = seasonEpisodes.map { aniEp in
+                        TMDBEpisode(
+                            id: tvShowId * 1000 + season.seasonNumber * 100 + aniEp.number,
+                            name: aniEp.title,
+                            overview: aniEp.description,
+                            stillPath: aniEp.stillPath,
+                            episodeNumber: aniEp.number,
+                            seasonNumber: aniEp.seasonNumber,
+                            airDate: aniEp.airDate,
+                            runtime: nil,
+                            voteAverage: 0,
+                            voteCount: 0
+                        )
+                    }
+
+                    let detail = TMDBSeasonDetail(
+                        id: season.id,
+                        name: season.name,
+                        overview: season.overview ?? "",
+                        posterPath: season.posterPath,
+                        seasonNumber: season.seasonNumber,
+                        airDate: season.airDate,
+                        episodes: tmdbEpisodes
+                    )
+
+                    await MainActor.run {
+                        self.seasonDetail = detail
+                        self.selectedEpisodeForSearch = detail.episodes.first
+                    }
+                } else {
+                    let detail = try await tmdbService.getSeasonDetails(tvShowId: tvShowId, seasonNumber: season.seasonNumber)
+                    await MainActor.run {
+                        self.seasonDetail = detail
+                        self.selectedEpisodeForSearch = detail.episodes.first
+                    }
+                }
+            } catch {
+                Logger.shared.log("MediaDetailView selectSeasonFromInfoSheet failed: showId=\(tvShowId) season=\(season.seasonNumber) error=\(error.localizedDescription)", type: "CrashProbe")
+            }
+        }
     }
 
     private func beginSpecialSearch(context: SpecialEpisodeListContext, episode: TMDBEpisode?) {
