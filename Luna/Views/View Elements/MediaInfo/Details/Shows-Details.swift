@@ -201,6 +201,12 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                         .padding(.top)
                     } else {
                         let _ = Logger.shared.log("TVShowSeasonsSection body branch header/menu selector: showId=\(tvShow.id)", type: "CrashProbe")
+                        Text("Seasons & OVAs")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal)
+                            .padding(.top)
                         episodesSectionHeader
                         seasonSelectorInsertedContent
                     }

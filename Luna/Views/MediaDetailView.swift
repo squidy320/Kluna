@@ -462,8 +462,8 @@ struct MediaDetailView: View {
                 .frame(width: min(proxy.size.width * 0.62, 900))
                 .ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: 20) {
-                    Spacer(minLength: max(76, proxy.size.height * 0.11))
+                VStack(alignment: .leading, spacing: 24) {
+                    Spacer(minLength: max(132, proxy.size.height * 0.18))
                     immersiveHeroInfoSection
                     episodesSection
                     Spacer(minLength: 20)
@@ -471,7 +471,7 @@ struct MediaDetailView: View {
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
                 .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
                 .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
-                .padding(.top, max(20, proxy.safeAreaInsets.top + 6))
+                .padding(.top, max(34, proxy.safeAreaInsets.top + 18))
                 .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 20))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
