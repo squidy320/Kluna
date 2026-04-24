@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Eclipse.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-24T01:47:44Z",
-      "date": "2026-04-24T01:47:44Z",
-      "size": 64439961,
-      "versionDescription": "Add immersive TV season selection controls "
+      "versionDate": "2026-04-24T14:36:02Z",
+      "date": "2026-04-24T14:36:02Z",
+      "size": 64450027,
+      "versionDescription": "Reset Auto Mode sheets and lower iPad detail layouts "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Reset Auto Mode sheets and lower iPad detail layouts ",
+      "date": "2026-04-24T14:36:02Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "Add immersive TV season selection controls ",
@@ -63,11 +68,6 @@
       "title": "Release 1.0.1",
       "caption": "alr ",
       "date": "2026-04-23T14:50:34Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "Update MediaDetailView.swift ",
-      "date": "2026-04-23T01:54:48Z"
     }
   ]
 }
