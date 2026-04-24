@@ -81,6 +81,7 @@ struct MediaDetailView: View {
     @State private var selectedSpecialEpisodeContext: SpecialEpisodeListContext?
     @State private var specialSearchRequest: AnimeSpecialSearchRequest?
     @State private var nextEpisodePresentationToken = 0
+    @State private var playSheetRequestId = UUID()
     
     @State private var castMembers: [TMDBCastMember] = []
     @State private var hasLoadedContent = false
@@ -273,6 +274,7 @@ struct MediaDetailView: View {
                 showingSearchResults = false
                 scheduleNextEpisodePresentation {
                     Logger.shared.log("MediaDetailView nextEpisode presenting search sheet: id=\(searchResult.id) S\(seasonNumber)E\(episodeNumber)", type: "CrashProbe")
+                    playSheetRequestId = UUID()
                     showingSearchResults = true
                 }
             } else {
@@ -334,6 +336,7 @@ struct MediaDetailView: View {
                 imdbId: searchResult.isMovie ? movieDetail?.imdbId : tvShowDetail?.externalIds?.imdbId,
                 autoModeOnly: UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled")
             )
+            .id(playSheetRequestId)
         }
         .sheet(isPresented: $showingDownloadSheet) {
             let _ = Logger.shared.log("MediaDetailView constructing download sheet: id=\(searchResult.id) isAnime=\(isAnimeShow) selectedEpisode=\(selectedEpisodeForSearch.map { "S\($0.seasonNumber)E\($0.episodeNumber)" } ?? "nil") autoMode=\(UserDefaults.standard.bool(forKey: "servicesAutoModeEnabled"))", type: "CrashProbe")
@@ -480,17 +483,15 @@ struct MediaDetailView: View {
             ZStack(alignment: .topLeading) {
                 immersiveBackdrop(urlString: tvShowDetail?.fullBackdropURL ?? tvShowDetail?.fullPosterURL, proxy: proxy)
 
-                VStack(alignment: .leading, spacing: 18) {
-                    Spacer(minLength: max(148, proxy.size.height * 0.2))
+                VStack(alignment: .leading, spacing: 16) {
                     immersiveHeroInfoSection
                     episodesSection
-                    Spacer(minLength: 20)
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottomLeading)
                 .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
                 .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
-                .padding(.top, max(38, proxy.safeAreaInsets.top + 20))
-                .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 20))
+                .padding(.top, max(44, proxy.safeAreaInsets.top + 24))
+                .padding(.bottom, max(34, proxy.safeAreaInsets.bottom + 30))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -503,16 +504,14 @@ struct MediaDetailView: View {
             ZStack(alignment: .topLeading) {
                 immersiveBackdrop(urlString: movieDetail?.fullBackdropURL ?? movieDetail?.fullPosterURL, proxy: proxy)
 
-                VStack(alignment: .leading, spacing: 18) {
-                    Spacer(minLength: max(220, proxy.size.height * 0.3))
+                VStack(alignment: .leading, spacing: 16) {
                     immersiveMovieHeroInfoSection
-                    Spacer(minLength: 20)
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottomLeading)
                 .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
                 .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
                 .padding(.top, max(56, proxy.safeAreaInsets.top + 36))
-                .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 20))
+                .padding(.bottom, max(42, proxy.safeAreaInsets.bottom + 38))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -1139,7 +1138,6 @@ struct MediaDetailView: View {
                         .padding(20)
                         .applyLiquidGlassBackground(cornerRadius: 22)
 
-                        immersiveTVSpecialsSheetSection
                         immersiveTVDetailsSheetSection(tvShowDetail)
                     }
 
@@ -1172,20 +1170,9 @@ struct MediaDetailView: View {
                     .foregroundColor(.white)
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    HStack(alignment: .top, spacing: 14) {
                         ForEach(tvShow.seasons.filter { $0.seasonNumber > 0 }) { season in
-                            Button(action: {
-                                selectSeasonFromInfoSheet(season, tvShowId: tvShow.id)
-                            }) {
-                                Text(season.name)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundColor(selectedSeason?.id == season.id ? .black : .white)
-                                    .padding(.horizontal, 12)
-                                    .frame(height: 34)
-                                    .background(selectedSeason?.id == season.id ? Color.white.opacity(0.95) : Color.white.opacity(0.08))
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                            immersiveTVSeasonCard(season, tvShowId: tvShow.id)
                         }
                     }
                     .padding(.horizontal, 2)
@@ -1196,6 +1183,52 @@ struct MediaDetailView: View {
         }
         .padding(20)
         .applyLiquidGlassBackground(cornerRadius: 22)
+    }
+
+    private func immersiveTVSeasonCard(_ season: TMDBSeason, tvShowId: Int) -> some View {
+        let isSelected = selectedSeason?.id == season.id
+
+        return Button(action: {
+            selectSeasonFromInfoSheet(season, tvShowId: tvShowId)
+        }) {
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white.opacity(0.08))
+
+                    if let posterURL = season.fullPosterURL, let url = URL(string: posterURL) {
+                        KFImage(url)
+                            .placeholder {
+                                ProgressView()
+                            }
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } else {
+                        VStack(spacing: 8) {
+                            Image(systemName: "sparkles.tv")
+                                .font(.system(size: 24, weight: .medium))
+                            Text("Season")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .foregroundColor(.white.opacity(0.8))
+                    }
+                }
+                .frame(width: 116, height: 164)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(isSelected ? Color.white.opacity(0.95) : Color.white.opacity(0.14), lineWidth: isSelected ? 2.5 : 1)
+                )
+                .shadow(color: .black.opacity(isSelected ? 0.25 : 0.12), radius: isSelected ? 12 : 8, y: 6)
+
+                Text(season.name)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                    .frame(width: 116, alignment: .leading)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     @ViewBuilder
@@ -1580,6 +1613,7 @@ struct MediaDetailView: View {
         }
         
         Logger.shared.log("MediaDetailView searchInServices presenting: id=\(searchResult.id) selectedEpisode=\(selectedEpisodeForSearch.map { "S\($0.seasonNumber)E\($0.episodeNumber)" } ?? "nil")", type: "CrashProbe")
+        playSheetRequestId = UUID()
         showingSearchResults = true
     }
     
