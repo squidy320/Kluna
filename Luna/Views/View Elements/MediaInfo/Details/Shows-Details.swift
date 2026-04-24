@@ -427,11 +427,6 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     private func compactSelectorBand(for tvShow: TMDBTVShowWithSeasons) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
-                Text("Seasons & OVAs")
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-
                 if isGroupedBySeasons {
                     seasonMenuCapsule(for: tvShow)
                 }

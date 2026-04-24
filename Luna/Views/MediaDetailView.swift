@@ -388,7 +388,11 @@ struct MediaDetailView: View {
             AddToCollectionView(searchResult: searchResult)
         }
         .sheet(isPresented: $showingImmersiveInfoSheet) {
-            immersiveTVInfoSheet
+            if usesImmersiveIPadMovieLayout {
+                immersiveMovieInfoSheet
+            } else {
+                immersiveTVInfoSheet
+            }
         }
     }
     
@@ -477,7 +481,7 @@ struct MediaDetailView: View {
                 immersiveBackdrop(urlString: tvShowDetail?.fullBackdropURL ?? tvShowDetail?.fullPosterURL, proxy: proxy)
 
                 VStack(alignment: .leading, spacing: 18) {
-                    Spacer(minLength: max(108, proxy.size.height * 0.145))
+                    Spacer(minLength: max(148, proxy.size.height * 0.2))
                     immersiveHeroInfoSection
                     episodesSection
                     Spacer(minLength: 20)
@@ -485,7 +489,7 @@ struct MediaDetailView: View {
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
                 .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
                 .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
-                .padding(.top, max(26, proxy.safeAreaInsets.top + 12))
+                .padding(.top, max(38, proxy.safeAreaInsets.top + 20))
                 .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 20))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
@@ -499,29 +503,16 @@ struct MediaDetailView: View {
             ZStack(alignment: .topLeading) {
                 immersiveBackdrop(urlString: movieDetail?.fullBackdropURL ?? movieDetail?.fullPosterURL, proxy: proxy)
 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        Spacer()
-                            .frame(height: max(120, proxy.size.height * 0.14))
-
-                        immersiveMovieHeroInfoSection
-
-                        MovieDetailsSection(movie: movieDetail)
-
-                        if !castMembers.isEmpty {
-                            castSection
-                        }
-
-                        StarRatingView(mediaId: searchResult.id)
-
-                        Spacer(minLength: 40)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
-                    .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
-                    .padding(.top, max(26, proxy.safeAreaInsets.top + 12))
-                    .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 20))
+                VStack(alignment: .leading, spacing: 18) {
+                    Spacer(minLength: max(148, proxy.size.height * 0.2))
+                    immersiveMovieHeroInfoSection
+                    Spacer(minLength: 20)
                 }
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
+                .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
+                .padding(.top, max(38, proxy.safeAreaInsets.top + 20))
+                .padding(.bottom, max(24, proxy.safeAreaInsets.bottom + 20))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -933,7 +924,7 @@ struct MediaDetailView: View {
                     .cornerRadius(8)
             }
 
-            if usesImmersiveIPadTVLayout {
+            if usesImmersiveIPadTVLayout || usesImmersiveIPadMovieLayout {
                 Button(action: {
                     showingImmersiveInfoSheet = true
                 }) {
@@ -1146,6 +1137,7 @@ struct MediaDetailView: View {
                         .padding(20)
                         .applyLiquidGlassBackground(cornerRadius: 22)
 
+                        immersiveTVSpecialsSheetSection
                         immersiveTVDetailsSheetSection(tvShowDetail)
                     }
 
@@ -1166,6 +1158,41 @@ struct MediaDetailView: View {
 #endif
         }
         .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private var immersiveMovieInfoSheet: some View {
+        NavigationView {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let movieDetail {
+                        immersiveMovieDetailsSheetSection(movieDetail)
+                    }
+
+                    if !castMembers.isEmpty {
+                        castSection
+                    }
+
+                    StarRatingView(mediaId: searchResult.id)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 32)
+            }
+            .background(LunaTheme.shared.backgroundBase.ignoresSafeArea())
+            .navigationTitle("More Info")
+#if !os(tvOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private var immersiveTVSpecialsSheetSection: some View {
+        if isAnimeShow && (isLoadingAnimeSpecials || !animeSpecialEntries.isEmpty) {
+            specialsOVASection
+        }
     }
 
     @ViewBuilder
@@ -1213,6 +1240,11 @@ struct MediaDetailView: View {
             .padding(.vertical, 16)
             .applyLiquidGlassBackground(cornerRadius: 16)
         }
+    }
+
+    @ViewBuilder
+    private func immersiveMovieDetailsSheetSection(_ movie: TMDBMovieDetail) -> some View {
+        MovieDetailsSection(movie: movie)
     }
 
     private func immersiveTVAgeRating(from contentRatings: TMDBContentRatings?) -> String? {
