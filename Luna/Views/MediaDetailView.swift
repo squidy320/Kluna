@@ -101,6 +101,49 @@ struct MediaDetailView: View {
         !serviceManager.activeServices.isEmpty || !stremioManager.activeAddons.isEmpty
     }
 
+    private var candidateEpisodeForPlayback: TMDBEpisode? {
+        if let specialContext = selectedSpecialEpisodeContext {
+            return selectedEpisodeForSearch.flatMap { selected in
+                specialContext.episodes.first(where: { $0.id == selected.id })
+            } ?? specialContext.episodes.first
+        }
+
+        if let selectedEpisodeForSearch {
+            return selectedEpisodeForSearch
+        }
+
+        if let seasonDetail, !seasonDetail.episodes.isEmpty {
+            return seasonDetail.episodes.first
+        }
+
+        return nil
+    }
+
+    private var hasPlayableDownloadedItem: Bool {
+        if searchResult.isMovie {
+            guard let item = DownloadManager.shared.completedDownloadItem(tmdbId: searchResult.id, isMovie: true) else {
+                return false
+            }
+            return DownloadManager.shared.localFileURL(for: item) != nil
+        }
+
+        guard let episode = candidateEpisodeForPlayback,
+              let item = DownloadManager.shared.completedDownloadItem(
+                  tmdbId: searchResult.id,
+                  isMovie: false,
+                  seasonNumber: episode.seasonNumber,
+                  episodeNumber: episode.episodeNumber
+              ) else {
+            return false
+        }
+
+        return DownloadManager.shared.localFileURL(for: item) != nil
+    }
+
+    private var canPlayFromDetail: Bool {
+        hasActiveSources || hasPlayableDownloadedItem
+    }
+
     private var headerHeight: CGFloat {
 #if os(tvOS)
         UIScreen.main.bounds.height * 0.8
@@ -832,9 +875,9 @@ struct MediaDetailView: View {
                 searchInServices()
             }) {
                 HStack {
-                    Image(systemName: hasActiveSources ? "play.fill" : "exclamationmark.triangle")
+                    Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
                     
-                    Text(hasActiveSources ? playButtonText : "No Services")
+                    Text(canPlayFromDetail ? playButtonText : "No Services")
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
@@ -842,14 +885,14 @@ struct MediaDetailView: View {
                 .padding(.horizontal, 25)
                 .applyLiquidGlassBackground(
                     cornerRadius: 12,
-                    fallbackFill: hasActiveSources ? Color.black.opacity(0.2) : Color.gray.opacity(0.3),
-                    fallbackMaterial: hasActiveSources ? .ultraThinMaterial : .thinMaterial,
-                    glassTint: hasActiveSources ? nil : Color.gray.opacity(0.3)
+                    fallbackFill: canPlayFromDetail ? Color.black.opacity(0.2) : Color.gray.opacity(0.3),
+                    fallbackMaterial: canPlayFromDetail ? .ultraThinMaterial : .thinMaterial,
+                    glassTint: canPlayFromDetail ? nil : Color.gray.opacity(0.3)
                 )
-                .foregroundColor(hasActiveSources ? .white : .secondary)
+                .foregroundColor(canPlayFromDetail ? .white : .secondary)
                 .cornerRadius(8)
             }
-            .disabled(!hasActiveSources)
+            .disabled(!canPlayFromDetail)
             
             Button(action: {
                 toggleBookmark()
@@ -1353,25 +1396,9 @@ struct MediaDetailView: View {
     }
 
     private func resolvedEpisodeForPlayback() -> TMDBEpisode? {
-        if let specialContext = selectedSpecialEpisodeContext {
-            let episode = selectedEpisodeForSearch.flatMap { selected in
-                specialContext.episodes.first(where: { $0.id == selected.id })
-            } ?? specialContext.episodes.first
-            selectedEpisodeForSearch = episode
-            return episode
-        }
-
-        if selectedEpisodeForSearch != nil {
-            return selectedEpisodeForSearch
-        }
-
-        if let seasonDetail, !seasonDetail.episodes.isEmpty {
-            selectedEpisodeForSearch = seasonDetail.episodes.first
-            return selectedEpisodeForSearch
-        }
-
-        selectedEpisodeForSearch = nil
-        return nil
+        let episode = candidateEpisodeForPlayback
+        selectedEpisodeForSearch = episode
+        return episode
     }
 
     @discardableResult
