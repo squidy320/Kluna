@@ -683,19 +683,33 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     
     private func searchInServicesForEpisode(episode: TMDBEpisode, playbackContext: EpisodePlaybackContext? = nil) {
         Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode begin: showId=\(tvShow?.id ?? 0) episode=S\(episode.seasonNumber)E\(episode.episodeNumber) hasActiveSources=\(hasActiveSources)", type: "CrashProbe")
-        guard (tvShow?.name) != nil else {
+        guard let tvShow else {
             Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode aborted missing tvShow: episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
+            return
+        }
+
+        if let item = DownloadManager.shared.completedDownloadItem(
+            tmdbId: tvShow.id,
+            isMovie: false,
+            seasonNumber: episode.seasonNumber,
+            episodeNumber: episode.episodeNumber
+        ), DownloadManager.shared.localFileURL(for: item) != nil {
+            Logger.shared.log(
+                "TVShowSeasonsSection playing downloaded episode before services: showId=\(tvShow.id) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)",
+                type: "Download"
+            )
+            _ = DownloadManager.shared.playDownloadedItem(item)
             return
         }
         
         if !hasActiveSources {
             showingNoServicesAlert = true
-            Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode blocked no sources: showId=\(tvShow?.id ?? 0) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
+            Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode blocked no sources: showId=\(tvShow.id) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
             return
         }
         
         selectedEpisodePlaybackContext = playbackContext
-        Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode presenting: showId=\(tvShow?.id ?? 0) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
+        Logger.shared.log("TVShowSeasonsSection searchInServicesForEpisode presenting: showId=\(tvShow.id) episode=S\(episode.seasonNumber)E\(episode.episodeNumber)", type: "CrashProbe")
         showingSearchResults = true
     }
     

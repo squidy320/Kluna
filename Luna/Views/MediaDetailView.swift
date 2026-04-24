@@ -486,7 +486,7 @@ struct MediaDetailView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Spacer(minLength: 0)
 
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 10) {
                         immersiveHeroInfoSection
                         episodesSection
                     }
@@ -494,7 +494,7 @@ struct MediaDetailView: View {
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
                 .padding(.leading, max(36, proxy.safeAreaInsets.leading + 36))
                 .padding(.trailing, max(28, proxy.safeAreaInsets.trailing + 28))
-                .padding(.bottom, max(34, proxy.safeAreaInsets.bottom + 30))
+                .padding(.bottom, max(8, proxy.safeAreaInsets.bottom + 4))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
