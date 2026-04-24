@@ -7,6 +7,8 @@
 
 import Foundation
 import Combine
+import AVKit
+import UIKit
 
 // MARK: - Download Item Model
 
@@ -445,6 +447,128 @@ final class DownloadManager: NSObject, ObservableObject {
             id = "dl_ep_\(tmdbId)_s\(seasonNumber ?? 0)_e\(episodeNumber ?? 0)"
         }
         return downloads.first(where: { $0.id == id })
+    }
+
+    func completedDownloadItem(tmdbId: Int, isMovie: Bool, seasonNumber: Int? = nil, episodeNumber: Int? = nil) -> DownloadItem? {
+        let id: String
+        if isMovie {
+            id = "dl_movie_\(tmdbId)"
+        } else {
+            id = "dl_ep_\(tmdbId)_s\(seasonNumber ?? 0)_e\(episodeNumber ?? 0)"
+        }
+        return downloads.first(where: { $0.id == id && $0.status == .completed })
+    }
+
+    @discardableResult
+    func playDownloadedItem(_ item: DownloadItem) -> Bool {
+        guard let fileURL = localFileURL(for: item) else {
+            Logger.shared.log("Downloaded file not found for: \(item.id)", type: "Download")
+            return false
+        }
+
+        let inAppRaw = UserDefaults.standard.string(forKey: "inAppPlayer") ?? "VLC"
+        let subtitleArray: [String]? = localSubtitleURL(for: item).map { [$0.absoluteString] }
+
+        if inAppRaw == "mpv" || inAppRaw == "VLC" {
+            let preset = PlayerPreset.presets.first
+            let pvc = PlayerViewController(
+                url: fileURL,
+                preset: preset ?? PlayerPreset(id: .sdrRec709, title: "Default", summary: "", stream: nil, commands: []),
+                headers: [:],
+                subtitles: subtitleArray,
+                mediaInfo: item.mediaInfo
+            )
+            pvc.isAnimeHint = item.isAnime
+            pvc.episodePlaybackContext = item.episodePlaybackContext
+            pvc.originalTMDBSeasonNumber = item.episodePlaybackContext?.resolvedTMDBSeasonNumber
+            pvc.originalTMDBEpisodeNumber = item.episodePlaybackContext?.resolvedTMDBEpisodeNumber
+            pvc.modalPresentationStyle = .fullScreen
+
+            if !item.isMovie {
+                pvc.onRequestNextEpisode = { [weak self] seasonNumber, episodeNumber in
+                    guard let self,
+                          let nextItem = self.nextDownloadedEpisode(
+                              for: item.tmdbId,
+                              requestedSeasonNumber: seasonNumber,
+                              requestedEpisodeNumber: episodeNumber,
+                              currentItemId: item.id
+                          ) else {
+                        Logger.shared.log("NextEpisode: No downloaded next episode found for tmdbId=\(item.tmdbId) after \(item.id)", type: "Player")
+                        return
+                    }
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        _ = self.playDownloadedItem(nextItem)
+                    }
+                }
+            }
+
+            guard let topmostVC = topmostViewController() else {
+                Logger.shared.log("Unable to present downloaded player for: \(item.id)", type: "Player")
+                return false
+            }
+
+            topmostVC.present(pvc, animated: true, completion: nil)
+            return true
+        } else {
+            let playerVC = NormalPlayer()
+            let playerItem = AVPlayerItem(url: fileURL)
+            playerVC.player = AVPlayer(playerItem: playerItem)
+            playerVC.mediaInfo = item.mediaInfo
+            playerVC.episodePlaybackContext = item.episodePlaybackContext
+            playerVC.modalPresentationStyle = .fullScreen
+
+            guard let topmostVC = topmostViewController() else {
+                Logger.shared.log("Unable to present downloaded player for: \(item.id)", type: "Player")
+                return false
+            }
+
+            topmostVC.present(playerVC, animated: true) {
+                playerVC.player?.play()
+            }
+            return true
+        }
+    }
+
+    private func topmostViewController() -> UIViewController? {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first?.rootViewController else {
+            return nil
+        }
+
+        return rootVC.topmostViewController()
+    }
+
+    private func nextDownloadedEpisode(
+        for tmdbId: Int,
+        requestedSeasonNumber: Int,
+        requestedEpisodeNumber: Int,
+        currentItemId: String
+    ) -> DownloadItem? {
+        let episodes = completedDownloads
+            .filter {
+                !$0.isMovie &&
+                $0.tmdbId == tmdbId &&
+                $0.seasonNumber != nil &&
+                $0.episodeNumber != nil
+            }
+            .sorted {
+                if $0.seasonNumber == $1.seasonNumber {
+                    return ($0.episodeNumber ?? 0) < ($1.episodeNumber ?? 0)
+                }
+                return ($0.seasonNumber ?? 0) < ($1.seasonNumber ?? 0)
+            }
+
+        if let requested = episodes.first(where: {
+            $0.seasonNumber == requestedSeasonNumber && $0.episodeNumber == requestedEpisodeNumber
+        }) {
+            return requested
+        }
+
+        guard let currentIndex = episodes.firstIndex(where: { $0.id == currentItemId }) else { return nil }
+        let nextIndex = episodes.index(after: currentIndex)
+        guard nextIndex < episodes.endIndex else { return nil }
+        return episodes[nextIndex]
     }
     
     /// Total storage used by downloads

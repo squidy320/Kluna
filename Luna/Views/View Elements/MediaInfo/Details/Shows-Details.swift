@@ -22,6 +22,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     let showsInlineDetails: Bool
     let forceHorizontalEpisodeList: Bool
     let immersiveHorizontalEpisodes: Bool
+    let compactControlBand: Bool
     @ViewBuilder let insertedContent: () -> InsertedContent
     
     @State private var isLoadingSeason = false
@@ -165,7 +166,29 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 
                 if !tvShow.seasons.isEmpty {
                     let _ = Logger.shared.log("TVShowSeasonsSection body branch seasons-present: showId=\(tvShow.id) seasons=\(tvShow.seasons.count)", type: "CrashProbe")
-                    if isGroupedBySeasons && !useSeasonMenu {
+                    if compactControlBand {
+                        compactSelectorBand(for: tvShow)
+
+                        HStack {
+                            Text(specialEpisodeContext?.title ?? "Episodes")
+                                .font(.title2)
+                                .fontWeight(.bold)
+
+                            Spacer()
+
+                            if activeSeasonDetail != nil && hasActiveSources {
+                                Button(action: startDownloadAllSeason) {
+                                    Image(systemName: "arrow.down.circle")
+                                        .font(.title3)
+                                        .foregroundColor(.white)
+                                }
+                                .disabled(isDownloadingAll)
+                            }
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal)
+                        .padding(.top, 4)
+                    } else if isGroupedBySeasons && !useSeasonMenu {
                         let _ = Logger.shared.log("TVShowSeasonsSection body branch styled selector: showId=\(tvShow.id)", type: "CrashProbe")
                         HStack {
                             Text("Seasons")
@@ -397,6 +420,64 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 .onAppear {
                     Logger.shared.log("TVShowSeasonsSection seasonMenu skipped: showId=\(tvShow.id) seasons=\(seasons.count)", type: "CrashProbe")
                 }
+        }
+    }
+
+    @ViewBuilder
+    private func compactSelectorBand(for tvShow: TMDBTVShowWithSeasons) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                Text("Seasons & OVAs")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+
+                if isGroupedBySeasons {
+                    seasonMenuCapsule(for: tvShow)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal)
+
+            seasonSelectorInsertedContent
+        }
+        .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private func seasonMenuCapsule(for tvShow: TMDBTVShowWithSeasons) -> some View {
+        let seasons = tvShow.seasons.filter { $0.seasonNumber > 0 }
+
+        if seasons.count > 1 {
+            Menu {
+                ForEach(seasons) { season in
+                    Button(action: {
+                        selectSeason(season, tvShowId: tvShow.id)
+                    }) {
+                        HStack {
+                            Text(season.name)
+                            if selectedSeason?.id == season.id {
+                                Spacer()
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(currentSeasonTitle ?? selectedSeason?.name ?? "Season 1")
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.semibold))
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .frame(height: 34)
+                .background(Color.white.opacity(0.08))
+                .clipShape(Capsule())
+            }
         }
     }
     
