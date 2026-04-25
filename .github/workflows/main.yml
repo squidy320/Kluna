@@ -38,6 +38,18 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Clear stale SwiftPM binary artifact cache
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_CACHE="$HOME/Library/Caches/org.swift.swiftpm/artifacts/https___github_com_mpvkit_MPVKit_releases_download_0_41_0_Libmpv_xcframework_zip"
+
+          if [[ -e "$ARTIFACT_CACHE" ]]; then
+            echo "Removing stale SwiftPM artifact cache at $ARTIFACT_CACHE"
+            rm -rf "$ARTIFACT_CACHE"
+          fi
+
       - name: Resolve app metadata
         shell: bash
         run: |
