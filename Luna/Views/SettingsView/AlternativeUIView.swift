@@ -237,12 +237,21 @@ private struct TVOSColorEditorSheet: View {
                     .foregroundColor(.secondary)
             }
 #if os(tvOS)
-            Stepper(
-                "",
-                value: value,
-                in: 0...1,
-                step: 1.0 / 255.0
-            )
+            HStack(spacing: 12) {
+                Button {
+                    value.wrappedValue = max(0, value.wrappedValue - (1.0 / 255.0))
+                } label: {
+                    Image(systemName: "minus.circle")
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    value.wrappedValue = min(1, value.wrappedValue + (1.0 / 255.0))
+                } label: {
+                    Image(systemName: "plus.circle")
+                }
+                .buttonStyle(.plain)
+            }
 #else
             Slider(value: value, in: 0...1)
 #endif

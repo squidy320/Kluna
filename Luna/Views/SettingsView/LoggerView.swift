@@ -152,7 +152,7 @@ struct ActivityView: UIViewControllerRepresentable {
 #if os(tvOS)
     func makeUIViewController(context: Context) -> UIViewController {
         let controller = UIViewController()
-        controller.view.backgroundColor = .systemBackground
+        controller.view.backgroundColor = .black
 
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
