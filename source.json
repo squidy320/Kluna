@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Eclipse.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-25T16:37:12Z",
-      "date": "2026-04-25T16:37:12Z",
-      "size": 64472496,
-      "versionDescription": "more "
+      "versionDate": "2026-04-25T21:51:34Z",
+      "date": "2026-04-25T21:51:34Z",
+      "size": 64473307,
+      "versionDescription": "Update ServicesView.swift "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Update ServicesView.swift ",
+      "date": "2026-04-25T21:51:34Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "more ",
@@ -63,11 +68,6 @@
       "title": "Release 1.0.1",
       "caption": "Enable downloaded playback from media detail ",
       "date": "2026-04-24T01:16:38Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "Update MediaDetailView.swift ",
-      "date": "2026-04-24T00:42:46Z"
     }
   ]
 }
