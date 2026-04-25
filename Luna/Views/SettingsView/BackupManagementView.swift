@@ -270,9 +270,11 @@ struct BackupManagementView: View {
     private var tvOSPasteBackupSheet: some View {
         NavigationView {
             Form {
-                Section("Paste Backup JSON") {
+                Section {
                     TextEditor(text: $pastedBackupJSON)
                         .frame(minHeight: 320)
+                } header: {
+                    Text("Paste Backup JSON")
                 } footer: {
                     Text("Paste the full contents of a previously exported backup JSON file.")
                 }

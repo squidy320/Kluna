@@ -445,6 +445,20 @@ struct ServiceRow: View {
     let onMoveDown: (() -> Void)? = nil
     let onDelete: (() -> Void)? = nil
     @State private var showingSettings = false
+
+    init(
+        service: Service,
+        serviceManager: ServiceManager,
+        onMoveUp: (() -> Void)? = nil,
+        onMoveDown: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil
+    ) {
+        self.service = service
+        self.serviceManager = serviceManager
+        self.onMoveUp = onMoveUp
+        self.onMoveDown = onMoveDown
+        self.onDelete = onDelete
+    }
     
     private var isServiceActive: Bool {
         if let managedService = serviceManager.services.first(where: { $0.id == service.id }) {
@@ -678,6 +692,20 @@ struct StremioAddonRow: View {
     @State private var reconfigureURL = ""
     @State private var reconfigureError: String?
     @State private var showReconfigureError = false
+
+    init(
+        addon: StremioAddon,
+        manager: StremioAddonManager,
+        onMoveUp: (() -> Void)? = nil,
+        onMoveDown: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil
+    ) {
+        self.addon = addon
+        self.manager = manager
+        self.onMoveUp = onMoveUp
+        self.onMoveDown = onMoveDown
+        self.onDelete = onDelete
+    }
 
     private var isAddonActive: Bool {
         if let managed = manager.addons.first(where: { $0.id == addon.id }) {
