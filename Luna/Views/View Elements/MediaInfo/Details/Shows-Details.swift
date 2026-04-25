@@ -180,10 +180,13 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                             if activeSeasonDetail != nil && hasActiveSources {
                                 Button(action: startDownloadAllSeason) {
                                     Image(systemName: "arrow.down.circle")
-                                        .font(.title3)
+                                        .font(.system(size: isTvOS ? 24 : 20, weight: .semibold))
                                         .foregroundColor(.white)
+                                        .frame(width: isTvOS ? 54 : 32, height: isTvOS ? 54 : 32)
+                                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 16 : 10)
                                 }
                                 .disabled(isDownloadingAll)
+                                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 16 : 10, allowsFocus: !isDownloadingAll))
                             }
                         }
                         .foregroundColor(.white)
@@ -200,10 +203,13 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                             if activeSeasonDetail != nil && hasActiveSources {
                                 Button(action: startDownloadAllSeason) {
                                     Image(systemName: "arrow.down.circle")
-                                        .font(.title3)
+                                        .font(.system(size: isTvOS ? 24 : 20, weight: .semibold))
                                         .foregroundColor(.white)
+                                        .frame(width: isTvOS ? 54 : 32, height: isTvOS ? 54 : 32)
+                                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 16 : 10)
                                 }
                                 .disabled(isDownloadingAll)
+                                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 16 : 10, allowsFocus: !isDownloadingAll))
                             }
                         }
                         .foregroundColor(.white)
@@ -234,10 +240,13 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                             if activeSeasonDetail != nil && hasActiveSources {
                                 Button(action: startDownloadAllSeason) {
                                     Image(systemName: "arrow.down.circle")
-                                        .font(.title3)
+                                        .font(.system(size: isTvOS ? 24 : 20, weight: .semibold))
                                         .foregroundColor(.white)
+                                        .frame(width: isTvOS ? 54 : 32, height: isTvOS ? 54 : 32)
+                                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 16 : 10)
                                 }
                                 .disabled(isDownloadingAll)
+                                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 16 : 10, allowsFocus: !isDownloadingAll))
                             }
                         }
                         .foregroundColor(.white)
@@ -394,10 +403,13 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
             if activeSeasonDetail != nil && hasActiveSources {
                 Button(action: startDownloadAllSeason) {
                     Image(systemName: "arrow.down.circle")
-                        .font(.title3)
+                        .font(.system(size: isTvOS ? 24 : 20, weight: .semibold))
                         .foregroundColor(.white)
+                        .frame(width: isTvOS ? 54 : 32, height: isTvOS ? 54 : 32)
+                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 16 : 10)
                 }
                 .disabled(isDownloadingAll)
+                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 16 : 10, allowsFocus: !isDownloadingAll))
             }
             
             if let tvShow = tvShow, isGroupedBySeasons && useSeasonMenu {
@@ -431,11 +443,23 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
             } label: {
                 HStack(spacing: 4) {
                     Text(currentSeasonTitle ?? selectedSeason?.name ?? "Season 1")
+                        .lineLimit(1)
                     
                     Image(systemName: "chevron.down")
+                        .font((isTvOS ? Font.subheadline : .caption).weight(.semibold))
                 }
+                .font((isTvOS ? Font.subheadline : .caption).weight(.semibold))
                 .foregroundColor(.white)
+                .padding(.horizontal, isTvOS ? 18 : 0)
+                .frame(height: isTvOS ? 48 : nil)
+                .background {
+                    if isTvOS {
+                        Color.white.opacity(0.08)
+                    }
+                }
+                .clipShape(Capsule())
             }
+            .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 24 : 12))
         } else {
             EmptyView()
                 .onAppear {
@@ -485,15 +509,16 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                     Text(currentSeasonTitle ?? selectedSeason?.name ?? "Season 1")
                         .lineLimit(1)
                     Image(systemName: "chevron.down")
-                        .font(.caption.weight(.semibold))
+                        .font((isTvOS ? Font.subheadline : .caption).weight(.semibold))
                 }
-                .font(.caption.weight(.semibold))
+                .font((isTvOS ? Font.subheadline : .caption).weight(.semibold))
                 .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .frame(height: 34)
+                .padding(.horizontal, isTvOS ? 18 : 12)
+                .frame(height: isTvOS ? 48 : 34)
                 .background(Color.white.opacity(0.08))
                 .clipShape(Capsule())
             }
+            .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 24 : 17))
         }
     }
     

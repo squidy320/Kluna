@@ -29,6 +29,7 @@ struct EpisodeCell: View {
     
     @State private var isWatched: Bool = false
     @State private var progressValue: Double = 0
+    @State private var isFocusedOnTV: Bool = false
     @AppStorage("horizontalEpisodeList") private var horizontalEpisodeList: Bool = false
 
     private var usesHorizontalLayout: Bool {
@@ -48,11 +49,15 @@ struct EpisodeCell: View {
     }
 
     private var horizontalCardWidth: CGFloat {
-        isImmersiveHorizontal ? 320 : 240 * iPadScaleSmall
+        isImmersiveHorizontal ? 348 : 240 * iPadScaleSmall
     }
 
-    private var horizontalCardHeight: CGFloat {
-        isImmersiveHorizontal ? 180 : 135 * iPadScaleSmall
+    private var horizontalArtworkHeight: CGFloat {
+        isImmersiveHorizontal ? 196 : 135 * iPadScaleSmall
+    }
+
+    private var horizontalCardTextMinHeight: CGFloat {
+        isImmersiveHorizontal ? 118 : 0
     }
 
     private var displayedEpisodeName: String {
@@ -69,7 +74,7 @@ struct EpisodeCell: View {
     
     @MainActor private var horizontalLayout: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: isImmersiveHorizontal ? 12 : 8) {
                 ZStack {
                     KFImage(URL(string: episode.fullStillURL ?? ""))
                         .placeholder {
@@ -83,57 +88,58 @@ struct EpisodeCell: View {
                         }
                         .resizable()
                         .aspectRatio(16/9, contentMode: .fill)
-                        .frame(width: horizontalCardWidth, height: horizontalCardHeight)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .frame(width: horizontalCardWidth, height: horizontalArtworkHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: isImmersiveHorizontal ? 18 : 12))
                     
                     if progressValue > 0 && progressValue < 0.85 {
                         VStack {
                             Spacer()
                             ProgressView(value: progressValue)
                                 .progressViewStyle(LinearProgressViewStyle(tint: .accentColor))
-                                .frame(height: 3)
-                                .padding(.horizontal, 4)
-                                .padding(.bottom, 4)
+                                .frame(height: isImmersiveHorizontal ? 5 : 3)
+                                .padding(.horizontal, isImmersiveHorizontal ? 8 : 4)
+                                .padding(.bottom, isImmersiveHorizontal ? 8 : 4)
                         }
-                        .frame(width: horizontalCardWidth, height: horizontalCardHeight)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .frame(width: horizontalCardWidth, height: horizontalArtworkHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: isImmersiveHorizontal ? 18 : 12))
                     }
 
                 }
                 
-                VStack(alignment: .leading, spacing: isImmersiveHorizontal ? 6 : 4) {
+                VStack(alignment: .leading, spacing: isImmersiveHorizontal ? 10 : 4) {
                     HStack {
                         Text("Episode \(episode.episodeNumber)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(isImmersiveHorizontal ? .subheadline.weight(.semibold) : .caption)
+                            .foregroundColor(isImmersiveHorizontal ? .white.opacity(isFocusedOnTV ? 0.88 : 0.72) : .secondary)
                         
                         Spacer()
                         
                         HStack {
-                            HStack(spacing: 2) {
+                            HStack(spacing: isImmersiveHorizontal ? 4 : 2) {
                                 if episode.voteAverage > 0 {
                                     Image(systemName: "star.fill")
-                                        .font(.caption2)
+                                        .font(isImmersiveHorizontal ? .subheadline.weight(.semibold) : .caption2)
                                         .foregroundColor(.yellow)
                                     Text(String(format: "%.1f", episode.voteAverage))
-                                        .font(.caption2)
+                                        .font(isImmersiveHorizontal ? .subheadline.weight(.semibold) : .caption2)
                                         .foregroundColor(.white)
                                     
                                     
                                     Text(" - ")
-                                        .font(.caption2)
+                                        .font(isImmersiveHorizontal ? .subheadline.weight(.semibold) : .caption2)
                                         .foregroundColor(.white)
                                 }
                                 
                                 if let runtime = episode.runtime, runtime > 0 {
                                     Text(episode.runtimeFormatted)
-                                        .font(.caption2)
+                                        .font(isImmersiveHorizontal ? .subheadline.weight(.semibold) : .caption2)
                                         .foregroundColor(.white)
                                 }
                             }
                         }
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, isImmersiveHorizontal ? 10 : 4)
+                        .padding(.vertical, isImmersiveHorizontal ? 6 : 2)
+                        .frame(minHeight: isImmersiveHorizontal ? 34 : nil)
                         .applyLiquidGlassBackground(
                             cornerRadius: 16,
                             fallbackFill: Color.gray.opacity(0.2),
@@ -145,24 +151,41 @@ struct EpisodeCell: View {
                     
                     Text(displayedEpisodeName)
                         .font(isImmersiveHorizontal ? .headline : .subheadline)
-                        .fontWeight(isImmersiveHorizontal ? .semibold : .regular)
-                        .foregroundColor(.white)
+                        .fontWeight(isImmersiveHorizontal ? .bold : .regular)
+                        .foregroundColor(isFocusedOnTV ? .white : .white.opacity(0.96))
                         .opacity(isWatched ? 0.45 : 1)
                         .lineLimit(2)
+                        .frame(maxWidth: .infinity, minHeight: isImmersiveHorizontal ? 56 : nil, alignment: .topLeading)
                     
                     if let overview = episode.overview, !overview.isEmpty {
                         Text(overview)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .font(isImmersiveHorizontal ? .subheadline : .caption2)
+                            .foregroundColor(isImmersiveHorizontal ? .white.opacity(isFocusedOnTV ? 0.8 : 0.62) : .secondary)
                             .lineLimit(isImmersiveHorizontal ? 2 : 3)
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
                     }
                 }
-                .frame(width: horizontalCardWidth, alignment: .leading)
+                .frame(width: horizontalCardWidth, minHeight: horizontalCardTextMinHeight, alignment: .topLeading)
             }
+            .padding(isImmersiveHorizontal ? 14 : 0)
+            .frame(width: horizontalCardWidth + (isImmersiveHorizontal ? 28 : 0), alignment: .leading)
+            .background(
+                Group {
+                    if isImmersiveHorizontal {
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(Color.white.opacity(isFocusedOnTV ? 0.12 : 0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .stroke(Color.white.opacity(isFocusedOnTV ? 0.18 : 0.08), lineWidth: 1)
+                            )
+                    }
+                }
+            )
         }
         .buttonStyle(PlainButtonStyle())
+        .modifier(TVEpisodeCardFocusModifier(cornerRadius: isImmersiveHorizontal ? 24 : 16, isSelected: isSelected))
+        .modifier(TVEpisodeHoverBindingModifier(isFocused: $isFocusedOnTV))
         .contextMenu {
             episodeContextMenu
         }

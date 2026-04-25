@@ -625,13 +625,14 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var immersiveHeroInfoSection: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 24) {
             immersiveHeaderSection
             immersiveMetadataSection
             playAndBookmarkSection
         }
-        .padding(20)
-        .frame(maxWidth: 680, alignment: .leading)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 24)
+        .frame(maxWidth: 720, alignment: .leading)
         .applyLiquidGlassBackground(
             cornerRadius: 28,
             fallbackFill: Color.black.opacity(0.18),
@@ -642,7 +643,7 @@ struct MediaDetailView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
-        .frame(maxWidth: min(UIScreen.main.bounds.width * 0.56, 760), alignment: .leading)
+        .frame(maxWidth: min(UIScreen.main.bounds.width * 0.58, 800), alignment: .leading)
     }
 
     @ViewBuilder
@@ -815,7 +816,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var immersiveMetadataSection: some View {
-        HStack(spacing: 10) {
+        TVChipFlowLayout(spacing: 12, rowSpacing: 12) {
             if let tvShowDetail {
                 if let firstAirDate = tvShowDetail.firstAirDate, !firstAirDate.isEmpty {
                     immersiveMetadataChip(String(firstAirDate.prefix(4)))
@@ -837,7 +838,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var immersiveMovieMetadataSection: some View {
-        HStack(spacing: 10) {
+        TVChipFlowLayout(spacing: 12, rowSpacing: 12) {
             if let movieDetail {
                 if let releaseDate = movieDetail.releaseDate, !releaseDate.isEmpty {
                     immersiveMetadataChip(String(releaseDate.prefix(4)))
@@ -857,29 +858,39 @@ struct MediaDetailView: View {
     @ViewBuilder
     private func immersiveMetadataChip(_ text: String) -> some View {
         Text(text)
-            .font(.subheadline.weight(.medium))
+            .font(.system(size: isTvOS ? 24 : 15, weight: .semibold))
             .foregroundColor(.white.opacity(0.92))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, isTvOS ? 20 : 14)
+            .padding(.vertical, isTvOS ? 12 : 8)
+            .frame(minHeight: isTvOS ? 48 : nil)
             .background(Color.white.opacity(0.08))
             .clipShape(Capsule())
     }
     
     @ViewBuilder
     private var playAndBookmarkSection: some View {
-        HStack(spacing: 8) {
+        let buttonHeight: CGFloat = isTvOS ? 64 : 42
+        let iconButtonSize: CGFloat = isTvOS ? 64 : 42
+        let actionSpacing: CGFloat = isTvOS ? 14 : 8
+
+        HStack(alignment: .center, spacing: actionSpacing) {
             Button(action: {
                 searchInServices()
             }) {
-                HStack {
+                HStack(spacing: isTvOS ? 14 : 8) {
                     Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
+                        .font(.system(size: isTvOS ? 24 : 17, weight: .semibold))
                     
                     Text(canPlayFromDetail ? playButtonText : "No Services")
-                        .fontWeight(.semibold)
+                        .font(.system(size: isTvOS ? 24 : 17, weight: .semibold))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 25)
+                .frame(minHeight: buttonHeight)
+                .padding(.horizontal, isTvOS ? 30 : 25)
                 .applyLiquidGlassBackground(
                     cornerRadius: 12,
                     fallbackFill: canPlayFromDetail ? Color.black.opacity(0.2) : Color.gray.opacity(0.3),
@@ -890,25 +901,27 @@ struct MediaDetailView: View {
                 .cornerRadius(8)
             }
             .disabled(!canPlayFromDetail)
+            .modifier(TVGlassFocusModifier(cornerRadius: 12, accentColor: .white, allowsFocus: canPlayFromDetail))
             
             Button(action: {
                 toggleBookmark()
             }) {
                 Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                    .font(.title2)
-                    .frame(width: 42, height: 42)
+                    .font(.system(size: isTvOS ? 28 : 20, weight: .semibold))
+                    .frame(width: iconButtonSize, height: iconButtonSize)
                     .applyLiquidGlassBackground(cornerRadius: 12)
                     .foregroundColor(isBookmarked ? .yellow : .white)
                     .cornerRadius(8)
             }
+            .modifier(TVGlassFocusModifier(cornerRadius: 12, accentColor: isBookmarked ? .yellow : .white))
             
             if searchResult.isMovie {
                 Button(action: {
                     downloadInServices()
                 }) {
                     Image(systemName: downloadButtonIcon)
-                        .font(.title2)
-                        .frame(width: 42, height: 42)
+                        .font(.system(size: isTvOS ? 28 : 20, weight: .semibold))
+                        .frame(width: iconButtonSize, height: iconButtonSize)
                         .applyLiquidGlassBackground(
                             cornerRadius: 12,
                             glassTint: downloadButtonTint
@@ -917,34 +930,38 @@ struct MediaDetailView: View {
                         .cornerRadius(8)
                 }
                 .disabled(!hasActiveSources || isCurrentlyDownloading)
+                .modifier(TVGlassFocusModifier(cornerRadius: 12, accentColor: downloadButtonColor, allowsFocus: hasActiveSources && !isCurrentlyDownloading))
             }
             
             Button(action: {
                 showingAddToCollection = true
             }) {
                 Image(systemName: "plus")
-                    .font(.title2)
-                    .frame(width: 42, height: 42)
+                    .font(.system(size: isTvOS ? 28 : 20, weight: .semibold))
+                    .frame(width: iconButtonSize, height: iconButtonSize)
                     .applyLiquidGlassBackground(cornerRadius: 12)
                     .foregroundColor(.white)
                     .cornerRadius(8)
             }
+            .modifier(TVGlassFocusModifier(cornerRadius: 12))
 
             if usesImmersiveIPadTVLayout || usesImmersiveIPadMovieLayout {
                 Button(action: {
                     showingImmersiveInfoSheet = true
                 }) {
                     Label("More Info", systemImage: "info.circle")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .frame(height: 42)
+                        .font(.system(size: isTvOS ? 22 : 15, weight: .semibold))
+                        .lineLimit(1)
+                        .padding(.horizontal, isTvOS ? 20 : 14)
+                        .frame(height: buttonHeight)
                         .applyLiquidGlassBackground(cornerRadius: 12)
                         .foregroundColor(.white)
                         .cornerRadius(8)
                 }
+                .modifier(TVGlassFocusModifier(cornerRadius: 12))
             }
         }
-        .padding(.horizontal)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     @ViewBuilder
@@ -1236,6 +1253,7 @@ struct MediaDetailView: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        .modifier(TVGlassFocusModifier(cornerRadius: 16, accentColor: isSelected ? .white : .white.opacity(0.85)))
     }
 
     @ViewBuilder
@@ -1365,6 +1383,7 @@ struct MediaDetailView: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        .modifier(TVGlassFocusModifier(cornerRadius: 12, accentColor: selectedSpecialEpisodeContext?.id == entry.id ? .accentColor : .white))
     }
 
     @ViewBuilder
@@ -1388,6 +1407,7 @@ struct MediaDetailView: View {
             .clipShape(Capsule())
         }
         .buttonStyle(PlainButtonStyle())
+        .modifier(TVGlassFocusModifier(cornerRadius: 17, accentColor: isSelected ? .white : .white.opacity(0.85)))
     }
 
     @ViewBuilder
@@ -2113,4 +2133,182 @@ private struct AnimeSpecialSearchRequest: Identifiable {
     let posterUrl: String?
     let titleOnly: Bool
     let playbackContext: EpisodePlaybackContext?
+}
+
+private struct TVChipFlowLayout: Layout {
+    var spacing: CGFloat = 12
+    var rowSpacing: CGFloat = 12
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        let maxWidth = proposal.width ?? .greatestFiniteMagnitude
+        var rowWidth: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var totalWidth: CGFloat = 0
+        var totalHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            let fitsCurrentRow = rowWidth == 0 || rowWidth + spacing + size.width <= maxWidth
+
+            if fitsCurrentRow {
+                rowWidth += rowWidth == 0 ? size.width : spacing + size.width
+                rowHeight = max(rowHeight, size.height)
+            } else {
+                totalWidth = max(totalWidth, rowWidth)
+                totalHeight += totalHeight == 0 ? rowHeight : rowSpacing + rowHeight
+                rowWidth = size.width
+                rowHeight = size.height
+            }
+        }
+
+        totalWidth = max(totalWidth, rowWidth)
+        if rowHeight > 0 {
+            totalHeight += totalHeight == 0 ? rowHeight : rowSpacing + rowHeight
+        }
+
+        return CGSize(width: totalWidth, height: totalHeight)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        var currentX = bounds.minX
+        var currentY = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            let exceedsRow = currentX > bounds.minX && currentX + size.width > bounds.maxX
+
+            if exceedsRow {
+                currentX = bounds.minX
+                currentY += rowHeight + rowSpacing
+                rowHeight = 0
+            }
+
+            subview.place(
+                at: CGPoint(x: currentX, y: currentY),
+                proposal: ProposedViewSize(width: size.width, height: size.height)
+            )
+
+            currentX += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+struct TVGlassFocusModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    var accentColor: Color = .white
+    var allowsFocus: Bool = true
+
+    @State private var isFocused = false
+
+    func body(content: Content) -> some View {
+        #if os(tvOS)
+        content
+            .scaleEffect(isFocused && allowsFocus ? 1.055 : 1.0)
+            .shadow(
+                color: .black.opacity(isFocused && allowsFocus ? 0.42 : 0.18),
+                radius: isFocused && allowsFocus ? 28 : 12,
+                x: 0,
+                y: isFocused && allowsFocus ? 16 : 6
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(
+                        accentColor.opacity(isFocused && allowsFocus ? 0.95 : 0.12),
+                        lineWidth: isFocused && allowsFocus ? 2.5 : 1
+                    )
+            )
+            .brightness(isFocused && allowsFocus ? 0.07 : 0)
+            .hoverEffect(.highlight)
+            .animation(.easeInOut(duration: 0.18), value: isFocused)
+            .modifier(TVHoverStateModifier(isFocused: $isFocused))
+        #else
+        content
+        #endif
+    }
+}
+
+struct TVEpisodeCardFocusModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    let isSelected: Bool
+
+    @State private var isFocused = false
+
+    func body(content: Content) -> some View {
+        #if os(tvOS)
+        content
+            .scaleEffect(isFocused ? 1.04 : 1.0)
+            .shadow(
+                color: .black.opacity(isFocused ? 0.45 : 0.22),
+                radius: isFocused ? 28 : 12,
+                x: 0,
+                y: isFocused ? 18 : 8
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(
+                        isFocused ? Color.white.opacity(0.95) : (isSelected ? Color.white.opacity(0.45) : Color.white.opacity(0.1)),
+                        lineWidth: isFocused ? 3 : (isSelected ? 2 : 1)
+                    )
+            )
+            .brightness(isFocused ? 0.06 : 0)
+            .hoverEffect(.highlight)
+            .animation(.easeInOut(duration: 0.18), value: isFocused)
+            .modifier(TVHoverStateModifier(isFocused: $isFocused))
+        #else
+        content
+        #endif
+    }
+}
+
+private struct TVHoverStateModifier: ViewModifier {
+    @Binding var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        if #available(tvOS 17.0, iOS 17.0, *) {
+            content.onContinuousHover { phase in
+                switch phase {
+                case .active(_):
+                    isFocused = true
+                case .ended:
+                    isFocused = false
+                }
+            }
+        } else {
+            content
+        }
+    }
+}
+
+struct TVEpisodeHoverBindingModifier: ViewModifier {
+    @Binding var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        #if os(tvOS)
+        if #available(tvOS 17.0, *) {
+            content.onContinuousHover { phase in
+                switch phase {
+                case .active(_):
+                    isFocused = true
+                case .ended:
+                    isFocused = false
+                }
+            }
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
 }
