@@ -234,28 +234,57 @@ struct ModulesSearchResultsSheet: View {
     private func lowerQualityResultsText(count: Int) -> String {
         "\(count) lower quality result\(count == 1 ? "" : "s") (<\(Int(viewModel.highQualityThreshold * 100))%)"
     }
+
+    private var isTvPickerPresented: Bool {
+        viewModel.showingStreamMenu
+        || viewModel.showingSeasonPicker
+        || viewModel.showingEpisodePicker
+        || viewModel.showingSubtitlePicker
+        || viewModel.showingStremioStreamPicker
+    }
+
+    private var isTv: Bool {
+#if os(tvOS)
+        true
+#else
+        false
+#endif
+    }
+
+    private func tvTextStyle(_ style: Font.TextStyle) -> Font {
+#if os(tvOS)
+        switch style {
+        case .caption: return .body
+        case .subheadline: return .title3
+        case .headline: return .title2
+        default: return .body
+        }
+#else
+        return .system(style)
+#endif
+    }
     
     @ViewBuilder
     private var searchInfoSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Searching for:")
-                    .font(.caption)
+                    .font(tvTextStyle(.caption))
                     .foregroundColor(.secondary)
                 
                 Text(displayTitle)
-                    .font(.headline)
+                    .font(tvTextStyle(.headline))
                     .fontWeight(.semibold)
                 
                 if let episode = selectedEpisode, !episode.name.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(episode.name)
-                                .font(.subheadline)
+                                .font(tvTextStyle(.subheadline))
                                 .fontWeight(.semibold)
                             Spacer()
                             Text(episodeSeasonInfo)
-                                .font(.caption)
+                                .font(tvTextStyle(.caption))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
                                 .cornerRadius(8)
@@ -263,7 +292,7 @@ struct ModulesSearchResultsSheet: View {
                         
                         if let overview = episode.overview, !overview.isEmpty {
                             Text(overview)
-                                .font(.caption)
+                                .font(tvTextStyle(.caption))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -279,7 +308,7 @@ struct ModulesSearchResultsSheet: View {
     private var statusBar: some View {
         HStack {
             Text(mediaTypeText)
-                .font(.caption)
+                .font(tvTextStyle(.caption))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(mediaTypeColor.opacity(0.2))
@@ -293,12 +322,12 @@ struct ModulesSearchResultsSheet: View {
                     ProgressView()
                         .scaleEffect(0.8)
                     Text(searchStatusText)
-                        .font(.caption)
+                        .font(tvTextStyle(.caption))
                         .foregroundColor(searchStatusColor)
                 }
             } else {
                 Text(searchStatusText)
-                    .font(.caption)
+                    .font(tvTextStyle(.caption))
                     .foregroundColor(searchStatusColor)
             }
         }
@@ -685,6 +714,115 @@ struct ModulesSearchResultsSheet: View {
     private var subtitlePickerDialogMessage: some View {
         Text("Choose a subtitle track")
     }
+
+#if os(tvOS)
+    @ViewBuilder
+    private var tvPickerSheet: some View {
+        if viewModel.showingStreamMenu {
+            TvSelectionSheet(
+                title: "Select Server",
+                message: "Choose a server to stream from"
+            ) {
+                ForEach(viewModel.streamOptions) { option in
+                    TvSelectionButton(title: option.name) {
+                        viewModel.showingStreamMenu = false
+                        if let service = viewModel.pendingService {
+                            resolveSubtitleSelection(
+                                subtitles: viewModel.pendingSubtitles,
+                                defaultSubtitle: option.subtitle,
+                                service: service,
+                                streamURL: option.url,
+                                headers: option.headers,
+                                serviceHref: viewModel.pendingServiceHref
+                            )
+                        }
+                    }
+                }
+            } onCancel: {
+                viewModel.showingStreamMenu = false
+            }
+        } else if viewModel.showingSeasonPicker {
+            TvSelectionSheet(
+                title: "Select Season",
+                message: "Season \(selectedEpisode?.seasonNumber ?? 1) not found. Please choose the correct season:"
+            ) {
+                ForEach(Array(viewModel.availableSeasons.enumerated()), id: \.offset) { index, season in
+                    TvSelectionButton(title: "Season \(index + 1)", subtitle: "\(season.count) episodes") {
+                        viewModel.selectedSeasonIndex = index
+                        viewModel.pendingEpisodes = season
+                        viewModel.showingSeasonPicker = false
+                        viewModel.showingEpisodePicker = true
+                    }
+                }
+            } onCancel: {
+                viewModel.showingSeasonPicker = false
+                viewModel.resetPickerState()
+            }
+        } else if viewModel.showingEpisodePicker {
+            TvSelectionSheet(
+                title: "Select Episode",
+                message: selectedEpisode.map {
+                    "Choose the correct episode for S\($0.seasonNumber)E\($0.episodeNumber):"
+                } ?? "Choose an episode:"
+            ) {
+                ForEach(viewModel.pendingEpisodes, id: \.href) { episode in
+                    TvSelectionButton(title: "Episode \(episode.number)") {
+                        proceedWithSelectedEpisode(episode)
+                    }
+                }
+            } onCancel: {
+                viewModel.showingEpisodePicker = false
+                viewModel.resetPickerState()
+            }
+        } else if viewModel.showingSubtitlePicker {
+            TvSelectionSheet(
+                title: "Select Subtitle",
+                message: "Choose a subtitle track"
+            ) {
+                ForEach(viewModel.subtitleOptions, id: \.url) { option in
+                    TvSelectionButton(title: option.title) {
+                        viewModel.showingSubtitlePicker = false
+                        if let service = viewModel.pendingService,
+                           let streamURL = viewModel.pendingStreamURL {
+                            dispatchStreamAction(streamURL, service: service, subtitle: option.url, headers: viewModel.pendingHeaders, serviceHref: viewModel.pendingServiceHref)
+                        }
+                    }
+                }
+                TvSelectionButton(title: "No Subtitles") {
+                    viewModel.showingSubtitlePicker = false
+                    if let service = viewModel.pendingService,
+                       let streamURL = viewModel.pendingStreamURL {
+                        dispatchStreamAction(streamURL, service: service, subtitle: nil, headers: viewModel.pendingHeaders, serviceHref: viewModel.pendingServiceHref)
+                    }
+                }
+            } onCancel: {
+                viewModel.showingSubtitlePicker = false
+                viewModel.subtitleOptions = []
+                viewModel.pendingStreamURL = nil
+                viewModel.pendingHeaders = nil
+                viewModel.pendingServiceHref = nil
+            }
+        } else if viewModel.showingStremioStreamPicker, let streams = viewModel.stremioStreamOptions {
+            TvSelectionSheet(
+                title: "Select Stream",
+                message: "Choose a stream to \(actionVerb.lowercased())"
+            ) {
+                ForEach(streams) { stream in
+                    TvSelectionButton(title: stremioStreamLabel(for: stream)) {
+                        viewModel.showingStremioStreamPicker = false
+                        if let addon = viewModel.selectedStremioAddon {
+                            playStremioStream(stream, addon: addon)
+                        }
+                    }
+                }
+            } onCancel: {
+                viewModel.showingStremioStreamPicker = false
+                viewModel.stremioStreamOptions = nil
+                viewModel.selectedStremioAddon = nil
+            }
+        }
+    }
+#endif
     
     private func filterResults(for results: [SearchItem]) -> (highQuality: [SearchItem], lowQuality: [SearchItem]) {
         let sortedResults = results.enumerated().map { index, result -> (index: Int, result: SearchItem, similarity: Double) in
@@ -1208,6 +1346,22 @@ struct ModulesSearchResultsSheet: View {
         } message: {
             qualityThresholdAlertMessage
         }
+#if os(tvOS)
+        .sheet(isPresented: Binding(
+            get: { isTvPickerPresented },
+            set: { isPresented in
+                if !isPresented {
+                    viewModel.showingStreamMenu = false
+                    viewModel.showingSeasonPicker = false
+                    viewModel.showingEpisodePicker = false
+                    viewModel.showingSubtitlePicker = false
+                    viewModel.showingStremioStreamPicker = false
+                }
+            }
+        )) {
+            tvPickerSheet
+        }
+#else
         .adaptiveConfirmationDialog("Select Server", isPresented: $viewModel.showingStreamMenu, titleVisibility: .visible) {
             serverSelectionDialogContent
         } message: {
@@ -1278,6 +1432,7 @@ struct ModulesSearchResultsSheet: View {
         } message: {
             stremioStreamPickerMessage
         }
+#endif
     }
     
     private func startProgressiveSearch() {
@@ -1505,7 +1660,7 @@ struct ModulesSearchResultsSheet: View {
             }
 
             Text(addon.manifest.name)
-                .font(.subheadline)
+                .font(tvTextStyle(.subheadline))
                 .fontWeight(.medium)
 
             Spacer()
@@ -1516,7 +1671,7 @@ struct ModulesSearchResultsSheet: View {
                     .frame(width: 12, height: 12)
             } else if streamCount > 0 {
                 Text("\(streamCount)")
-                    .font(.caption2)
+                    .font(tvTextStyle(.caption))
                     .fontWeight(.semibold)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
@@ -1547,18 +1702,18 @@ struct ModulesSearchResultsSheet: View {
                             .fill(Color.gray.opacity(0.2))
                             .overlay(
                                 Image(systemName: "photo")
-                                    .font(.title2)
+                                    .font(.system(size: isTv ? 30 : 22, weight: .medium))
                                     .foregroundColor(.gray)
                             )
                     }
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 70, height: 95)
+                    .frame(width: isTv ? 110 : 70, height: isTv ? 150 : 95)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(displayTitle)
-                        .font(.subheadline)
+                        .font(tvTextStyle(.subheadline))
                         .fontWeight(.semibold)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -1567,16 +1722,16 @@ struct ModulesSearchResultsSheet: View {
                     if let episode = selectedEpisode {
                         HStack {
                             Image(systemName: "tv")
-                                .font(.caption)
+                                .font(tvTextStyle(.caption))
                                 .foregroundColor(.secondary)
 
                             Text("Episode \(episode.episodeNumber)")
-                                .font(.caption)
+                                .font(tvTextStyle(.caption))
                                 .foregroundColor(.secondary)
 
                             if !episode.name.isEmpty {
                                 Text("• \(episode.name)")
-                                    .font(.caption)
+                                    .font(tvTextStyle(.caption))
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
                             }
@@ -1590,7 +1745,7 @@ struct ModulesSearchResultsSheet: View {
                                 .frame(width: 6, height: 6)
 
                             Text("\(streams.count) stream\(streams.count == 1 ? "" : "s")")
-                                .font(.caption2)
+                                .font(tvTextStyle(.caption))
                                 .fontWeight(.medium)
                                 .foregroundColor(.green)
                         }
@@ -1598,14 +1753,14 @@ struct ModulesSearchResultsSheet: View {
                         Spacer()
 
                         Image(systemName: "play.circle.fill")
-                            .font(.title2)
+                            .font(.system(size: isTv ? 34 : 24, weight: .medium))
                             .foregroundColor(.accentColor)
                     }
                 }
 
                 Spacer()
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, isTv ? 14 : 8)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -2698,6 +2853,14 @@ struct CompactMediaResultRow: View {
         else if similarityScore >= 0.75 { return .orange }
         else { return .red }
     }
+
+    private var isTv: Bool {
+#if os(tvOS)
+        true
+#else
+        false
+#endif
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -2708,38 +2871,38 @@ struct CompactMediaResultRow: View {
                             .fill(Color.gray.opacity(0.3))
                             .overlay(
                                 Image(systemName: "photo")
-                                    .font(.caption)
+                                    .font(.system(size: isTv ? 24 : 12, weight: .medium))
                                     .foregroundColor(.gray)
                             )
                     }
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 40, height: 55)
+                    .frame(width: isTv ? 72 : 40, height: isTv ? 96 : 55)
                     .cornerRadius(6)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(result.title)
-                        .font(.caption)
+                        .font(isTv ? .title3 : .caption)
                         .fontWeight(.medium)
                         .lineLimit(1)
                         .multilineTextAlignment(.leading)
                     
                     HStack {
                         Text("\(Int(similarityScore * 100))%")
-                            .font(.caption2)
+                            .font(isTv ? .body : .caption2)
                             .fontWeight(.medium)
                             .foregroundColor(scoreColor)
                         
                         Spacer()
                         
                         Image(systemName: "play.circle")
-                            .font(.caption)
+                            .font(isTv ? .title3 : .caption)
                     }
                 }
                 
                 Spacer()
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, isTv ? 10 : 4)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -2774,6 +2937,14 @@ struct EnhancedMediaResultRow: View {
         else if similarityScore >= 0.75 { return "Good" }
         else { return "Fair" }
     }
+
+    private var isTv: Bool {
+#if os(tvOS)
+        true
+#else
+        false
+#endif
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -2784,18 +2955,18 @@ struct EnhancedMediaResultRow: View {
                             .fill(Color.gray.opacity(0.2))
                             .overlay(
                                 Image(systemName: "photo")
-                                    .font(.title2)
+                                    .font(.system(size: isTv ? 30 : 22, weight: .medium))
                                     .foregroundColor(.gray)
                             )
                     }
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 70, height: 95)
+                    .frame(width: isTv ? 110 : 70, height: isTv ? 150 : 95)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(result.title)
-                        .font(.subheadline)
+                        .font(isTv ? .title3 : .subheadline)
                         .fontWeight(.semibold)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -2804,16 +2975,16 @@ struct EnhancedMediaResultRow: View {
                     if let episode = episode {
                         HStack {
                             Image(systemName: "tv")
-                                .font(.caption)
+                                .font(isTv ? .body : .caption)
                                 .foregroundColor(.secondary)
                             
                             Text("Episode \(episode.episodeNumber)")
-                                .font(.caption)
+                                .font(isTv ? .body : .caption)
                                 .foregroundColor(.secondary)
                             
                             if !episode.name.isEmpty {
                                 Text("• \(episode.name)")
-                                    .font(.caption)
+                                    .font(isTv ? .body : .caption)
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
                             }
@@ -2827,26 +2998,26 @@ struct EnhancedMediaResultRow: View {
                                 .frame(width: 6, height: 6)
                             
                             Text(matchQuality)
-                                .font(.caption2)
+                                .font(isTv ? .body : .caption2)
                                 .fontWeight(.medium)
                                 .foregroundColor(scoreColor)
                         }
                         
                         Text("• \(Int(similarityScore * 100))% match")
-                            .font(.caption2)
+                            .font(isTv ? .body : .caption2)
                             .foregroundColor(.secondary)
                         
                         Spacer()
                         
                         Image(systemName: "play.circle.fill")
-                            .font(.title2)
+                            .font(.system(size: isTv ? 34 : 24, weight: .medium))
                             .tint(Color.accentColor)
                     }
                 }
                 
                 Spacer()
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, isTv ? 14 : 8)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -2855,3 +3026,88 @@ struct EnhancedMediaResultRow: View {
         return AlgorithmManager.shared.calculateSimilarity(original: original, result: result)
     }
 }
+
+#if os(tvOS)
+private struct TvSelectionSheet<Content: View>: View {
+    let title: String
+    let message: String
+    let content: Content
+    let onCancel: () -> Void
+
+    init(
+        title: String,
+        message: String,
+        @ViewBuilder content: () -> Content,
+        onCancel: @escaping () -> Void
+    ) {
+        self.title = title
+        self.message = message
+        self.content = content()
+        self.onCancel = onCancel
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(message)
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+
+                    VStack(spacing: 14) {
+                        content
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(32)
+            }
+            .background(LunaTheme.shared.backgroundBase.ignoresSafeArea())
+            .navigationTitle(title)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Cancel", action: onCancel)
+                }
+            }
+        }
+    }
+}
+
+private struct TvSelectionButton: View {
+    let title: String
+    var subtitle: String? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.title3)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.white.opacity(0.08))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+#endif

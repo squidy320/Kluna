@@ -164,20 +164,14 @@ struct ServicesView: View {
             }
 #endif
             Section {
-                Toggle("Auto-Update Services", isOn: $autoUpdateEnabled)
-                    .onChange(of: autoUpdateEnabled) { newValue in
-                        serviceManager.isAutoUpdateEnabled = newValue
-                    }
+                autoUpdateControl
             } footer: {
                 Text("Automatically check for service updates when the app is opened.")
             }
             .background(LunaScrollTracker())
 
             Section {
-                Toggle("Auto Mode", isOn: $servicesAutoModeEnabled)
-                    .onChange(of: servicesAutoModeEnabled) { newValue in
-                        UserDefaults.standard.set(newValue, forKey: "servicesAutoModeEnabled")
-                    }
+                autoModeControl
 
                 if servicesAutoModeEnabled {
                     let activeItems = unifiedItems.filter(\.isActive)
@@ -187,21 +181,7 @@ struct ServicesView: View {
                             .foregroundColor(.secondary)
                     } else {
                         ForEach(activeItems) { item in
-                            Toggle(item.displayName, isOn: Binding(
-                                get: { selectedAutoModeSourceIds.contains(item.autoModeSourceId) },
-                                set: { isSelected in
-                                    if isSelected {
-                                        selectedAutoModeSourceIds.insert(item.autoModeSourceId)
-                                        if !autoModeSourceOrderIds.contains(item.autoModeSourceId) {
-                                            autoModeSourceOrderIds.append(item.autoModeSourceId)
-                                        }
-                                    } else {
-                                        selectedAutoModeSourceIds.remove(item.autoModeSourceId)
-                                        autoModeSourceOrderIds.removeAll { $0 == item.autoModeSourceId }
-                                    }
-                                    persistAutoModeSelection()
-                                }
-                            ))
+                            autoModeSourceControl(for: item)
                         }
                     }
                 }
@@ -293,6 +273,101 @@ struct ServicesView: View {
         .onAppear {
             syncAutoModeSelectionWithInstalledSources()
         }
+    }
+
+    @ViewBuilder
+    private var autoUpdateControl: some View {
+#if os(tvOS)
+        Button {
+            autoUpdateEnabled.toggle()
+            serviceManager.isAutoUpdateEnabled = autoUpdateEnabled
+        } label: {
+            settingsToggleRow(
+                title: "Auto-Update Services",
+                isOn: autoUpdateEnabled
+            )
+        }
+        .buttonStyle(.plain)
+#else
+        Toggle("Auto-Update Services", isOn: $autoUpdateEnabled)
+            .onChange(of: autoUpdateEnabled) { newValue in
+                serviceManager.isAutoUpdateEnabled = newValue
+            }
+#endif
+    }
+
+    @ViewBuilder
+    private var autoModeControl: some View {
+#if os(tvOS)
+        Button {
+            servicesAutoModeEnabled.toggle()
+            UserDefaults.standard.set(servicesAutoModeEnabled, forKey: "servicesAutoModeEnabled")
+        } label: {
+            settingsToggleRow(
+                title: "Auto Mode",
+                isOn: servicesAutoModeEnabled
+            )
+        }
+        .buttonStyle(.plain)
+#else
+        Toggle("Auto Mode", isOn: $servicesAutoModeEnabled)
+            .onChange(of: servicesAutoModeEnabled) { newValue in
+                UserDefaults.standard.set(newValue, forKey: "servicesAutoModeEnabled")
+            }
+#endif
+    }
+
+    @ViewBuilder
+    private func autoModeSourceControl(for item: UnifiedItem) -> some View {
+#if os(tvOS)
+        Button {
+            let isSelected = selectedAutoModeSourceIds.contains(item.autoModeSourceId)
+            if isSelected {
+                selectedAutoModeSourceIds.remove(item.autoModeSourceId)
+                autoModeSourceOrderIds.removeAll { $0 == item.autoModeSourceId }
+            } else {
+                selectedAutoModeSourceIds.insert(item.autoModeSourceId)
+                if !autoModeSourceOrderIds.contains(item.autoModeSourceId) {
+                    autoModeSourceOrderIds.append(item.autoModeSourceId)
+                }
+            }
+            persistAutoModeSelection()
+        } label: {
+            settingsToggleRow(
+                title: item.displayName,
+                isOn: selectedAutoModeSourceIds.contains(item.autoModeSourceId)
+            )
+        }
+        .buttonStyle(.plain)
+#else
+        Toggle(item.displayName, isOn: Binding(
+            get: { selectedAutoModeSourceIds.contains(item.autoModeSourceId) },
+            set: { isSelected in
+                if isSelected {
+                    selectedAutoModeSourceIds.insert(item.autoModeSourceId)
+                    if !autoModeSourceOrderIds.contains(item.autoModeSourceId) {
+                        autoModeSourceOrderIds.append(item.autoModeSourceId)
+                    }
+                } else {
+                    selectedAutoModeSourceIds.remove(item.autoModeSourceId)
+                    autoModeSourceOrderIds.removeAll { $0 == item.autoModeSourceId }
+                }
+                persistAutoModeSelection()
+            }
+        ))
+#endif
+    }
+
+    @ViewBuilder
+    private func settingsToggleRow(title: String, isOn: Bool) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+                .imageScale(.large)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -470,6 +545,12 @@ struct ServiceRow: View {
     private var hasSettings: Bool {
         service.metadata.settings == true
     }
+
+    private func toggleServiceState() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            serviceManager.setServiceState(service, isActive: !isServiceActive)
+        }
+    }
     
     var body: some View {
         HStack {
@@ -518,6 +599,15 @@ struct ServiceRow: View {
             Spacer()
             
             HStack(spacing: 12) {
+#if os(tvOS)
+                Button(action: toggleServiceState) {
+                    Image(systemName: isServiceActive ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isServiceActive ? Color.accentColor : Color.secondary)
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(PlainButtonStyle())
+#endif
+
                 if hasSettings {
                     Button(action: {
                         showingSettings = true
@@ -559,18 +649,23 @@ struct ServiceRow: View {
 #endif
                 
                 if isServiceActive {
+#if os(tvOS)
+                    EmptyView()
+#else
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(Color.accentColor)
                         .frame(width: 20, height: 20)
+#endif
                 }
             }
         }
         .contentShape(Rectangle())
+#if os(tvOS)
+#else
         .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                serviceManager.setServiceState(service, isActive: !isServiceActive)
-            }
+            toggleServiceState()
         }
+#endif
         .contextMenu {
             if hasSettings {
                 Button("Settings") {

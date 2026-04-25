@@ -58,11 +58,6 @@ struct ContentView: View {
                     modernTabView
                         .accentColor(accentColorManager.currentAccentColor)
                         .heroNamespace(heroNamespace)
-                        .overlay(alignment: .topTrailing) {
-                            if (selectedTab == .home || selectedTab == .schedule) && !showingSettings {
-                                FloatingSettingsOverlay(showingSettings: $showingSettings)
-                            }
-                        }
                     
                     if showingSettings {
                         settingsFullScreen
@@ -77,11 +72,6 @@ struct ContentView: View {
                 ZStack {
                     olderTabView
                         .heroNamespace(heroNamespace)
-                        .overlay {
-                            if (selectedTab == .home || selectedTab == .schedule) && !showingSettings {
-                                FloatingSettingsOverlay(showingSettings: $showingSettings)
-                            }
-                        }
                     
                     if showingSettings {
                         settingsFullScreen
@@ -97,11 +87,6 @@ struct ContentView: View {
             ZStack {
                 olderTabView
                     .heroNamespace(heroNamespace)
-                    .overlay {
-                        if (selectedTab == .home || selectedTab == .schedule) && !showingSettings {
-                            FloatingSettingsOverlay(showingSettings: $showingSettings)
-                        }
-                    }
                 
                 if showingSettings {
                     settingsFullScreen
@@ -174,11 +159,19 @@ struct ContentView: View {
     private var modernTabView: some View {
         TabView(selection: $selectedTab) {
             Tab("Home", systemImage: "house.fill", value: AppTab.home) {
-                HomeView()
+                HomeView {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                        showingSettings = true
+                    }
+                }
             }
             
             Tab("Schedule", systemImage: "calendar", value: AppTab.schedule) {
-                ScheduleView()
+                ScheduleView {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                        showingSettings = true
+                    }
+                }
             }
             
             Tab("Downloads", systemImage: "arrow.down.circle.fill", value: AppTab.downloads) {
@@ -206,7 +199,24 @@ struct ContentView: View {
         ZStack {
             LunaTheme.shared.backgroundBase
                 .ignoresSafeArea()
-            
+
+#if os(tvOS)
+            SettingsView()
+                .overlay(alignment: .topLeading) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                            showingSettings = false
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                    }
+                    .padding(.leading, 32)
+                    .padding(.top, 24)
+                }
+#else
             if #available(iOS 16.0, *) {
                 NavigationStack {
                     SettingsView()
@@ -245,20 +255,36 @@ struct ContentView: View {
                 }
                 .navigationViewStyle(StackNavigationViewStyle())
             }
+#endif
         }
         .preferredColorScheme(.dark)
+#if os(tvOS)
+        .onExitCommand {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                showingSettings = false
+            }
+        }
+#endif
     }
     
     private var olderTabView: some View {
         TabView(selection: $selectedTab) {
-            HomeView()
+            HomeView {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                    showingSettings = true
+                }
+            }
                 .tabItem {
                     Image(systemName: "house.fill")
                     Text("Home")
                 }
                 .tag(AppTab.home)
             
-            ScheduleView()
+            ScheduleView {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                    showingSettings = true
+                }
+            }
                 .tabItem {
                     Image(systemName: "calendar")
                     Text("Schedule")

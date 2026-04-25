@@ -20,8 +20,13 @@ struct ScheduleView: View {
     @State private var noTMDBAlertTitle = ""
     @State private var loadingItemId: Int?
     @State private var scrollOffset: CGFloat = 0
+    let onOpenSettings: () -> Void
     
     private let dayChangeTimer = Timer.publish(every: 300, on: .main, in: .common).autoconnect()
+
+    init(onOpenSettings: @escaping () -> Void = {}) {
+        self.onOpenSettings = onOpenSettings
+    }
     
     var body: some View {
         if #available(iOS 16.0, *) {
@@ -52,6 +57,15 @@ struct ScheduleView: View {
             }
         }
         .navigationTitle("Schedule")
+#if os(tvOS)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: onOpenSettings) {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
+        }
+#endif
         .task {
             if viewModel.scheduleEntries.isEmpty {
                 await viewModel.loadSchedule(localTimeZone: showLocalScheduleTime)

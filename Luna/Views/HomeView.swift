@@ -6,7 +6,6 @@ import SwiftUI
 import Kingfisher
 
 struct HomeView: View {
-    @State private var showingSettings = false
     @State private var isHoveringWatchNow = false
     @State private var isHoveringWatchlist = false
     @State private var continueWatchingItems: [ContinueWatchingItem] = []
@@ -19,6 +18,7 @@ struct HomeView: View {
     @StateObject private var catalogManager = CatalogManager.shared
     @StateObject private var tmdbService = TMDBService.shared
     @StateObject private var contentFilter = TMDBContentFilter.shared
+    let onOpenSettings: () -> Void
     
     private var enabledCatalogs: [Catalog] {
         return catalogManager.getEnabledCatalogs()
@@ -33,6 +33,10 @@ struct HomeView: View {
     }
 
     private var ambientColor: Color { homeViewModel.ambientColor }
+
+    init(onOpenSettings: @escaping () -> Void = {}) {
+        self.onOpenSettings = onOpenSettings
+    }
     
     var body: some View {
         if #available(iOS 16.0, *) {
@@ -65,7 +69,18 @@ struct HomeView: View {
                 mainScrollView
             }
         }
+#if os(tvOS)
+        .navigationTitle("Home")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: onOpenSettings) {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
+        }
+#else
         .navigationBarHidden(true)
+#endif
         .onAppear {
             refreshContinueWatchingItems()
             if !homeViewModel.hasLoadedContent {
@@ -79,9 +94,6 @@ struct HomeView: View {
             if homeViewModel.hasLoadedContent {
                 homeViewModel.loadContent(tmdbService: tmdbService, catalogManager: catalogManager, contentFilter: contentFilter)
             }
-        }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
         }
     }
     

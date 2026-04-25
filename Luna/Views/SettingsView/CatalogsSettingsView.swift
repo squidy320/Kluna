@@ -36,12 +36,27 @@ struct CatalogsSettingsView: View {
                         }
                         
                         Spacer()
-                        
+
+#if os(tvOS)
+                        Button {
+                            catalogManager.toggleCatalog(id: catalogManager.catalogs[index].id)
+                        } label: {
+                            Image(systemName: catalogManager.catalogs[index].isEnabled ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(
+                                    catalogManager.catalogs[index].isEnabled
+                                    ? accentColorManager.currentAccentColor
+                                    : Color.secondary
+                                )
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.plain)
+#else
                         Toggle("", isOn: Binding(
                             get: { catalogManager.catalogs[index].isEnabled },
                             set: { _ in catalogManager.toggleCatalog(id: catalogManager.catalogs[index].id) }
                         ))
                         .tint(accentColorManager.currentAccentColor)
+#endif
                     }
                 }
                 .onMove(perform: catalogManager.moveCatalog)
