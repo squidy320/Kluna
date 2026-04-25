@@ -271,8 +271,9 @@ struct BackupManagementView: View {
         NavigationView {
             Form {
                 Section {
-                    TextEditor(text: $pastedBackupJSON)
-                        .frame(minHeight: 320)
+                    TextField("Backup JSON", text: $pastedBackupJSON)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
                 } header: {
                     Text("Paste Backup JSON")
                 } footer: {

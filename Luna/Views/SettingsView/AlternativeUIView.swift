@@ -236,7 +236,16 @@ private struct TVOSColorEditorSheet: View {
                 Text(String(format: "%.0f", value.wrappedValue * 255))
                     .foregroundColor(.secondary)
             }
+#if os(tvOS)
+            Stepper(
+                "",
+                value: value,
+                in: 0...1,
+                step: 1.0 / 255.0
+            )
+#else
             Slider(value: value, in: 0...1)
+#endif
         }
         .padding(.vertical, 4)
     }

@@ -149,11 +149,37 @@ struct LoggerView: View {
 struct ActivityView: UIViewControllerRepresentable {
     let items: [Any]
 
+#if os(tvOS)
+    func makeUIViewController(context: Context) -> UIViewController {
+        let controller = UIViewController()
+        controller.view.backgroundColor = .systemBackground
+
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Sharing is not available on tvOS."
+        label.textColor = .secondaryLabel
+        label.textAlignment = .center
+        label.numberOfLines = 0
+
+        controller.view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: controller.view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: controller.view.centerYAnchor),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: controller.view.leadingAnchor, constant: 24),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: controller.view.trailingAnchor, constant: -24),
+        ])
+
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UIViewController, context: Context) {}
+#else
     func makeUIViewController(context: Context) -> UIActivityViewController {
         UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+#endif
 }
 
 struct LogEntryRow: View {
