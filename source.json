@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Eclipse.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-25T21:51:34Z",
-      "date": "2026-04-25T21:51:34Z",
-      "size": 64473307,
-      "versionDescription": "Update ServicesView.swift "
+      "versionDate": "2026-04-25T22:55:36Z",
+      "date": "2026-04-25T22:55:36Z",
+      "size": 64492239,
+      "versionDescription": "more TvOS fixes "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "more TvOS fixes ",
+      "date": "2026-04-25T22:55:36Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "Update ServicesView.swift ",
@@ -63,11 +68,6 @@
       "title": "Release 1.0.1",
       "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
       "date": "2026-04-24T01:31:24Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "Enable downloaded playback from media detail ",
-      "date": "2026-04-24T01:16:38Z"
     }
   ]
 }
