@@ -660,8 +660,7 @@ struct ServiceRow: View {
             }
         }
         .contentShape(Rectangle())
-#if os(tvOS)
-#else
+#if !os(tvOS)
         .onTapGesture {
             toggleServiceState()
         }
