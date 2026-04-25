@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Eclipse.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-24T15:41:47Z",
-      "date": "2026-04-24T15:41:47Z",
-      "size": 64452192,
-      "versionDescription": "Merge branch 'main' of https://github.com/squidy320/Kluna "
+      "versionDate": "2026-04-24T15:57:02Z",
+      "date": "2026-04-24T15:57:02Z",
+      "size": 64449988,
+      "versionDescription": "Constrain iPad episode section height "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Constrain iPad episode section height ",
+      "date": "2026-04-24T15:57:02Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
@@ -63,11 +68,6 @@
       "title": "Release 1.0.1",
       "caption": "Raise iPad detail layout and add Seasons & OVAs heading ",
       "date": "2026-04-24T00:06:55Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "ipad view ",
-      "date": "2026-04-23T23:55:19Z"
     }
   ]
 }
