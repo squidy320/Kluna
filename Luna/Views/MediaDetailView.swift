@@ -175,11 +175,11 @@ struct MediaDetailView: View {
     }
 
     private var usesImmersiveIPadTVLayout: Bool {
-        isIPad && !searchResult.isMovie
+        (isIPad || isTvOS) && !searchResult.isMovie
     }
 
     private var usesImmersiveIPadMovieLayout: Bool {
-        isIPad && searchResult.isMovie
+        (isIPad || isTvOS) && searchResult.isMovie
     }
     
     var body: some View {
@@ -489,7 +489,7 @@ struct MediaDetailView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         immersiveHeroInfoSection
                         episodesSection
-                            .frame(height: 250, alignment: .top)
+                            .frame(height: 296, alignment: .top)
                     }
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)

@@ -92,6 +92,9 @@ struct ServicesView: View {
             Text("No Services")
                 .font(.title2)
                 .fontWeight(.semibold)
+#if os(tvOS)
+            tvOSAddButtons
+#endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -155,6 +158,11 @@ struct ServicesView: View {
     @ViewBuilder
     private var servicesList: some View {
         List {
+#if os(tvOS)
+            Section("Add") {
+                tvOSAddButtons
+            }
+#endif
             Section {
                 Toggle("Auto-Update Services", isOn: $autoUpdateEnabled)
                     .onChange(of: autoUpdateEnabled) { newValue in
@@ -243,16 +251,30 @@ struct ServicesView: View {
                         .foregroundColor(.secondary)
                         .font(.subheadline)
                 } else {
-                    ForEach(unifiedItems) { item in
+                    ForEach(Array(unifiedItems.enumerated()), id: \.element.id) { index, item in
                         switch item {
                         case .service(let service):
-                            ServiceRow(service: service, serviceManager: serviceManager)
+                            ServiceRow(
+                                service: service,
+                                serviceManager: serviceManager,
+                                onMoveUp: index > 0 ? { moveUnifiedItem(from: index, direction: -1) } : nil,
+                                onMoveDown: index < unifiedItems.count - 1 ? { moveUnifiedItem(from: index, direction: 1) } : nil,
+                                onDelete: { deleteUnifiedItem(item) }
+                            )
                         case .stremio(let addon):
-                            StremioAddonRow(addon: addon, manager: stremioManager)
+                            StremioAddonRow(
+                                addon: addon,
+                                manager: stremioManager,
+                                onMoveUp: index > 0 ? { moveUnifiedItem(from: index, direction: -1) } : nil,
+                                onMoveDown: index < unifiedItems.count - 1 ? { moveUnifiedItem(from: index, direction: 1) } : nil,
+                                onDelete: { deleteUnifiedItem(item) }
+                            )
                         }
                     }
+#if !os(tvOS)
                     .onDelete(perform: deleteUnifiedItems)
                     .onMove(perform: moveUnifiedItems)
+#endif
                 }
             }
         }
@@ -278,17 +300,36 @@ struct ServicesView: View {
         Text("Services & Addons")
     }
 
+    @ViewBuilder
+    private var tvOSAddButtons: some View {
+        Button {
+            showDownloadAlert = true
+        } label: {
+            Label("Add Service", systemImage: "doc.badge.plus")
+        }
+
+        Button {
+            showStremioAddAlert = true
+        } label: {
+            Label("Add Stremio Addon", systemImage: "play.circle")
+        }
+    }
+
     private func deleteUnifiedItems(offsets: IndexSet) {
         let items = unifiedItems
         for index in offsets {
-            switch items[index] {
-            case .service(let service):
-                serviceManager.removeService(service)
-            case .stremio(let addon):
-                stremioManager.removeAddon(addon)
-            }
+            deleteUnifiedItem(items[index])
         }
         syncAutoModeSelectionWithInstalledSources()
+    }
+
+    private func deleteUnifiedItem(_ item: UnifiedItem) {
+        switch item {
+        case .service(let service):
+            serviceManager.removeService(service)
+        case .stremio(let addon):
+            stremioManager.removeAddon(addon)
+        }
     }
 
     private func moveUnifiedItems(fromOffsets: IndexSet, toOffset: Int) {
@@ -317,6 +358,12 @@ struct ServicesView: View {
         serviceManager.loadServicesFromCloud()
         stremioManager.loadAddons()
         syncAutoModeSelectionWithInstalledSources()
+    }
+
+    private func moveUnifiedItem(from index: Int, direction: Int) {
+        let target = index + direction
+        guard unifiedItems.indices.contains(index), unifiedItems.indices.contains(target) else { return }
+        moveUnifiedItems(fromOffsets: IndexSet(integer: index), toOffset: direction > 0 ? target + 1 : target)
     }
     
     private func addStremioAddon() {
@@ -394,6 +441,9 @@ struct ServicesView: View {
 struct ServiceRow: View {
     let service: Service
     @ObservedObject var serviceManager: ServiceManager
+    let onMoveUp: (() -> Void)? = nil
+    let onMoveDown: (() -> Void)? = nil
+    let onDelete: (() -> Void)? = nil
     @State private var showingSettings = false
     
     private var isServiceActive: Bool {
@@ -464,6 +514,35 @@ struct ServiceRow: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
+
+#if os(tvOS)
+                if let onMoveUp {
+                    Button(action: onMoveUp) {
+                        Image(systemName: "chevron.up")
+                            .foregroundStyle(Color.secondary)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
+                if let onMoveDown {
+                    Button(action: onMoveDown) {
+                        Image(systemName: "chevron.down")
+                            .foregroundStyle(Color.secondary)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
+                if let onDelete {
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .foregroundStyle(Color.red)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+#endif
                 
                 if isServiceActive {
                     Image(systemName: "checkmark.circle.fill")
@@ -476,6 +555,18 @@ struct ServiceRow: View {
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.2)) {
                 serviceManager.setServiceState(service, isActive: !isServiceActive)
+            }
+        }
+        .contextMenu {
+            if hasSettings {
+                Button("Settings") {
+                    showingSettings = true
+                }
+            }
+            if let onDelete {
+                Button("Delete", role: .destructive) {
+                    onDelete()
+                }
             }
         }
         .sheet(isPresented: $showingSettings) {
@@ -492,6 +583,37 @@ private struct AddServiceInputModifier: ViewModifier {
     var onAdd: () -> Void
 
     func body(content: Content) -> some View {
+#if os(tvOS)
+        content
+            .sheet(isPresented: $isPresented) {
+                NavigationView {
+                    Form {
+                        Section {
+                            TextField("JSON URL", text: $downloadURL)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        } header: {
+                            Text("Enter the direct JSON file URL")
+                        }
+                    }
+                    .navigationTitle("Add Service")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                downloadURL = ""
+                                isPresented = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Add") {
+                                isPresented = false
+                                onAdd()
+                            }
+                        }
+                    }
+                }
+            }
+#else
         if #available(iOS 16, *) {
             content
                 .alert("Add Service", isPresented: $isPresented) {
@@ -539,6 +661,7 @@ private struct AddServiceInputModifier: ViewModifier {
                     }
                 }
         }
+#endif
     }
 }
 
@@ -547,6 +670,9 @@ private struct AddServiceInputModifier: ViewModifier {
 struct StremioAddonRow: View {
     let addon: StremioAddon
     @ObservedObject var manager: StremioAddonManager
+    let onMoveUp: (() -> Void)? = nil
+    let onMoveDown: (() -> Void)? = nil
+    let onDelete: (() -> Void)? = nil
     @State private var showConfigure = false
     @State private var showReconfigure = false
     @State private var reconfigureURL = ""
@@ -619,10 +745,41 @@ struct StremioAddonRow: View {
 
             Spacer()
 
-            if isAddonActive {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 20, height: 20)
+            HStack(spacing: 12) {
+#if os(tvOS)
+                if let onMoveUp {
+                    Button(action: onMoveUp) {
+                        Image(systemName: "chevron.up")
+                            .foregroundStyle(Color.secondary)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
+                if let onMoveDown {
+                    Button(action: onMoveDown) {
+                        Image(systemName: "chevron.down")
+                            .foregroundStyle(Color.secondary)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
+                if let onDelete {
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .foregroundStyle(Color.red)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+#endif
+
+                if isAddonActive {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 20, height: 20)
+                }
             }
         }
         .contentShape(Rectangle())
@@ -644,6 +801,13 @@ struct StremioAddonRow: View {
                 showReconfigure = true
             } label: {
                 Label("Update URL", systemImage: "link")
+            }
+            if let onDelete {
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
         .sheet(isPresented: $showConfigure) {
@@ -689,6 +853,37 @@ private struct AddStremioAddonInputModifier: ViewModifier {
     var onAdd: () -> Void
 
     func body(content: Content) -> some View {
+#if os(tvOS)
+        content
+            .sheet(isPresented: $isPresented) {
+                NavigationView {
+                    Form {
+                        Section {
+                            TextField("Addon URL", text: $addonURL)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        } header: {
+                            Text("Enter the Stremio addon manifest URL")
+                        }
+                    }
+                    .navigationTitle("Add Stremio Addon")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                addonURL = ""
+                                isPresented = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Add") {
+                                isPresented = false
+                                onAdd()
+                            }
+                        }
+                    }
+                }
+            }
+#else
         if #available(iOS 16, *) {
             content
                 .alert("Add Stremio Addon", isPresented: $isPresented) {
@@ -736,6 +931,7 @@ private struct AddStremioAddonInputModifier: ViewModifier {
                     }
                 }
         }
+#endif
     }
 }
 
@@ -747,6 +943,37 @@ private struct ReconfigureStremioAddonModifier: ViewModifier {
     var onReconfigure: () -> Void
 
     func body(content: Content) -> some View {
+#if os(tvOS)
+        content
+            .sheet(isPresented: $isPresented) {
+                NavigationView {
+                    Form {
+                        Section {
+                            TextField("New Addon URL", text: $addonURL)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        } header: {
+                            Text("Paste the new configured addon URL")
+                        }
+                    }
+                    .navigationTitle("Reconfigure Addon")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                addonURL = ""
+                                isPresented = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Save") {
+                                isPresented = false
+                                onReconfigure()
+                            }
+                        }
+                    }
+                }
+            }
+#else
         if #available(iOS 16, *) {
             content
                 .alert("Reconfigure Addon", isPresented: $isPresented) {
@@ -794,5 +1021,6 @@ private struct ReconfigureStremioAddonModifier: ViewModifier {
                     }
                 }
         }
+#endif
     }
 }

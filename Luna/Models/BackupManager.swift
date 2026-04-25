@@ -738,33 +738,31 @@ class BackupManager {
     func restoreBackup(from url: URL) -> Bool {
         do {
             let jsonData = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            
-            // Try to decode the backup data
-            // If it fails completely, try manual parsing to extract what we can
-            let backupData: BackupData
-            
-            do {
-                backupData = try decoder.decode(BackupData.self, from: jsonData)
-                Logger.shared.log("Backup decoded successfully", type: "Info")
-            } catch {
-                Logger.shared.log("Standard decode failed, attempting lenient restore: \(error.localizedDescription)", type: "Info")
-                
-                // Try to parse as much as we can manually
-                guard let backupData = tryLenientDecode(from: jsonData) else {
-                    Logger.shared.log("Lenient decode also failed", type: "Error")
-                    return false
-                }
-                
-                Logger.shared.log("Lenient decode succeeded with partial data", type: "Info")
-                return applyBackupData(backupData)
-            }
-            
-            return applyBackupData(backupData)
+            return restoreBackup(from: jsonData)
         } catch {
             Logger.shared.log("Failed to restore backup: \(error.localizedDescription)", type: "Error")
             return false
+        }
+    }
+
+    func restoreBackup(from data: Data) -> Bool {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        do {
+            let backupData = try decoder.decode(BackupData.self, from: data)
+            Logger.shared.log("Backup decoded successfully", type: "Info")
+            return applyBackupData(backupData)
+        } catch {
+            Logger.shared.log("Standard decode failed, attempting lenient restore: \(error.localizedDescription)", type: "Info")
+
+            guard let backupData = tryLenientDecode(from: data) else {
+                Logger.shared.log("Lenient decode also failed", type: "Error")
+                return false
+            }
+
+            Logger.shared.log("Lenient decode succeeded with partial data", type: "Info")
+            return applyBackupData(backupData)
         }
     }
     

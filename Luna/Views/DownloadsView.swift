@@ -17,6 +17,7 @@ struct DownloadsView: View {
     @State private var seriesToDelete: (tmdbId: Int, title: String)? = nil
     @State private var selectedTab: DownloadsTab = .downloads
     @State private var scrollOffset: CGFloat = 0
+    @State private var shareItem: ShareSheetItem?
     
     private enum DownloadsTab: String, CaseIterable {
         case downloads = "Downloads"
@@ -116,6 +117,9 @@ struct DownloadsView: View {
             }
         } message: {
             Text("This will remove all downloaded episodes for \(seriesToDelete?.title ?? "this series"). This action cannot be undone.")
+        }
+        .sheet(item: $shareItem) { item in
+            ActivityView(items: item.items)
         }
     }
     
@@ -480,13 +484,11 @@ struct DownloadsView: View {
             Button(action: { playDownloadedItem(item) }) {
                 Label("Play", systemImage: "play.fill")
             }
-#if os(iOS)
             if downloadManager.localFileURL(for: item) != nil {
                 Button(action: { shareDownloadedItem(item) }) {
                     Label("Share", systemImage: "square.and.arrow.up")
                 }
             }
-#endif
             Button(role: .destructive, action: { downloadManager.removeDownload(id: item.id, deleteFile: true) }) {
                 Label("Delete", systemImage: "trash")
             }
@@ -804,16 +806,8 @@ struct DownloadsView: View {
     }
     
     private func shareDownloadedItem(_ item: DownloadItem) {
-#if os(iOS)
         guard let fileURL = downloadManager.localFileURL(for: item) else { return }
-        let activityVC = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController,
-           let topmostVC = rootVC.topmostViewController() as UIViewController? {
-            activityVC.popoverPresentationController?.sourceView = topmostVC.view
-            topmostVC.present(activityVC, animated: true)
-        }
-#endif
+        shareItem = ShareSheetItem(items: [fileURL])
     }
     
     private func playDownloadedItem(_ item: DownloadItem) {

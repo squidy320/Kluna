@@ -17,6 +17,7 @@ struct StremioConfigureView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isLoading = true
     @State private var error: String?
+    @State private var tvOSConfiguredURL = ""
 
     /// Derive the configure page URL, preserving the current config path.
     /// e.g. "https://torrentio.strem.fun/sort=qualitysize|..." → ".../sort=qualitysize|.../configure"
@@ -84,21 +85,40 @@ struct StremioConfigureView: View {
 
     @ViewBuilder
     private var tvOSFallbackView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "safari")
-                .font(.system(size: 40))
-                .foregroundColor(.secondary)
-            Text("Configure this addon on the web, then use \"Update URL\" to paste the new URL.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            if let url = configureURL {
-                Text(url.absoluteString)
-                    .font(.caption)
-                    .foregroundColor(.gray)
+        Form {
+            Section("Web Configuration") {
+                Image(systemName: "safari")
+                    .font(.system(size: 40))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                Text("Configure this addon on the web, then paste the updated configured URL below to save it on Apple TV.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+
+                if let url = configureURL {
+                    Text(url.absoluteString)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+
+            Section("Configured URL") {
+                TextField("Configured addon URL", text: $tvOSConfiguredURL)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+
+                Button("Save URL") {
+                    applyConfiguration(tvOSConfiguredURL)
+                }
+                .disabled(tvOSConfiguredURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .padding()
+        .onAppear {
+            if tvOSConfiguredURL.isEmpty {
+                tvOSConfiguredURL = addon.configuredURL
+            }
+        }
     }
 
     private func applyConfiguration(_ newURL: String) {

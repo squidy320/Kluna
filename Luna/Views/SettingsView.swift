@@ -1,4 +1,4 @@
-//
+﻿//
 //  SettingsView.swift
 //  Sora
 //
@@ -49,12 +49,7 @@ struct SettingsView: View {
         #if os(tvOS)
             HStack(spacing: 0) {
                 VStack(spacing: 30) {
-                    Image("Luna")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 500, height: 500)
-                        .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
-                        .shadow(radius: 10)
+                    CurrentBrandLogoView(size: 500)
 
                     VStack(spacing: 15) {
                         Text("Version \(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
@@ -62,7 +57,7 @@ struct SettingsView: View {
                             .fontWeight(.regular)
                             .foregroundColor(.secondary)
 
-                        Text("Copyright © \(String(Calendar.current.component(.year, from: Date()))) Eclipse by Cranci")
+                        Text("Copyright © \(String(Calendar.current.component(.year, from: Date()))) Eclipse by squidy")
                             .font(.footnote)
                             .fontWeight(.semibold)
                             .foregroundColor(.white)
@@ -203,6 +198,7 @@ struct SettingsView: View {
                 }
                 
                 // MARK: - Others
+#if !os(tvOS)
                 GlassSection(header: "Others") {
                     VStack(spacing: 0) {
                         Button {
@@ -213,6 +209,7 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
                 }
+#endif
 
                 // MARK: - Updates
                 GlassSection(header: "Updates") {
@@ -358,12 +355,6 @@ struct SettingsView: View {
             Text("App Updates")
         }
         
-        Section {
-            Text("Switch to Reader Mode")
-                .onTapGesture { showKanzen = true }
-        } header: {
-            Text("Others")
-        }
     }
 
     private func performManualGitHubReleaseCheck() {
@@ -377,6 +368,51 @@ struct SettingsView: View {
                 isCheckingGitHubRelease = false
             }
         }
+    }
+}
+
+private struct CurrentBrandLogoView: View {
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(red: 0.24, green: 0.18, blue: 0.36),
+                            Color(red: 0.08, green: 0.08, blue: 0.10)
+                        ],
+                        center: .center,
+                        startRadius: size * 0.05,
+                        endRadius: size * 0.72
+                    )
+                )
+
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.86, green: 0.78, blue: 1.0),
+                                Color(red: 0.63, green: 0.52, blue: 0.98)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: size * 0.52, height: size * 0.52)
+                    .shadow(color: Color(red: 0.64, green: 0.54, blue: 1.0).opacity(0.35), radius: size * 0.06)
+
+                Circle()
+                    .fill(Color(red: 0.07, green: 0.07, blue: 0.08))
+                    .frame(width: size * 0.40, height: size * 0.40)
+                    .offset(x: size * 0.07)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
+        .shadow(color: .black.opacity(0.35), radius: 14, y: 8)
     }
 }
 

@@ -84,6 +84,9 @@ struct SoraApp: App {
                     }
                 }
             }
+            .onOpenURL { url in
+                _ = TrackerManager.shared.handleAuthCallbackURL(url)
+            }
         }
     }
 }

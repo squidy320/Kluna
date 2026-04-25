@@ -42,6 +42,9 @@ struct BackupManagementView: View {
     @State private var selectedBackupURL: URL? = nil
     @State private var backupFileToExport: Data? = nil
     @State private var backupFileName = ""
+    @State private var shareItem: ShareSheetItem?
+    @State private var showPasteBackupSheet = false
+    @State private var pastedBackupJSON = ""
     
     var body: some View {
         List {
@@ -66,7 +69,13 @@ struct BackupManagementView: View {
             .background(LunaScrollTracker())
             
             Section {
-                Button(action: { showDocumentPicker = true }) {
+                Button(action: {
+#if os(tvOS)
+                    showPasteBackupSheet = true
+#else
+                    showDocumentPicker = true
+#endif
+                }) {
                     HStack {
                         Label("Import Backup", systemImage: "arrow.down.doc")
                         Spacer()
@@ -124,6 +133,12 @@ struct BackupManagementView: View {
             }
         }
         #endif
+        .sheet(item: $shareItem) { item in
+            ActivityView(items: item.items)
+        }
+        .sheet(isPresented: $showPasteBackupSheet) {
+            tvOSPasteBackupSheet
+        }
         .alert("Restore Confirmation", isPresented: $showRestoreConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Restore", role: .destructive) {
@@ -153,7 +168,11 @@ struct BackupManagementView: View {
                     
                     if let fileData = try? Data(contentsOf: backupURL) {
                         backupFileToExport = fileData
+#if os(tvOS)
+                        shareItem = ShareSheetItem(items: [backupURL])
+#else
                         showBackupExporter = true
+#endif
                     } else {
                         backupMessage = "Failed to read backup file."
                     }
@@ -217,6 +236,63 @@ struct BackupManagementView: View {
                     backupMessage = "Failed to restore backup. The file may be corrupted or completely incompatible."
                 }
                 showMessageAlert = true
+            }
+        }
+    }
+
+    private func restorePastedBackup() {
+        let trimmed = pastedBackupJSON.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else {
+            backupMessage = "Paste a valid backup JSON before restoring."
+            showMessageAlert = true
+            return
+        }
+
+        isProcessing = true
+        showPasteBackupSheet = false
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let success = BackupManager.shared.restoreBackup(from: data)
+            DispatchQueue.main.async {
+                isProcessing = false
+                if success {
+                    backupMessage = "Backup restored successfully! Please restart the app to see all changes."
+                    pastedBackupJSON = ""
+                } else {
+                    backupMessage = "Failed to restore backup. The pasted JSON may be corrupted or incompatible."
+                }
+                showMessageAlert = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var tvOSPasteBackupSheet: some View {
+        NavigationView {
+            Form {
+                Section("Paste Backup JSON") {
+                    TextEditor(text: $pastedBackupJSON)
+                        .frame(minHeight: 320)
+                } footer: {
+                    Text("Paste the full contents of a previously exported backup JSON file.")
+                }
+            }
+            .navigationTitle("Import Backup")
+#if !os(tvOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        showPasteBackupSheet = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Restore") {
+                        restorePastedBackup()
+                    }
+                    .disabled(pastedBackupJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
             }
         }
     }

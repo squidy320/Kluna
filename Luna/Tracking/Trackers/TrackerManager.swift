@@ -42,11 +42,17 @@ final class TrackerManager: NSObject, ObservableObject {
     private var anilistRedirectUri: String {
         Bundle.main.object(forInfoDictionaryKey: "AniListRedirectUri") as? String ?? "luna://anilist-callback"
     }
+    private var anilistCallbackScheme: String {
+        URL(string: anilistRedirectUri)?.scheme ?? "luna"
+    }
 
     private let traktClientId = "e92207aaef82a1b0b42d5901efa4756b6c417911b7b031b986d37773c234ccab"
     private let traktClientSecret = "03c457ea5986e900f140243c69d616313533cedcc776e42e07a6ddd3ab699035"
     private var traktRedirectUri: String {
         Bundle.main.object(forInfoDictionaryKey: "TraktRedirectUri") as? String ?? "luna://trakt-callback"
+    }
+    private var traktCallbackScheme: String {
+        URL(string: traktRedirectUri)?.scheme ?? "luna"
     }
 
     override private init() {
@@ -107,11 +113,8 @@ final class TrackerManager: NSObject, ObservableObject {
 
         #if os(tvOS)
         UIApplication.shared.open(url) { _ in }
-        DispatchQueue.main.async {
-            self.isAuthenticating = false
-        }
         #else
-        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "luna") { [weak self] callbackURL, error in
+        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: anilistCallbackScheme) { [weak self] callbackURL, error in
             guard let self = self else { return }
 
             if let error = error {
@@ -329,11 +332,8 @@ final class TrackerManager: NSObject, ObservableObject {
 
         #if os(tvOS)
         UIApplication.shared.open(url) { _ in }
-        DispatchQueue.main.async {
-            self.isAuthenticating = false
-        }
         #else
-        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "luna") { [weak self] callbackURL, error in
+        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: traktCallbackScheme) { [weak self] callbackURL, error in
             guard let self = self else { return }
 
             if let error = error {
@@ -375,6 +375,51 @@ final class TrackerManager: NSObject, ObservableObject {
         session.start()
         webAuthSession = session
         #endif
+    }
+
+    @discardableResult
+    func handleAuthCallbackURL(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+            return false
+        }
+
+        let code = components.queryItems?.first(where: { $0.name == "code" })?.value
+        let errorMessage = components.queryItems?.first(where: { $0.name == "error_description" })?.value
+            ?? components.queryItems?.first(where: { $0.name == "error" })?.value
+
+        if callbackURL(url, matchesRedirectURI: anilistRedirectUri) {
+            if let errorMessage {
+                authError = "AniList auth failed: \(errorMessage)"
+                isAuthenticating = false
+                return true
+            }
+            guard let code else { return false }
+            handleAniListCallback(code: code)
+            return true
+        }
+
+        if callbackURL(url, matchesRedirectURI: traktRedirectUri) {
+            if let errorMessage {
+                authError = "Trakt auth failed: \(errorMessage)"
+                isAuthenticating = false
+                return true
+            }
+            guard let code else { return false }
+            handleTraktCallback(code: code)
+            return true
+        }
+
+        return false
+    }
+
+    private func callbackURL(_ url: URL, matchesRedirectURI redirectURI: String) -> Bool {
+        guard let expected = URL(string: redirectURI) else { return false }
+        let matchesScheme = url.scheme?.caseInsensitiveCompare(expected.scheme ?? "") == .orderedSame
+        let matchesHost = (url.host ?? "").caseInsensitiveCompare(expected.host ?? "") == .orderedSame
+        let normalizedURLPath = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let normalizedExpectedPath = expected.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let matchesPath = normalizedURLPath == normalizedExpectedPath
+        return matchesScheme && matchesHost && matchesPath
     }
 
     func handleTraktCallback(code: String) {

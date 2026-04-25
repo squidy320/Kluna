@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct AlternativeUIView: View {
     @AppStorage("seasonMenu") private var useSeasonMenu = false
@@ -13,6 +16,8 @@ struct AlternativeUIView: View {
     
     @StateObject private var accentColorManager = AccentColorManager.shared
     @ObservedObject private var theme = LunaTheme.shared
+    @State private var showAccentCustomizer = false
+    @State private var showThemeCustomizer = false
     
     var body: some View {
         List {
@@ -33,6 +38,10 @@ struct AlternativeUIView: View {
                         .onChangeComp(of: accentColorManager.currentAccentColor) { _, newColor in
                             accentColorManager.saveAccentColor(newColor)
                         }
+#else
+                    Button("Custom") {
+                        showAccentCustomizer = true
+                    }
 #endif
                 }
             } header: {
@@ -78,6 +87,10 @@ struct AlternativeUIView: View {
 #if !os(tvOS)
                         ColorPicker("", selection: $theme.settingsGradientColor)
                             .labelsHidden()
+#else
+                        Button("Custom") {
+                            showThemeCustomizer = true
+                        }
 #endif
                     }
                 }
@@ -131,6 +144,20 @@ struct AlternativeUIView: View {
         }
         .navigationTitle("Appearance")
         .lunaSettingsStyle()
+        .sheet(isPresented: $showAccentCustomizer) {
+            TVOSColorEditorSheet(
+                title: "Accent Color",
+                initialColor: accentColorManager.currentAccentColor,
+                onSave: { accentColorManager.saveAccentColor($0) }
+            )
+        }
+        .sheet(isPresented: $showThemeCustomizer) {
+            TVOSColorEditorSheet(
+                title: "Settings Theme Color",
+                initialColor: theme.settingsGradientColor,
+                onSave: { theme.settingsGradientColor = $0 }
+            )
+        }
     }
     
     private func colorsMatch(_ a: Color, _ b: Color) -> Bool {
@@ -141,5 +168,76 @@ struct AlternativeUIView: View {
         uiA.getRed(&rA, green: &gA, blue: &bA, alpha: &aA)
         uiB.getRed(&rB, green: &gB, blue: &bB, alpha: &aB)
         return abs(rA - rB) < 0.02 && abs(gA - gB) < 0.02 && abs(bA - bB) < 0.02
+    }
+}
+
+private struct TVOSColorEditorSheet: View {
+    let title: String
+    let initialColor: Color
+    let onSave: (Color) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var red: Double = 0
+    @State private var green: Double = 0
+    @State private var blue: Double = 0
+
+    private var previewColor: Color {
+        Color(red: red, green: green, blue: blue)
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Preview") {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(previewColor)
+                        .frame(height: 140)
+                }
+
+                Section("Channels") {
+                    sliderRow(title: "Red", value: $red)
+                    sliderRow(title: "Green", value: $green)
+                    sliderRow(title: "Blue", value: $blue)
+                }
+            }
+            .navigationTitle(title)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(previewColor)
+                        dismiss()
+                    }
+                }
+            }
+            .onAppear {
+                let uiColor = UIColor(initialColor)
+                var redComponent: CGFloat = 0
+                var greenComponent: CGFloat = 0
+                var blueComponent: CGFloat = 0
+                var alpha: CGFloat = 0
+                uiColor.getRed(&redComponent, green: &greenComponent, blue: &blueComponent, alpha: &alpha)
+                red = redComponent
+                green = greenComponent
+                blue = blueComponent
+            }
+        }
+    }
+
+    private func sliderRow(title: String, value: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(String(format: "%.0f", value.wrappedValue * 255))
+                    .foregroundColor(.secondary)
+            }
+            Slider(value: value, in: 0...1)
+        }
+        .padding(.vertical, 4)
     }
 }

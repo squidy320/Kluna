@@ -6,6 +6,14 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+
+struct ShareSheetItem: Identifiable {
+    let id = UUID()
+    let items: [Any]
+}
 
 struct LogEntry: Identifiable {
     let id = UUID()
@@ -51,9 +59,7 @@ struct LogEntry: Identifiable {
 struct LoggerView: View {
     @StateObject private var loggerManager = LoggerManager.shared
     @State private var searchText = ""
-    #if !os(tvOS)
-    @State private var exportItem: ExportItem?
-    #endif
+    @State private var shareItem: ShareSheetItem?
     @State private var exportErrorMessage: String?
     
     private var filteredLogs: [LogEntry] {
@@ -92,7 +98,9 @@ struct LoggerView: View {
                 .lunaHideListRowSeparator()
             } else {
                 ForEach(filteredLogs) { log in
-                    LogEntryRow(log: log)
+                    LogEntryRow(log: log) { message in
+                        shareItem = ShareSheetItem(items: [message])
+                    }
                         .id(log.id)
                 }
             }
@@ -102,12 +110,11 @@ struct LoggerView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                #if !os(tvOS)
                     Button(action: {
                         Task {
                             do {
                                 let url = try await Logger.shared.exportLogsToTempFile()
-                                exportItem = ExportItem(url: url)
+                                shareItem = ShareSheetItem(items: [url])
                             } catch {
                                 exportErrorMessage = "Failed to export logs."
                             }
@@ -115,7 +122,6 @@ struct LoggerView: View {
                     }) {
                         Label("Export Logs", systemImage: "square.and.arrow.up")
                     }
-                #endif
                     Button(action: {
                         loggerManager.clearLogs()
                     }) {
@@ -134,18 +140,10 @@ struct LoggerView: View {
         } message: {
             Text(exportErrorMessage ?? "")
         }
-    #if !os(tvOS)
-        .sheet(item: $exportItem) { item in
-            ActivityView(items: [item.url])
+        .sheet(item: $shareItem) { item in
+            ActivityView(items: item.items)
         }
-    #endif
     }
-}
-
-#if !os(tvOS)
-struct ExportItem: Identifiable {
-    let id = UUID()
-    let url: URL
 }
 
 struct ActivityView: UIViewControllerRepresentable {
@@ -157,10 +155,10 @@ struct ActivityView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
-#endif
 
 struct LogEntryRow: View {
     let log: LogEntry
+    var onShare: (String) -> Void
     @State private var isExpanded = false
     
     var body: some View {
@@ -216,12 +214,17 @@ struct LogEntryRow: View {
             }
         }
         .contextMenu {
-            Button(action: {
 #if !os(tvOS)
+            Button(action: {
                 UIPasteboard.general.string = log.message
-#endif
             }) {
                 Label("Copy Log Message", systemImage: "doc.on.doc")
+            }
+#endif
+            Button(action: {
+                onShare(log.message)
+            }) {
+                Label("Share Log Message", systemImage: "square.and.arrow.up")
             }
         }
     }

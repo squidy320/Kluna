@@ -19,6 +19,7 @@ struct DownloadedShowDetailView: View {
     @State private var showingDeleteConfirmation = false
     @State private var itemToDelete: DownloadItem?
     @State private var scrollOffset: CGFloat = 0
+    @State private var shareItem: ShareSheetItem?
     
     struct DownloadedSeasonGroup: Identifiable {
         var id: Int { seasonNumber }
@@ -66,6 +67,9 @@ struct DownloadedShowDetailView: View {
             }
         } message: {
             Text("This downloaded episode will be permanently removed.")
+        }
+        .sheet(item: $shareItem) { item in
+            ActivityView(items: item.items)
         }
     }
     
@@ -259,13 +263,11 @@ struct DownloadedShowDetailView: View {
                 }
             }
             
-#if os(iOS)
             if downloadManager.localFileURL(for: item) != nil {
-                Button(action: { shareItem(item) }) {
+                Button(action: { shareDownloadedItem(item) }) {
                     Label("Share", systemImage: "square.and.arrow.up")
                 }
             }
-#endif
             
             Button(role: .destructive, action: {
                 itemToDelete = item
@@ -319,16 +321,8 @@ struct DownloadedShowDetailView: View {
     
     // MARK: - Share
     
-    private func shareItem(_ item: DownloadItem) {
-#if os(iOS)
+    private func shareDownloadedItem(_ item: DownloadItem) {
         guard let fileURL = downloadManager.localFileURL(for: item) else { return }
-        let activityVC = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController,
-           let topmostVC = rootVC.topmostViewController() as UIViewController? {
-            activityVC.popoverPresentationController?.sourceView = topmostVC.view
-            topmostVC.present(activityVC, animated: true)
-        }
-#endif
+        shareItem = ShareSheetItem(items: [fileURL])
     }
 }
