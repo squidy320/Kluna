@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     private enum AppTab: Hashable {
-        case home, schedule, downloads, library, search
+        case home, schedule, downloads, library, search, settings
     }
     
     @StateObject private var accentColorManager = AccentColorManager.shared
@@ -58,7 +58,7 @@ struct ContentView: View {
                     modernTabView
                         .accentColor(accentColorManager.currentAccentColor)
                         .heroNamespace(heroNamespace)
-                    
+#if !os(tvOS)
                     if showingSettings {
                         settingsFullScreen
                             .zIndex(1)
@@ -67,12 +67,13 @@ struct ContentView: View {
                                 removal: .move(edge: .trailing).combined(with: .opacity).combined(with: .scale(scale: 0.95, anchor: .trailing))
                             ))
                     }
+#endif
                 }
             } else {
                 ZStack {
                     olderTabView
                         .heroNamespace(heroNamespace)
-                    
+#if !os(tvOS)
                     if showingSettings {
                         settingsFullScreen
                             .zIndex(1)
@@ -81,13 +82,14 @@ struct ContentView: View {
                                 removal: .move(edge: .trailing).combined(with: .opacity).combined(with: .scale(scale: 0.95, anchor: .trailing))
                             ))
                     }
+#endif
                 }
             }
 #else
             ZStack {
                 olderTabView
                     .heroNamespace(heroNamespace)
-                
+#if !os(tvOS)
                 if showingSettings {
                     settingsFullScreen
                         .zIndex(1)
@@ -96,6 +98,7 @@ struct ContentView: View {
                             removal: .move(edge: .trailing).combined(with: .opacity).combined(with: .scale(scale: 0.95, anchor: .trailing))
                         ))
                 }
+#endif
             }
 #endif
         }
@@ -188,35 +191,25 @@ struct ContentView: View {
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 SearchView()
             }
+
+#if os(tvOS)
+            Tab("Settings", systemImage: "gearshape.fill", value: AppTab.settings) {
+                SettingsView()
+                    .preferredColorScheme(.dark)
+            }
+#endif
         }
 #if !os(tvOS)
         .tabBarMinimizeBehavior(.never)
 #endif
     }
 #endif
-    
+
     private var settingsFullScreen: some View {
         ZStack {
             LunaTheme.shared.backgroundBase
                 .ignoresSafeArea()
 
-#if os(tvOS)
-            SettingsView()
-                .overlay(alignment: .topLeading) {
-                    Button(action: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
-                            showingSettings = false
-                        }
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                            Text("Back")
-                        }
-                    }
-                    .padding(.leading, 32)
-                    .padding(.top, 24)
-                }
-#else
             if #available(iOS 16.0, *) {
                 NavigationStack {
                     SettingsView()
@@ -255,16 +248,8 @@ struct ContentView: View {
                 }
                 .navigationViewStyle(StackNavigationViewStyle())
             }
-#endif
         }
         .preferredColorScheme(.dark)
-#if os(tvOS)
-        .onExitCommand {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
-                showingSettings = false
-            }
-        }
-#endif
     }
     
     private var olderTabView: some View {
@@ -314,6 +299,16 @@ struct ContentView: View {
                     Text("Search")
                 }
                 .tag(AppTab.search)
+
+#if os(tvOS)
+            SettingsView()
+                .preferredColorScheme(.dark)
+                .tabItem {
+                    Image(systemName: "gearshape.fill")
+                    Text("Settings")
+                }
+                .tag(AppTab.settings)
+#endif
         }
         .accentColor(accentColorManager.currentAccentColor)
     }

@@ -27,7 +27,7 @@ struct ScheduleView: View {
     init(onOpenSettings: @escaping () -> Void = {}) {
         self.onOpenSettings = onOpenSettings
     }
-    
+
     var body: some View {
         if #available(iOS 16.0, *) {
             NavigationStack {
@@ -57,15 +57,17 @@ struct ScheduleView: View {
             }
         }
         .navigationTitle("Schedule")
-#if os(tvOS)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(action: onOpenSettings) {
-                    Label("Settings", systemImage: "gearshape")
+        .tvos({ view in
+            view
+        }, else: { view in
+            view.toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: onOpenSettings) {
+                        Image(systemName: "gearshape.fill")
+                    }
                 }
             }
-        }
-#endif
+        })
         .task {
             if viewModel.scheduleEntries.isEmpty {
                 await viewModel.loadSchedule(localTimeZone: showLocalScheduleTime)

@@ -9,6 +9,7 @@ struct HomeView: View {
     @State private var isHoveringWatchNow = false
     @State private var isHoveringWatchlist = false
     @State private var continueWatchingItems: [ContinueWatchingItem] = []
+    @ObservedObject private var progressManager = ProgressManager.shared
     @ObservedObject private var libraryManager = LibraryManager.shared
     @State private var scrollOffset: CGFloat = 0
     
@@ -37,7 +38,7 @@ struct HomeView: View {
     init(onOpenSettings: @escaping () -> Void = {}) {
         self.onOpenSettings = onOpenSettings
     }
-    
+
     var body: some View {
         if #available(iOS 16.0, *) {
             NavigationStack {
@@ -69,18 +70,20 @@ struct HomeView: View {
                 mainScrollView
             }
         }
-#if os(tvOS)
-        .navigationTitle("Home")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(action: onOpenSettings) {
-                    Label("Settings", systemImage: "gearshape")
+        .tvos({ view in
+            view.navigationBarHidden(true)
+        }, else: { view in
+            view
+                .navigationBarHidden(false)
+                .navigationTitle("")
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: onOpenSettings) {
+                            Image(systemName: "gearshape.fill")
+                        }
+                    }
                 }
-            }
-        }
-#else
-        .navigationBarHidden(true)
-#endif
+        })
         .onAppear {
             refreshContinueWatchingItems()
             if !homeViewModel.hasLoadedContent {
@@ -88,6 +91,12 @@ struct HomeView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            refreshContinueWatchingItems()
+        }
+        .onReceive(progressManager.$movieProgressList) { _ in
+            refreshContinueWatchingItems()
+        }
+        .onReceive(progressManager.$episodeProgressList) { _ in
             refreshContinueWatchingItems()
         }
         .onChangeComp(of: contentFilter.filterHorror) { _, _ in

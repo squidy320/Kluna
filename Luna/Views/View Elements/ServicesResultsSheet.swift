@@ -3048,25 +3048,49 @@ private struct TvSelectionSheet<Content: View>: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text(message)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.leading)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text(title)
+                            .font(.system(size: 40, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                    VStack(spacing: 14) {
+                        Text(message)
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.72))
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    LazyVStack(spacing: 18) {
                         content
                     }
+
+                    Button(action: onCancel) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 24, weight: .semibold))
+                            Text("Cancel")
+                                .font(.system(size: 24, weight: .semibold))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .modifier(TvSelectionFocusModifier(cornerRadius: 20))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(32)
+                .frame(maxWidth: min(UIScreen.main.bounds.width * 0.72, 1080), alignment: .leading)
+                .padding(.horizontal, 44)
+                .padding(.top, 44)
+                .padding(.bottom, 56)
             }
+            .modifier(ScrollClipModifier())
             .background(LunaTheme.shared.backgroundBase.ignoresSafeArea())
-            .navigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cancel", action: onCancel)
+                    Button(action: onCancel) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 22, weight: .semibold))
+                    }
                 }
             }
         }
@@ -3083,31 +3107,61 @@ private struct TvSelectionButton: View {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
-                        .font(.title3)
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     if let subtitle, !subtitle.isEmpty {
                         Text(subtitle)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 21, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.66))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.6))
             }
-            .padding(.horizontal, 22)
-            .padding(.vertical, 18)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
+            .frame(minHeight: 94)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .fill(Color.white.opacity(0.08))
             )
         }
         .buttonStyle(.plain)
+        .modifier(TvSelectionFocusModifier(cornerRadius: 22))
+    }
+}
+
+private struct TvSelectionFocusModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    @State private var isFocused = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isFocused ? 1.03 : 1.0)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(isFocused ? 0.95 : 0.12), lineWidth: isFocused ? 3 : 1)
+            )
+            .shadow(
+                color: .black.opacity(isFocused ? 0.45 : 0.2),
+                radius: isFocused ? 24 : 10,
+                x: 0,
+                y: isFocused ? 16 : 6
+            )
+            .brightness(isFocused ? 0.06 : 0)
+            .hoverEffect(.highlight)
+            .animation(.easeInOut(duration: 0.18), value: isFocused)
+            .modifier(ContinuousHoverModifier(isHovering: $isFocused))
     }
 }
 #endif

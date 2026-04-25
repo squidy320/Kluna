@@ -166,7 +166,8 @@ struct EpisodeCell: View {
                             .multilineTextAlignment(.leading)
                     }
                 }
-                .frame(width: horizontalCardWidth, minHeight: horizontalCardTextMinHeight, alignment: .topLeading)
+                .frame(width: horizontalCardWidth, alignment: .leading)
+                .frame(minHeight: horizontalCardTextMinHeight, alignment: .topLeading)
             }
             .padding(isImmersiveHorizontal ? 14 : 0)
             .frame(width: horizontalCardWidth + (isImmersiveHorizontal ? 28 : 0), alignment: .leading)

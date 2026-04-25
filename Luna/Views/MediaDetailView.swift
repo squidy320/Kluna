@@ -93,7 +93,7 @@ struct MediaDetailView: View {
     @StateObject private var stremioManager = StremioAddonManager.shared
     @ObservedObject private var libraryManager = LibraryManager.shared
     
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @AppStorage("tmdbLanguage") private var selectedLanguage = "en-US"
     private let nextEpisodeSheetPresentationDelay: TimeInterval = 1.2
@@ -213,13 +213,13 @@ struct MediaDetailView: View {
             DragGesture()
                 .onEnded { value in
                     if value.translation.width > 100 && abs(value.translation.height) < 50 {
-                        presentationMode.wrappedValue.dismiss()
+                        dismiss()
                     }
                 }
         )
 #else
         .onExitCommand {
-            presentationMode.wrappedValue.dismiss()
+            dismiss()
         }
 #endif
         .onAppear {
@@ -442,7 +442,7 @@ struct MediaDetailView: View {
         VStack {
             HStack {
                 Button(action: {
-                    presentationMode.wrappedValue.dismiss()
+                    dismiss()
                 }) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .medium))
@@ -816,7 +816,35 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var immersiveMetadataSection: some View {
-        TVChipFlowLayout(spacing: 12, rowSpacing: 12) {
+        Group {
+            if #available(iOS 16.0, tvOS 16.0, *) {
+                TVChipFlowLayout(spacing: 12, rowSpacing: 12) {
+                    if let tvShowDetail {
+                        if let firstAirDate = tvShowDetail.firstAirDate, !firstAirDate.isEmpty {
+                            immersiveMetadataChip(String(firstAirDate.prefix(4)))
+                        }
+                        if let episodes = tvShowDetail.numberOfEpisodes, episodes > 0 {
+                            immersiveMetadataChip("\(episodes) EPS")
+                        }
+                        if let status = tvShowDetail.status, !status.isEmpty {
+                            immersiveMetadataChip(status)
+                        }
+                        ForEach(Array(tvShowDetail.genres.prefix(3)), id: \.id) { genre in
+                            immersiveMetadataChip(genre.name)
+                        }
+                    }
+                }
+            } else {
+                fallbackMetadataRow
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var fallbackMetadataRow: some View {
+        HStack(spacing: 10) {
             if let tvShowDetail {
                 if let firstAirDate = tvShowDetail.firstAirDate, !firstAirDate.isEmpty {
                     immersiveMetadataChip(String(firstAirDate.prefix(4)))
@@ -838,7 +866,32 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var immersiveMovieMetadataSection: some View {
-        TVChipFlowLayout(spacing: 12, rowSpacing: 12) {
+        Group {
+            if #available(iOS 16.0, tvOS 16.0, *) {
+                TVChipFlowLayout(spacing: 12, rowSpacing: 12) {
+                    if let movieDetail {
+                        if let releaseDate = movieDetail.releaseDate, !releaseDate.isEmpty {
+                            immersiveMetadataChip(String(releaseDate.prefix(4)))
+                        }
+                        if let runtime = movieDetail.runtime, runtime > 0 {
+                            immersiveMetadataChip(movieDetail.runtimeFormatted)
+                        }
+                        ForEach(Array(movieDetail.genres.prefix(3)), id: \.id) { genre in
+                            immersiveMetadataChip(genre.name)
+                        }
+                    }
+                }
+            } else {
+                fallbackMovieMetadataRow
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var fallbackMovieMetadataRow: some View {
+        HStack(spacing: 10) {
             if let movieDetail {
                 if let releaseDate = movieDetail.releaseDate, !releaseDate.isEmpty {
                     immersiveMetadataChip(String(releaseDate.prefix(4)))
@@ -2135,6 +2188,7 @@ private struct AnimeSpecialSearchRequest: Identifiable {
     let playbackContext: EpisodePlaybackContext?
 }
 
+@available(iOS 16.0, tvOS 16.0, *)
 private struct TVChipFlowLayout: Layout {
     var spacing: CGFloat = 12
     var rowSpacing: CGFloat = 12
