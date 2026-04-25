@@ -12,8 +12,11 @@ struct TrackersSettingsView: View {
     @StateObject private var trackerManager = TrackerManager.shared
     @State private var selectedTracker: TrackerService?
     @State private var showImportConfirmation = false
+    @State private var showingTVAuthSheet = false
+    @State private var tvAuthInput = ""
 
     @State private var scrollOffset: CGFloat = 0
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         ScrollView {
@@ -37,7 +40,7 @@ struct TrackersSettingsView: View {
                         service: .anilist,
                         isConnected: trackerManager.trackerState.getAccount(for: .anilist) != nil,
                         username: trackerManager.trackerState.getAccount(for: .anilist)?.username,
-                        onConnect: { trackerManager.startAniListAuth() },
+                        onConnect: { beginTrackerLogin(.anilist) },
                         onDisconnect: { trackerManager.disconnectTracker(.anilist) }
                     )
 
@@ -51,7 +54,7 @@ struct TrackersSettingsView: View {
                         service: .trakt,
                         isConnected: trackerManager.trackerState.getAccount(for: .trakt) != nil,
                         username: trackerManager.trackerState.getAccount(for: .trakt)?.username,
-                        onConnect: { trackerManager.startTraktAuth() },
+                        onConnect: { beginTrackerLogin(.trakt) },
                         onDisconnect: { trackerManager.disconnectTracker(.trakt) }
                     )
                 }
@@ -102,6 +105,11 @@ struct TrackersSettingsView: View {
         } message: {
             Text("This will import your AniList Watching, Planning, and Completed lists as collections in your library. Existing items won't be duplicated.")
         }
+#if os(tvOS)
+        .sheet(isPresented: $showingTVAuthSheet) {
+            tvAuthSheet
+        }
+#endif
     }
 
     // MARK: - AniList Import Section
@@ -216,4 +224,161 @@ struct TrackersSettingsView: View {
         .background(Color.gray.opacity(0.1))
         .cornerRadius(12)
     }
+
+    private func beginTrackerLogin(_ service: TrackerService) {
+#if os(tvOS)
+        selectedTracker = service
+        tvAuthInput = ""
+        trackerManager.authError = nil
+        trackerManager.isAuthenticating = false
+        showingTVAuthSheet = true
+#else
+        switch service {
+        case .anilist:
+            trackerManager.startAniListAuth()
+        case .trakt:
+            trackerManager.startTraktAuth()
+        }
+#endif
+    }
+
+#if os(tvOS)
+    @ViewBuilder
+    private var tvAuthSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text(selectedTracker?.displayName ?? "Tracker Login")
+                        .font(.system(size: 38, weight: .bold))
+                        .foregroundColor(.white)
+
+                    Text(tvAuthInstructions)
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundColor(.white.opacity(0.78))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let authURL = currentTVAuthURL {
+                        Button {
+                            openURL(authURL)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "link")
+                                    .font(.system(size: 22, weight: .semibold))
+                                Text("Open Login Page")
+                                    .font(.system(size: 24, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 64)
+                            .applyLiquidGlassBackground(cornerRadius: 18)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Paste Callback URL or Code")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(.white)
+
+                        TextField("luna://... or authorization code", text: $tvAuthInput)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .font(.system(size: 22, weight: .medium, design: .monospaced))
+                            .padding(.horizontal, 18)
+                            .frame(minHeight: 66)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+
+                    HStack(spacing: 16) {
+                        Button("Cancel") {
+                            showingTVAuthSheet = false
+                            selectedTracker = nil
+                            tvAuthInput = ""
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Complete Login") {
+                            completeTVTrackerAuth()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(tvAuthInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                    .font(.system(size: 22, weight: .semibold))
+
+                    if trackerManager.isAuthenticating {
+                        HStack(spacing: 12) {
+                            ProgressView()
+                            Text("Signing in…")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(.white.opacity(0.85))
+                        }
+                    }
+
+                    if let error = trackerManager.authError, !error.isEmpty {
+                        Text(error)
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(16)
+                            .background(Color.orange.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+                .frame(maxWidth: min(UIScreen.main.bounds.width * 0.72, 980), alignment: .leading)
+                .padding(.horizontal, 40)
+                .padding(.vertical, 36)
+            }
+            .background(SettingsGradientBackground(scrollOffset: scrollOffset).ignoresSafeArea())
+            .navigationTitle("Tracker Login")
+        }
+        .preferredColorScheme(.dark)
+        .onReceive(trackerManager.$trackerState) { _ in
+            guard let selectedTracker else { return }
+            if trackerManager.trackerState.getAccount(for: selectedTracker) != nil {
+                showingTVAuthSheet = false
+                self.selectedTracker = nil
+                tvAuthInput = ""
+            }
+        }
+    }
+
+    private var currentTVAuthURL: URL? {
+        switch selectedTracker {
+        case .anilist:
+            return trackerManager.getAniListAuthURL()
+        case .trakt:
+            return trackerManager.getTraktAuthURL()
+        case .none:
+            return nil
+        }
+    }
+
+    private var tvAuthInstructions: String {
+        switch selectedTracker {
+        case .anilist:
+            return "Open the AniList login page, sign in on your phone or browser, then paste the callback URL or the returned code here to finish linking your account."
+        case .trakt:
+            return "Open the Trakt login page, approve access, then paste the callback URL or the returned code here to finish linking your account."
+        case .none:
+            return "Complete login in your browser, then paste the callback URL or code here."
+        }
+    }
+
+    private func completeTVTrackerAuth() {
+        let trimmed = tvAuthInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let selectedTracker else { return }
+
+        if let callbackURL = URL(string: trimmed), trackerManager.handleAuthCallbackURL(callbackURL) {
+            return
+        }
+
+        switch selectedTracker {
+        case .anilist:
+            trackerManager.handleAniListCallback(code: trimmed)
+        case .trakt:
+            trackerManager.handleTraktCallback(code: trimmed)
+        }
+    }
+#endif
 }
