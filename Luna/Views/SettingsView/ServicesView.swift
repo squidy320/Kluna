@@ -441,9 +441,9 @@ struct ServicesView: View {
 struct ServiceRow: View {
     let service: Service
     @ObservedObject var serviceManager: ServiceManager
-    let onMoveUp: (() -> Void)? = nil
-    let onMoveDown: (() -> Void)? = nil
-    let onDelete: (() -> Void)? = nil
+    let onMoveUp: (() -> Void)?
+    let onMoveDown: (() -> Void)?
+    let onDelete: (() -> Void)?
     @State private var showingSettings = false
 
     init(
@@ -684,9 +684,9 @@ private struct AddServiceInputModifier: ViewModifier {
 struct StremioAddonRow: View {
     let addon: StremioAddon
     @ObservedObject var manager: StremioAddonManager
-    let onMoveUp: (() -> Void)? = nil
-    let onMoveDown: (() -> Void)? = nil
-    let onDelete: (() -> Void)? = nil
+    let onMoveUp: (() -> Void)?
+    let onMoveDown: (() -> Void)?
+    let onDelete: (() -> Void)?
     @State private var showConfigure = false
     @State private var showReconfigure = false
     @State private var reconfigureURL = ""
