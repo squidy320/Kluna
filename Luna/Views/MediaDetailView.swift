@@ -911,93 +911,102 @@ struct MediaDetailView: View {
     @ViewBuilder
     private func immersiveMetadataChip(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: isTvOS ? 24 : 15, weight: .semibold))
+            .font(.system(size: isTvOS ? 20 : 15, weight: .semibold))
             .foregroundColor(.white.opacity(0.92))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, isTvOS ? 20 : 14)
-            .padding(.vertical, isTvOS ? 12 : 8)
-            .frame(minHeight: isTvOS ? 48 : nil)
+            .padding(.horizontal, isTvOS ? 18 : 14)
+            .padding(.vertical, isTvOS ? 10 : 8)
+            .frame(minHeight: isTvOS ? 42 : nil)
             .background(Color.white.opacity(0.08))
             .clipShape(Capsule())
     }
     
     @ViewBuilder
     private var playAndBookmarkSection: some View {
-        let buttonHeight: CGFloat = isTvOS ? 64 : 42
-        let iconButtonSize: CGFloat = isTvOS ? 64 : 42
-        let actionSpacing: CGFloat = isTvOS ? 14 : 8
+        let buttonHeight: CGFloat = isTvOS ? 60 : 42
+        let iconButtonSize: CGFloat = isTvOS ? 60 : 42
+        let cornerRadius: CGFloat = isTvOS ? 16 : 12
+        let actionSpacing: CGFloat = isTvOS ? 12 : 8
 
         HStack(alignment: .center, spacing: actionSpacing) {
             Button(action: {
                 searchInServices()
             }) {
-                HStack(spacing: isTvOS ? 14 : 8) {
-                    Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
-                        .font(.system(size: isTvOS ? 24 : 17, weight: .semibold))
-                    
-                    Text(canPlayFromDetail ? playButtonText : "No Services")
-                        .font(.system(size: isTvOS ? 24 : 17, weight: .semibold))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                if isTvOS {
+                    VStack(spacing: 4) {
+                        Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
+                            .font(.system(size: 22, weight: .semibold))
+                        Text(canPlayFromDetail ? "Play" : "No Source")
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: buttonHeight)
+                } else {
+                    HStack(spacing: 8) {
+                        Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
+                            .font(.system(size: 17, weight: .semibold))
+                        
+                        Text(canPlayFromDetail ? playButtonText : "No Services")
+                            .font(.system(size: 17, weight: .semibold))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: buttonHeight)
+                    .padding(.horizontal, 25)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: buttonHeight)
-                .padding(.horizontal, isTvOS ? 30 : 25)
                 .applyLiquidGlassBackground(
-                    cornerRadius: 12,
+                    cornerRadius: cornerRadius,
                     fallbackFill: canPlayFromDetail ? Color.black.opacity(0.2) : Color.gray.opacity(0.3),
                     fallbackMaterial: canPlayFromDetail ? .ultraThinMaterial : .thinMaterial,
                     glassTint: canPlayFromDetail ? nil : Color.gray.opacity(0.3)
                 )
                 .foregroundColor(canPlayFromDetail ? .white : .secondary)
-                .cornerRadius(8)
             }
             .disabled(!canPlayFromDetail)
-            .modifier(TVGlassFocusModifier(cornerRadius: 12, accentColor: .white, allowsFocus: canPlayFromDetail))
+            .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius, accentColor: .white, allowsFocus: canPlayFromDetail))
             
             Button(action: {
                 toggleBookmark()
             }) {
                 Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: isTvOS ? 28 : 20, weight: .semibold))
+                    .font(.system(size: isTvOS ? 26 : 20, weight: .semibold))
                     .frame(width: iconButtonSize, height: iconButtonSize)
-                    .applyLiquidGlassBackground(cornerRadius: 12)
+                    .applyLiquidGlassBackground(cornerRadius: cornerRadius)
                     .foregroundColor(isBookmarked ? .yellow : .white)
-                    .cornerRadius(8)
             }
-            .modifier(TVGlassFocusModifier(cornerRadius: 12, accentColor: isBookmarked ? .yellow : .white))
+            .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius, accentColor: isBookmarked ? .yellow : .white))
             
             if searchResult.isMovie {
                 Button(action: {
                     downloadInServices()
                 }) {
                     Image(systemName: downloadButtonIcon)
-                        .font(.system(size: isTvOS ? 28 : 20, weight: .semibold))
+                        .font(.system(size: isTvOS ? 26 : 20, weight: .semibold))
                         .frame(width: iconButtonSize, height: iconButtonSize)
                         .applyLiquidGlassBackground(
-                            cornerRadius: 12,
+                            cornerRadius: cornerRadius,
                             glassTint: downloadButtonTint
                         )
                         .foregroundColor(downloadButtonColor)
-                        .cornerRadius(8)
                 }
                 .disabled(!hasActiveSources || isCurrentlyDownloading)
-                .modifier(TVGlassFocusModifier(cornerRadius: 12, accentColor: downloadButtonColor, allowsFocus: hasActiveSources && !isCurrentlyDownloading))
+                .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius, accentColor: downloadButtonColor, allowsFocus: hasActiveSources && !isCurrentlyDownloading))
             }
             
             Button(action: {
                 showingAddToCollection = true
             }) {
                 Image(systemName: "plus")
-                    .font(.system(size: isTvOS ? 28 : 20, weight: .semibold))
+                    .font(.system(size: isTvOS ? 26 : 20, weight: .semibold))
                     .frame(width: iconButtonSize, height: iconButtonSize)
-                    .applyLiquidGlassBackground(cornerRadius: 12)
+                    .applyLiquidGlassBackground(cornerRadius: cornerRadius)
                     .foregroundColor(.white)
-                    .cornerRadius(8)
             }
-            .modifier(TVGlassFocusModifier(cornerRadius: 12))
-
+            .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius))
             if usesImmersiveIPadTVLayout || usesImmersiveIPadMovieLayout {
                 Button(action: {
                     showingImmersiveInfoSheet = true
@@ -1007,11 +1016,10 @@ struct MediaDetailView: View {
                         .lineLimit(1)
                         .padding(.horizontal, isTvOS ? 20 : 14)
                         .frame(height: buttonHeight)
-                        .applyLiquidGlassBackground(cornerRadius: 12)
+                        .applyLiquidGlassBackground(cornerRadius: cornerRadius)
                         .foregroundColor(.white)
-                        .cornerRadius(8)
                 }
-                .modifier(TVGlassFocusModifier(cornerRadius: 12))
+                .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2270,16 +2278,16 @@ struct TVGlassFocusModifier: ViewModifier {
         content
             .scaleEffect(isFocused && allowsFocus ? 1.055 : 1.0)
             .shadow(
-                color: .black.opacity(isFocused && allowsFocus ? 0.42 : 0.18),
-                radius: isFocused && allowsFocus ? 28 : 12,
+                color: .black.opacity(isFocused && allowsFocus ? 0.42 : 0),
+                radius: isFocused && allowsFocus ? 28 : 0,
                 x: 0,
-                y: isFocused && allowsFocus ? 16 : 6
+                y: isFocused && allowsFocus ? 16 : 0
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
-                        accentColor.opacity(isFocused && allowsFocus ? 0.95 : 0.12),
-                        lineWidth: isFocused && allowsFocus ? 2.5 : 1
+                        accentColor.opacity(isFocused && allowsFocus ? 0.95 : 0.08),
+                        lineWidth: isFocused && allowsFocus ? 2.5 : 0.5
                     )
             )
             .brightness(isFocused && allowsFocus ? 0.07 : 0)
@@ -2303,19 +2311,19 @@ struct TVEpisodeCardFocusModifier: ViewModifier {
         content
             .scaleEffect(isFocused ? 1.04 : 1.0)
             .shadow(
-                color: .black.opacity(isFocused ? 0.45 : 0.22),
-                radius: isFocused ? 28 : 12,
+                color: .black.opacity(isFocused ? 0.45 : 0),
+                radius: isFocused ? 28 : 0,
                 x: 0,
-                y: isFocused ? 18 : 8
+                y: isFocused ? 18 : 0
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
-                        isFocused ? Color.white.opacity(0.95) : (isSelected ? Color.white.opacity(0.45) : Color.white.opacity(0.1)),
-                        lineWidth: isFocused ? 3 : (isSelected ? 2 : 1)
+                        isFocused ? Color.white.opacity(0.95) : (isSelected ? Color.white.opacity(0.35) : Color.white.opacity(0.05)),
+                        lineWidth: isFocused ? 3 : (isSelected ? 1.5 : 0)
                     )
             )
-            .brightness(isFocused ? 0.06 : 0)
+            .brightness(isFocused ? 0.08 : 0)
             .hoverEffect(.highlight)
             .animation(.easeInOut(duration: 0.18), value: isFocused)
             .modifier(TVHoverStateModifier(isFocused: $isFocused))

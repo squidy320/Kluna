@@ -180,13 +180,13 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                             if activeSeasonDetail != nil && hasActiveSources {
                                 Button(action: startDownloadAllSeason) {
                                     Image(systemName: "arrow.down.circle")
-                                        .font(.system(size: isTvOS ? 24 : 20, weight: .semibold))
+                                        .font(.system(size: isTvOS ? 22 : 20, weight: .semibold))
                                         .foregroundColor(.white)
-                                        .frame(width: isTvOS ? 54 : 32, height: isTvOS ? 54 : 32)
-                                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 16 : 10)
+                                        .frame(width: isTvOS ? 52 : 32, height: isTvOS ? 52 : 32)
+                                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 14 : 10)
                                 }
                                 .disabled(isDownloadingAll)
-                                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 16 : 10, allowsFocus: !isDownloadingAll))
+                                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 14 : 10, allowsFocus: !isDownloadingAll))
                             }
                         }
                         .foregroundColor(.white)
@@ -203,13 +203,13 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                             if activeSeasonDetail != nil && hasActiveSources {
                                 Button(action: startDownloadAllSeason) {
                                     Image(systemName: "arrow.down.circle")
-                                        .font(.system(size: isTvOS ? 24 : 20, weight: .semibold))
+                                        .font(.system(size: isTvOS ? 22 : 20, weight: .semibold))
                                         .foregroundColor(.white)
-                                        .frame(width: isTvOS ? 54 : 32, height: isTvOS ? 54 : 32)
-                                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 16 : 10)
+                                        .frame(width: isTvOS ? 52 : 32, height: isTvOS ? 52 : 32)
+                                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 14 : 10)
                                 }
                                 .disabled(isDownloadingAll)
-                                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 16 : 10, allowsFocus: !isDownloadingAll))
+                                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 14 : 10, allowsFocus: !isDownloadingAll))
                             }
                         }
                         .foregroundColor(.white)
@@ -240,13 +240,13 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                             if activeSeasonDetail != nil && hasActiveSources {
                                 Button(action: startDownloadAllSeason) {
                                     Image(systemName: "arrow.down.circle")
-                                        .font(.system(size: isTvOS ? 24 : 20, weight: .semibold))
+                                        .font(.system(size: isTvOS ? 22 : 20, weight: .semibold))
                                         .foregroundColor(.white)
-                                        .frame(width: isTvOS ? 54 : 32, height: isTvOS ? 54 : 32)
-                                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 16 : 10)
+                                        .frame(width: isTvOS ? 52 : 32, height: isTvOS ? 52 : 32)
+                                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 14 : 10)
                                 }
                                 .disabled(isDownloadingAll)
-                                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 16 : 10, allowsFocus: !isDownloadingAll))
+                                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 14 : 10, allowsFocus: !isDownloadingAll))
                             }
                         }
                         .foregroundColor(.white)
@@ -403,13 +403,13 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
             if activeSeasonDetail != nil && hasActiveSources {
                 Button(action: startDownloadAllSeason) {
                     Image(systemName: "arrow.down.circle")
-                        .font(.system(size: isTvOS ? 24 : 20, weight: .semibold))
+                        .font(.system(size: isTvOS ? 22 : 20, weight: .semibold))
                         .foregroundColor(.white)
-                        .frame(width: isTvOS ? 54 : 32, height: isTvOS ? 54 : 32)
-                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 16 : 10)
+                        .frame(width: isTvOS ? 52 : 32, height: isTvOS ? 52 : 32)
+                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 14 : 10)
                 }
                 .disabled(isDownloadingAll)
-                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 16 : 10, allowsFocus: !isDownloadingAll))
+                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 14 : 10, allowsFocus: !isDownloadingAll))
             }
             
             if let tvShow = tvShow, isGroupedBySeasons && useSeasonMenu {
@@ -513,12 +513,12 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                 }
                 .font((isTvOS ? Font.subheadline : .caption).weight(.semibold))
                 .foregroundColor(.white)
-                .padding(.horizontal, isTvOS ? 18 : 12)
-                .frame(height: isTvOS ? 48 : 34)
+                .padding(.horizontal, isTvOS ? 16 : 12)
+                .frame(height: isTvOS ? 46 : 34)
                 .background(Color.white.opacity(0.08))
                 .clipShape(Capsule())
             }
-            .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 24 : 17))
+            .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 23 : 17))
         }
     }
     

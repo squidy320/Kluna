@@ -178,7 +178,10 @@ struct EpisodeCell: View {
                             .fill(Color.white.opacity(isFocusedOnTV ? 0.12 : 0.06))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .stroke(Color.white.opacity(isFocusedOnTV ? 0.18 : 0.08), lineWidth: 1)
+                                    .stroke(
+                                        isFocusedOnTV ? Color.white.opacity(0.18) : Color.clear,
+                                        lineWidth: isFocusedOnTV ? 2 : 0
+                                    )
                             )
                     }
                 }
