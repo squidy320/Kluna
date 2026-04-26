@@ -7,7 +7,9 @@
 
 import SwiftUI
 import Kingfisher
+#if os(iOS)
 import SafariServices
+#endif
 
 // MARK: - View-Level Detail Cache
 // Stores the fully-loaded state for a media detail screen so back-navigation is instant.
