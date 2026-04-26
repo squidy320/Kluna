@@ -723,6 +723,23 @@ class TMDBService: ObservableObject {
         detailCache.set(key: cacheKey, value: response.results)
         return response.results
     }
+
+    // MARK: - Videos (Trailers)
+    func getVideos(type: String, id: Int) async throws -> [TMDBVideo] {
+        let urlString = "\(baseURL)/\(type)/\(id)/videos?api_key=\(apiKey)&language=\(currentLanguage)"
+        
+        guard let url = URL(string: urlString) else {
+            throw TMDBError.invalidURL
+        }
+        
+        do {
+            let (data, _) = try await throttledData(from: url)
+            let response = try JSONDecoder().decode(TMDBVideoResponse.self, from: data)
+            return response.results
+        } catch {
+            throw TMDBError.networkError(error)
+        }
+    }
 }
 
 // MARK: - Error Handling

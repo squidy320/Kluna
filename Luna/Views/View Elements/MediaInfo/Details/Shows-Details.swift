@@ -391,38 +391,53 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
     
     @ViewBuilder
     private var episodesSectionHeader: some View {
+        let seasons = tvShow?.seasons.filter { $0.seasonNumber > 0 } ?? []
         let _ = Logger.shared.log("TVShowSeasonsSection construct episodesSectionHeader: showId=\(tvShow?.id ?? 0) hasSeasonDetail=\(seasonDetail != nil) hasActiveSources=\(hasActiveSources) grouped=\(isGroupedBySeasons) menu=\(useSeasonMenu)", type: "CrashProbe")
-        HStack {
-            Text(specialEpisodeContext?.title ?? "Episodes")
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
-            Spacer()
-            
-            if activeSeasonDetail != nil && hasActiveSources {
-                Button(action: startDownloadAllSeason) {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.system(size: isTvOS ? 22 : 20, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: isTvOS ? 52 : 32, height: isTvOS ? 52 : 32)
-                        .applyLiquidGlassBackground(cornerRadius: isTvOS ? 14 : 10)
+
+        VStack(alignment: .leading, spacing: 16) {
+            if isTvOS && seasons.count > 1 {
+                TVOSSeasonPicker(
+                    seasons: seasons,
+                    selectedSeason: $selectedSeason,
+                    onSeasonSelected: { season in
+                        if let tvShow {
+                            selectSeason(season, tvShowId: tvShow.id)
+                        }
+                    }
+                )
+            }
+
+            HStack {
+                Text(specialEpisodeContext?.title ?? "Episodes")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                if activeSeasonDetail != nil && hasActiveSources {
+                    Button(action: startDownloadAllSeason) {
+                        Image(systemName: "arrow.down.circle")
+                            .font(.system(size: isTvOS ? 22 : 20, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: isTvOS ? 52 : 32, height: isTvOS ? 52 : 32)
+                            .applyLiquidGlassBackground(cornerRadius: isTvOS ? 14 : 10)
+                    }
+                    .disabled(isDownloadingAll)
+                    .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 14 : 10, allowsFocus: !isDownloadingAll))
                 }
-                .disabled(isDownloadingAll)
-                .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 14 : 10, allowsFocus: !isDownloadingAll))
+
+                if !isTvOS && let tvShow = tvShow, isGroupedBySeasons && useSeasonMenu {
+                    seasonMenu(for: tvShow)
+                }
             }
-            
-            if let tvShow = tvShow, isGroupedBySeasons && useSeasonMenu {
-                seasonMenu(for: tvShow)
-            }
+            .padding(.horizontal)
+            .padding(.top, isTvOS ? 0 : 8)
         }
-        .padding(.horizontal)
-        .padding(.top)
     }
-    
+
     @ViewBuilder
-    private func seasonMenu(for tvShow: TMDBTVShowWithSeasons) -> some View {
-        let seasons = tvShow.seasons.filter { $0.seasonNumber > 0 }
+    private func seasonMenu(for tvShow: TMDBTVShowWithSeasons) -> some View {        let seasons = tvShow.seasons.filter { $0.seasonNumber > 0 }
         let _ = Logger.shared.log("TVShowSeasonsSection construct seasonMenu: showId=\(tvShow.id) seasons=\(seasons.count) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
         
         if seasons.count > 1 {
@@ -916,3 +931,70 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
         showingDownloadSheet = true
     }
 }
+
+// MARK: - tvOS Specific Components
+
+struct TVOSSeasonPicker: View {
+    let seasons: [TMDBSeason]
+    @Binding var selectedSeason: TMDBSeason?
+    let onSeasonSelected: (TMDBSeason) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 20) {
+                ForEach(seasons) { season in
+                    SeasonPickerButton(
+                        season: season,
+                        isSelected: selectedSeason?.id == season.id,
+                        action: { onSeasonSelected(season) }
+                    )
+                }
+            }
+            .padding(.horizontal, 40)
+            .padding(.vertical, 10)
+        }
+    }
+}
+
+private struct SeasonPickerButton: View {
+    let season: TMDBSeason
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isFocused = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(season.name)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundColor(isSelected ? .black : .white.opacity(0.8))
+                .padding(.horizontal, 32)
+                .padding(.vertical, 12)
+                .background(isSelected ? Color.white : Color.white.opacity(0.1))
+                .clipShape(Capsule())
+                .scaleEffect(isFocused ? 1.1 : 1.0)
+                .animation(.easeInOut(duration: 0.2), value: isFocused)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .modifier(TVHoverStateModifier(isFocused: $isFocused))
+    }
+}
+
+private struct TVHoverStateModifier: ViewModifier {
+    @Binding var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        if #available(tvOS 17.0, iOS 17.0, *) {
+            content.onContinuousHover { phase in
+                switch phase {
+                case .active(_):
+                    isFocused = true
+                case .ended:
+                    isFocused = false
+                }
+            }
+        } else {
+            content
+        }
+    }
+}
+

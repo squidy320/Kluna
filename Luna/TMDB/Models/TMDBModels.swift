@@ -661,3 +661,34 @@ struct TMDBCastMember: Codable, Identifiable {
         return "\(TMDBService.tmdbImageBaseURL)\(profilePath)"
     }
 }
+
+// MARK: - Videos Response
+struct TMDBVideoResponse: Codable {
+    let id: Int
+    let results: [TMDBVideo]
+}
+
+struct TMDBVideo: Codable, Identifiable {
+    let id: String
+    let iso6391: String
+    let iso31661: String
+    let name: String
+    let key: String
+    let site: String
+    let size: Int
+    let type: String
+    let official: Bool
+    let publishedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, key, site, size, type, official
+        case iso6391 = "iso_639_1"
+        case iso31661 = "iso_3166_1"
+        case publishedAt = "published_at"
+    }
+
+    var youtubeURL: URL? {
+        guard site.lowercased() == "youtube" else { return nil }
+        return URL(string: "https://www.youtube.com/watch?v=\(key)")
+    }
+}

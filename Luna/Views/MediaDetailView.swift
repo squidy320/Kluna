@@ -24,6 +24,8 @@ private final class MediaDetailCacheStore {
         let anilistEpisodes: [AniListEpisode]?
         let animeSeasonTitles: [Int: String]?
         let castMembers: [TMDBCastMember]
+        let contentRating: String?
+        let trailers: [TMDBVideo]
         let timestamp: Date
     }
     
@@ -84,6 +86,9 @@ struct MediaDetailView: View {
     @State private var playSheetRequestId = UUID()
     
     @State private var castMembers: [TMDBCastMember] = []
+    @State private var contentRating: String?
+    @State private var trailers: [TMDBVideo] = []
+    @State private var isShowingTrailer = false
     @State private var hasLoadedContent = false
     @State private var detailLoadTask: Task<Void, Never>?
     @State private var specialsLoadTask: Task<Void, Never>?
@@ -397,6 +402,12 @@ struct MediaDetailView: View {
                 immersiveTVInfoSheet
             }
         }
+        .fullScreenCover(isPresented: $isShowingTrailer) {
+            if let trailer = trailers.first, let url = trailer.youtubeURL {
+                SafariView(url: url)
+                    .ignoresSafeArea()
+            }
+        }
     }
     
     @ViewBuilder
@@ -700,6 +711,33 @@ struct MediaDetailView: View {
             } else {
                 titleText
             }
+            
+            HStack(spacing: 12) {
+                if let rating = contentRating, !rating.isEmpty {
+                    Text(rating)
+                        .font(.caption.bold())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.white.opacity(0.15))
+                        .cornerRadius(4)
+                }
+                
+                if searchResult.isMovie {
+                    if let movieDetail = movieDetail {
+                        Text(movieDetail.yearFromReleaseDate)
+                        Text("•")
+                        Text(movieDetail.runtimeFormatted)
+                    }
+                } else if let tvDetail = tvShowDetail {
+                    Text(tvDetail.yearFromFirstAirDate)
+                    Text("•")
+                    if let episodes = tvDetail.numberOfEpisodes {
+                        Text("\(episodes) Episodes")
+                    }
+                }
+            }
+            .font(.subheadline)
+            .foregroundColor(.white.opacity(0.8))
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.bottom, 10)
@@ -820,6 +858,9 @@ struct MediaDetailView: View {
             if #available(iOS 16.0, tvOS 16.0, *) {
                 TVChipFlowLayout(spacing: 12, rowSpacing: 12) {
                     if let tvShowDetail {
+                        if let rating = contentRating, !rating.isEmpty {
+                            immersiveMetadataChip(rating)
+                        }
                         if let firstAirDate = tvShowDetail.firstAirDate, !firstAirDate.isEmpty {
                             immersiveMetadataChip(String(firstAirDate.prefix(4)))
                         }
@@ -846,6 +887,9 @@ struct MediaDetailView: View {
     private var fallbackMetadataRow: some View {
         HStack(spacing: 10) {
             if let tvShowDetail {
+                if let rating = contentRating, !rating.isEmpty {
+                    immersiveMetadataChip(rating)
+                }
                 if let firstAirDate = tvShowDetail.firstAirDate, !firstAirDate.isEmpty {
                     immersiveMetadataChip(String(firstAirDate.prefix(4)))
                 }
@@ -870,6 +914,9 @@ struct MediaDetailView: View {
             if #available(iOS 16.0, tvOS 16.0, *) {
                 TVChipFlowLayout(spacing: 12, rowSpacing: 12) {
                     if let movieDetail {
+                        if let rating = contentRating, !rating.isEmpty {
+                            immersiveMetadataChip(rating)
+                        }
                         if let releaseDate = movieDetail.releaseDate, !releaseDate.isEmpty {
                             immersiveMetadataChip(String(releaseDate.prefix(4)))
                         }
@@ -893,6 +940,9 @@ struct MediaDetailView: View {
     private var fallbackMovieMetadataRow: some View {
         HStack(spacing: 10) {
             if let movieDetail {
+                if let rating = contentRating, !rating.isEmpty {
+                    immersiveMetadataChip(rating)
+                }
                 if let releaseDate = movieDetail.releaseDate, !releaseDate.isEmpty {
                     immersiveMetadataChip(String(releaseDate.prefix(4)))
                 }
@@ -997,6 +1047,26 @@ struct MediaDetailView: View {
                 }
                 .disabled(!hasActiveSources || isCurrentlyDownloading)
                 .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius, accentColor: downloadButtonColor, allowsFocus: hasActiveSources && !isCurrentlyDownloading))
+            }
+            
+            if !trailers.isEmpty {
+                Button(action: {
+                    isShowingTrailer = true
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.rectangle.fill")
+                            .font(.system(size: isTvOS ? 22 : 16, weight: .semibold))
+                        if isTvOS {
+                            Text("Trailer")
+                                .font(.system(size: 20, weight: .semibold))
+                        }
+                    }
+                    .padding(.horizontal, isTvOS ? 20 : 0)
+                    .frame(width: isTvOS ? nil : iconButtonSize, height: iconButtonSize)
+                    .applyLiquidGlassBackground(cornerRadius: cornerRadius)
+                    .foregroundColor(.white)
+                }
+                .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius))
             }
             
             Button(action: {
@@ -1850,6 +1920,10 @@ struct MediaDetailView: View {
                     let credits = try? await tmdbService.getMovieCredits(id: searchResult.id)
                     Logger.shared.log("Movie detail step: getMovieCredits done id=\(searchResult.id) cast=\(credits?.cast.count ?? 0)", type: "CrashProbe")
 
+                    Logger.shared.log("Movie detail step: getVideos start id=\(searchResult.id)", type: "CrashProbe")
+                    let movieTrailers = (try? await tmdbService.getVideos(type: "movie", id: searchResult.id))?.filter { $0.site.lowercased() == "youtube" && ($0.type.lowercased() == "trailer" || $0.type.lowercased() == "teaser") } ?? []
+                    Logger.shared.log("Movie detail step: getVideos done id=\(searchResult.id) count=\(movieTrailers.count)", type: "CrashProbe")
+
                     Logger.shared.log("Movie detail fetch complete: tmdbId=\(searchResult.id) cast=\(credits?.cast.count ?? 0)", type: "CrashProbe")
                     
                     if Task.isCancelled { return }
@@ -1859,6 +1933,14 @@ struct MediaDetailView: View {
                         self.movieDetail = detail
                         self.synopsis = detail.overview ?? ""
                         self.romajiTitle = romaji
+                        self.trailers = movieTrailers
+
+                        // Extract content rating from release_dates
+                        if let releases = detail.releaseDates?.results {
+                            self.contentRating = releases.first(where: { $0.iso31661 == "US" })?.releaseDates.first(where: { !$0.certification.isEmpty })?.certification
+                                ?? releases.first(where: { !$0.releaseDates.first(where: { !$0.certification.isEmpty })?.certification.isEmpty ?? false })?.releaseDates.first?.certification
+                        }
+
                         if let logo = tmdbService.getBestLogo(from: images, preferredLanguage: selectedLanguage) {
                             self.logoURL = logo.fullURL
                         }
@@ -1881,6 +1963,8 @@ struct MediaDetailView: View {
                             anilistEpisodes: nil,
                             animeSeasonTitles: nil,
                             castMembers: self.castMembers,
+                            contentRating: self.contentRating,
+                            trailers: movieTrailers,
                             timestamp: Date()
                         ))
                         Logger.shared.log("Movie detail apply state complete: tmdbId=\(searchResult.id) cast=\(self.castMembers.count) logo=\(self.logoURL != nil)", type: "CrashProbe")
@@ -1891,10 +1975,12 @@ struct MediaDetailView: View {
                     Logger.shared.log("TV detail step: queue getTVShowImages id=\(searchResult.id)", type: "CrashProbe")
                     Logger.shared.log("TV detail step: queue getRomajiTitle id=\(searchResult.id)", type: "CrashProbe")
                     Logger.shared.log("TV detail step: queue getTVCredits id=\(searchResult.id)", type: "CrashProbe")
+                    Logger.shared.log("TV detail step: queue getVideos id=\(searchResult.id)", type: "CrashProbe")
                     async let detailTask = tmdbService.getTVShowWithSeasons(id: searchResult.id)
                     async let imagesTask = tmdbService.getTVShowImages(id: searchResult.id, preferredLanguage: selectedLanguage)
                     async let romajiTask = tmdbService.getRomajiTitle(for: "tv", id: searchResult.id)
                     async let creditsTask = tmdbService.getTVCredits(id: searchResult.id)
+                    async let videosTask = tmdbService.getVideos(type: "tv", id: searchResult.id)
 
                     let detail = try await detailTask
                     Logger.shared.log("TV detail step: getTVShowWithSeasons done id=\(searchResult.id) seasons=\(detail.seasons.count)", type: "CrashProbe")
@@ -1919,6 +2005,10 @@ struct MediaDetailView: View {
                         credits = nil
                         Logger.shared.log("TV detail step: getTVCredits failed id=\(searchResult.id) error=\(error.localizedDescription)", type: "CrashProbe")
                     }
+
+                    let tvTrailers = (try? await videosTask)?.filter { $0.site.lowercased() == "youtube" && ($0.type.lowercased() == "trailer" || $0.type.lowercased() == "teaser") } ?? []
+                    Logger.shared.log("TV detail step: getVideos done id=\(searchResult.id) count=\(tvTrailers.count)", type: "CrashProbe")
+
 
                     
                     // Detect anime/donghua for tracking/catalog — includes JP, CN, KR, TW animation
@@ -1963,6 +2053,13 @@ struct MediaDetailView: View {
                         self.romajiTitle = romaji
                         self.isAnimeShow = detectedAsAnime
                         self.castMembers = credits?.cast ?? []
+                        self.trailers = tvTrailers
+
+                        // Extract content rating from content_ratings
+                        if let ratings = detail.contentRatings?.results {
+                            self.contentRating = ratings.first(where: { $0.iso31661 == "US" })?.rating
+                                ?? ratings.first(where: { !$0.rating.isEmpty })?.rating
+                        }
                         
                         if let animeData = animeData {
                             Logger.shared.log("MediaDetailView: Using AniList structure — \(animeData.seasons.count) seasons", type: "AniList")
@@ -2034,11 +2131,43 @@ struct MediaDetailView: View {
                             }
                             Logger.shared.log("MediaDetailView: AniList season conversion complete tmdbId=\(detail.id) aniSeasons=\(aniSeasons.count) summary=\(aniSeasons.prefix(8).map { "s\($0.seasonNumber):id\($0.id):eps\($0.episodeCount)" }.joined(separator: "|"))", type: "CrashProbe")
                             Logger.shared.log("MediaDetailView: anime state preassign tmdbId=\(detail.id) aniSeasons=\(aniSeasons.count) allEpisodes=\(allEpisodes.count) seasonTitles=\(seasonTitles.count)", type: "CrashProbe")
-                            self.animeSeasonTitles = seasonTitles
                             self.anilistEpisodes = allEpisodes
                             
-                            if let firstSeason = aniSeasons.first {
+                            // AUTO-EPISODE SELECTION: Find next unwatched episode
+                            let showId = detail.id
+                            let watchedEntries = ProgressManager.shared.progressList.episodeProgress
+                                .filter { $0.showId == showId }
+                                .sorted(by: { $0.seasonNumber == $1.seasonNumber ? $0.episodeNumber < $1.episodeNumber : $0.seasonNumber < $1.seasonNumber })
+                            
+                            var autoSeason: TMDBSeason?
+                            var autoEpisode: TMDBEpisode?
+                            
+                            if let lastWatched = watchedEntries.last(where: { $0.isWatched || $0.progress > 0.85 }) {
+                                // Find next one
+                                let nextSeason = lastWatched.seasonNumber
+                                let nextEpNum = lastWatched.episodeNumber + 1
+                                
+                                if let found = allEpisodes.first(where: { $0.seasonNumber == nextSeason && $0.number == nextEpNum }) {
+                                    autoEpisode = TMDBEpisode(id: detail.id * 1000 + nextSeason * 100 + found.number, name: found.title, overview: found.description, stillPath: found.stillPath, episodeNumber: found.number, seasonNumber: found.seasonNumber, airDate: found.airDate, runtime: nil, voteAverage: 0, voteCount: 0)
+                                    autoSeason = aniSeasons.first(where: { $0.seasonNumber == nextSeason })
+                                } else if let firstOfNextSeason = allEpisodes.first(where: { $0.seasonNumber > nextSeason }) {
+                                    autoEpisode = TMDBEpisode(id: detail.id * 1000 + firstOfNextSeason.seasonNumber * 100 + firstOfNextSeason.number, name: firstOfNextSeason.title, overview: firstOfNextSeason.description, stillPath: firstOfNextSeason.stillPath, episodeNumber: firstOfNextSeason.number, seasonNumber: firstOfNextSeason.seasonNumber, airDate: firstOfNextSeason.airDate, runtime: nil, voteAverage: 0, voteCount: 0)
+                                    autoSeason = aniSeasons.first(where: { $0.seasonNumber == firstOfNextSeason.seasonNumber })
+                                }
+                            } else if let partiallyWatched = watchedEntries.first(where: { $0.progress > 0 && $0.progress <= 0.85 }) {
+                                if let found = allEpisodes.first(where: { $0.seasonNumber == partiallyWatched.seasonNumber && $0.number == partiallyWatched.episodeNumber }) {
+                                    autoEpisode = TMDBEpisode(id: detail.id * 1000 + found.seasonNumber * 100 + found.number, name: found.title, overview: found.description, stillPath: found.stillPath, episodeNumber: found.number, seasonNumber: found.seasonNumber, airDate: found.airDate, runtime: nil, voteAverage: 0, voteCount: 0)
+                                    autoSeason = aniSeasons.first(where: { $0.seasonNumber == found.seasonNumber })
+                                }
+                            }
+                            
+                            if let autoSeason, let autoEpisode {
+                                self.selectedSeason = autoSeason
+                                self.selectedEpisodeForSearch = autoEpisode
+                                Logger.shared.log("MediaDetailView: auto-selected next episode S\(autoEpisode.seasonNumber)E\(autoEpisode.episodeNumber)", type: "CrashProbe")
+                            } else if let firstSeason = aniSeasons.first {
                                 self.selectedSeason = firstSeason
+                                self.selectedEpisodeForSearch = nil // Or default to E01 if we want to be aggressive
                                 Logger.shared.log("MediaDetailView: selected first AniList season tmdbId=\(detail.id) season=\(firstSeason.seasonNumber) episodeCount=\(firstSeason.episodeCount)", type: "CrashProbe")
                             } else {
                                 self.selectedSeason = nil
@@ -2050,7 +2179,23 @@ struct MediaDetailView: View {
                             self.tvShowDetail = detail
                             self.anilistEpisodes = nil
                             self.animeSeasonTitles = nil
-                            if let firstSeason = detail.seasons.first(where: { $0.seasonNumber > 0 }) {
+                            
+                            let showId = detail.id
+                            let watchedEntries = ProgressManager.shared.progressList.episodeProgress
+                                .filter { $0.showId == showId }
+                                .sorted(by: { $0.seasonNumber == $1.seasonNumber ? $0.episodeNumber < $1.episodeNumber : $0.seasonNumber < $1.seasonNumber })
+                            
+                            var autoSeason: TMDBSeason?
+                            
+                            if let lastWatched = watchedEntries.last(where: { $0.isWatched || $0.progress > 0.85 }) {
+                                autoSeason = detail.seasons.first(where: { $0.seasonNumber == lastWatched.seasonNumber })
+                                // Note: selecting episode is harder here as we don't have all episodes flattened, but selecting season is better than nothing
+                            }
+                            
+                            if let autoSeason {
+                                self.selectedSeason = autoSeason
+                                Logger.shared.log("MediaDetailView: auto-selected last active TMDB season \(autoSeason.seasonNumber)", type: "CrashProbe")
+                            } else if let firstSeason = detail.seasons.first(where: { $0.seasonNumber > 0 }) {
                                 self.selectedSeason = firstSeason
                                 Logger.shared.log("MediaDetailView: selected first TMDB season tmdbId=\(detail.id) season=\(firstSeason.seasonNumber) episodeCount=\(firstSeason.episodeCount)", type: "CrashProbe")
                             } else {
@@ -2082,6 +2227,8 @@ struct MediaDetailView: View {
                             anilistEpisodes: self.anilistEpisodes,
                             animeSeasonTitles: self.animeSeasonTitles,
                             castMembers: self.castMembers,
+                            contentRating: self.contentRating,
+                            trailers: self.trailers,
                             timestamp: Date()
                         ))
                         Logger.shared.log("MediaDetailView: cache stored key=\(detailCacheKey) selectedSeason=\(self.selectedSeason?.seasonNumber.description ?? "nil")", type: "CrashProbe")
@@ -2278,7 +2425,7 @@ struct TVGlassFocusModifier: ViewModifier {
     func body(content: Content) -> some View {
         #if os(tvOS)
         content
-            .scaleEffect(isFocused && allowsFocus ? 1.055 : 1.0)
+            .scaleEffect(isFocused && allowsFocus ? 1.10 : 1.0)
             .shadow(
                 color: .black.opacity(isFocused && allowsFocus ? 0.42 : 0),
                 radius: isFocused && allowsFocus ? 28 : 0,
@@ -2311,7 +2458,7 @@ struct TVEpisodeCardFocusModifier: ViewModifier {
     func body(content: Content) -> some View {
         #if os(tvOS)
         content
-            .scaleEffect(isFocused ? 1.04 : 1.0)
+            .scaleEffect(isFocused ? 1.12 : 1.0)
             .shadow(
                 color: .black.opacity(isFocused ? 0.45 : 0),
                 radius: isFocused ? 28 : 0,
