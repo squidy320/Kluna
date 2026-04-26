@@ -43,11 +43,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          ARTIFACT_CACHE="$HOME/Library/Caches/org.swift.swiftpm/artifacts/https___github_com_mpvkit_MPVKit_releases_download_0_41_0_Libmpv_xcframework_zip"
+          SWIFTPM_CACHE="$HOME/Library/Caches/org.swift.swiftpm/"
 
-          if [[ -e "$ARTIFACT_CACHE" ]]; then
-            echo "Removing stale SwiftPM artifact cache at $ARTIFACT_CACHE"
-            rm -rf "$ARTIFACT_CACHE"
+          if [[ -e "$SWIFTPM_CACHE" ]]; then
+            echo "Removing all SwiftPM artifact cache at $SWIFTPM_CACHE"
+            rm -rf "$SWIFTPM_CACHE"
           fi
 
       - name: Resolve app metadata
