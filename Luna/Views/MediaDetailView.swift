@@ -502,7 +502,7 @@ struct MediaDetailView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         immersiveHeroInfoSection
                         episodesSection
-                            .frame(height: 296, alignment: .top)
+                            .frame(height: 350, alignment: .top)
                     }
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
@@ -968,12 +968,11 @@ struct MediaDetailView: View {
             .font(.system(size: isTvOS ? 20 : 15, weight: .semibold))
             .foregroundColor(.white.opacity(0.92))
             .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, isTvOS ? 18 : 14)
-            .padding(.vertical, isTvOS ? 10 : 8)
-            .frame(minHeight: isTvOS ? 42 : nil)
-            .background(isTvOS ? Color.white.opacity(0.1) : Color.white.opacity(0.08)) // Cleaner background
+            .padding(.horizontal, isTvOS ? 16 : 14)
+            .padding(.vertical, isTvOS ? 8 : 8)
+            .background(isTvOS ? Color.white.opacity(0.1) : Color.white.opacity(0.08))
             .clipShape(Capsule())
+            .fixedSize(horizontal: true, vertical: false)
     }
     
     @ViewBuilder
@@ -989,14 +988,14 @@ struct MediaDetailView: View {
             }) {
                 Group {
                     if isTvOS {
-                        HStack(spacing: 8) { // Changed to HStack to prevent button label cut-off
+                        HStack(spacing: 12) {
                             Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
-                                .font(.system(size: 22, weight: .semibold))
+                                .font(.system(size: 26, weight: .bold))
                             Text(canPlayFromDetail ? "Play" : "No Source")
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.system(size: 24, weight: .bold))
                                 .lineLimit(1)
                         }
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 32)
                         .frame(height: buttonHeight)
                     } else {
                         HStack(spacing: 8) {
