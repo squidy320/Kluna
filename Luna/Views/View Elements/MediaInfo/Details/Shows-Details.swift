@@ -427,7 +427,7 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                     .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 14 : 10, allowsFocus: !isDownloadingAll))
                 }
 
-                if !isTvOS && let tvShow = tvShow, isGroupedBySeasons && useSeasonMenu {
+                if !isTvOS, let tvShow = tvShow, isGroupedBySeasons && useSeasonMenu {
                     seasonMenu(for: tvShow)
                 }
             }
