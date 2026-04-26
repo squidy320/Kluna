@@ -858,26 +858,28 @@ struct MediaDetailView: View {
     private var immersiveMetadataSection: some View {
         Group {
             if #available(iOS 16.0, tvOS 16.0, *) {
-                TVChipFlowLayout(spacing: 12, rowSpacing: 12) {
-                    if let tvShowDetail {
-                        if let rating = contentRating, !rating.isEmpty {
-                            immersiveMetadataChip(rating)
-                        }
-                        if let firstAirDate = tvShowDetail.firstAirDate, !firstAirDate.isEmpty {
-                            immersiveMetadataChip(String(firstAirDate.prefix(4)))
-                        }
-                        if let episodes = tvShowDetail.numberOfEpisodes, episodes > 0 {
-                            immersiveMetadataChip("\(episodes) EPS")
-                        }
-                        if let status = tvShowDetail.status, !status.isEmpty {
-                            immersiveMetadataChip(status)
-                        }
-                        ForEach(Array(tvShowDetail.genres.prefix(3)), id: \.id) { genre in
-                            immersiveMetadataChip(genre.name)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        if let tvShowDetail {
+                            if let rating = contentRating, !rating.isEmpty {
+                                immersiveMetadataChip(rating)
+                            }
+                            if let firstAirDate = tvShowDetail.firstAirDate, !firstAirDate.isEmpty {
+                                immersiveMetadataChip(String(firstAirDate.prefix(4)))
+                            }
+                            if let episodes = tvShowDetail.numberOfEpisodes, episodes > 0 {
+                                immersiveMetadataChip("\(episodes) EPS")
+                            }
+                            if let status = tvShowDetail.status, !status.isEmpty {
+                                immersiveMetadataChip(status)
+                            }
+                            ForEach(Array(tvShowDetail.genres.prefix(3)), id: \.id) { genre in
+                                immersiveMetadataChip(genre.name)
+                            }
                         }
                     }
-                }
-            } else {
+                    .padding(.horizontal, 2)
+                }            } else {
                 fallbackMetadataRow
             }
         }
@@ -970,7 +972,7 @@ struct MediaDetailView: View {
             .padding(.horizontal, isTvOS ? 18 : 14)
             .padding(.vertical, isTvOS ? 10 : 8)
             .frame(minHeight: isTvOS ? 42 : nil)
-            .background(Color.white.opacity(0.08))
+            .background(isTvOS ? Color.white.opacity(0.1) : Color.white.opacity(0.08)) // Cleaner background
             .clipShape(Capsule())
     }
     
@@ -987,15 +989,14 @@ struct MediaDetailView: View {
             }) {
                 Group {
                     if isTvOS {
-                        VStack(spacing: 4) {
+                        HStack(spacing: 8) { // Changed to HStack to prevent button label cut-off
                             Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
                                 .font(.system(size: 22, weight: .semibold))
                             Text(canPlayFromDetail ? "Play" : "No Source")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 20, weight: .semibold))
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.8)
                         }
-                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 20)
                         .frame(height: buttonHeight)
                     } else {
                         HStack(spacing: 8) {
@@ -1016,7 +1017,7 @@ struct MediaDetailView: View {
                     cornerRadius: cornerRadius,
                     fallbackFill: canPlayFromDetail ? Color.black.opacity(0.2) : Color.gray.opacity(0.3),
                     fallbackMaterial: canPlayFromDetail ? .ultraThinMaterial : .thinMaterial,
-                    glassTint: canPlayFromDetail ? nil : Color.gray.opacity(0.3)
+                    glassTint: canPlayFromDetail ? nil : Color.gray.opacity(0.1) // Reduced opacity
                 )
                 .foregroundColor(canPlayFromDetail ? .white : .secondary)
             }
@@ -1029,7 +1030,7 @@ struct MediaDetailView: View {
                 Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
                     .font(.system(size: isTvOS ? 26 : 20, weight: .semibold))
                     .frame(width: iconButtonSize, height: iconButtonSize)
-                    .applyLiquidGlassBackground(cornerRadius: cornerRadius)
+                    .applyLiquidGlassBackground(cornerRadius: cornerRadius, glassTint: Color.white.opacity(0.05))
                     .foregroundColor(isBookmarked ? .yellow : .white)
             }
             .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius, accentColor: isBookmarked ? .yellow : .white))
@@ -1043,7 +1044,7 @@ struct MediaDetailView: View {
                         .frame(width: iconButtonSize, height: iconButtonSize)
                         .applyLiquidGlassBackground(
                             cornerRadius: cornerRadius,
-                            glassTint: downloadButtonTint
+                            glassTint: downloadButtonTint ?? Color.white.opacity(0.05)
                         )
                         .foregroundColor(downloadButtonColor)
                 }
@@ -1065,7 +1066,7 @@ struct MediaDetailView: View {
                     }
                     .padding(.horizontal, isTvOS ? 20 : 0)
                     .frame(width: isTvOS ? nil : iconButtonSize, height: iconButtonSize)
-                    .applyLiquidGlassBackground(cornerRadius: cornerRadius)
+                    .applyLiquidGlassBackground(cornerRadius: cornerRadius, glassTint: Color.white.opacity(0.05))
                     .foregroundColor(.white)
                 }
                 .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius))
@@ -1077,7 +1078,7 @@ struct MediaDetailView: View {
                 Image(systemName: "plus")
                     .font(.system(size: isTvOS ? 26 : 20, weight: .semibold))
                     .frame(width: iconButtonSize, height: iconButtonSize)
-                    .applyLiquidGlassBackground(cornerRadius: cornerRadius)
+                    .applyLiquidGlassBackground(cornerRadius: cornerRadius, glassTint: Color.white.opacity(0.05))
                     .foregroundColor(.white)
             }
             .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius))
@@ -1090,7 +1091,7 @@ struct MediaDetailView: View {
                         .lineLimit(1)
                         .padding(.horizontal, isTvOS ? 20 : 14)
                         .frame(height: buttonHeight)
-                        .applyLiquidGlassBackground(cornerRadius: cornerRadius)
+                        .applyLiquidGlassBackground(cornerRadius: cornerRadius, glassTint: Color.white.opacity(0.05))
                         .foregroundColor(.white)
                 }
                 .modifier(TVGlassFocusModifier(cornerRadius: cornerRadius))
