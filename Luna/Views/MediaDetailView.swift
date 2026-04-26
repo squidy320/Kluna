@@ -1938,7 +1938,7 @@ struct MediaDetailView: View {
                         // Extract content rating from release_dates
                         if let releases = detail.releaseDates?.results {
                             self.contentRating = releases.first(where: { $0.iso31661 == "US" })?.releaseDates.first(where: { !$0.certification.isEmpty })?.certification
-                                ?? releases.first(where: { !$0.releaseDates.first(where: { !$0.certification.isEmpty })?.certification.isEmpty ?? false })?.releaseDates.first?.certification
+                                ?? releases.first(where: { $0.releaseDates.contains(where: { !$0.certification.isEmpty }) })?.releaseDates.first(where: { !$0.certification.isEmpty })?.certification
                         }
 
                         if let logo = tmdbService.getBestLogo(from: images, preferredLanguage: selectedLanguage) {

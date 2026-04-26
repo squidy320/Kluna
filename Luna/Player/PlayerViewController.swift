@@ -947,7 +947,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
             case .movie(let id, let title, _, let isAnime):
                 return "movie id=\(id) title=\(title) isAnime=\(isAnime)"
             case .episode(let showId, let seasonNumber, let episodeNumber, let showTitle, _, let isAnime):
-                return "episode showId=\(showId) s=\(seasonNumber) e=\(episodeNumber) title=\(showTitle) isAnime=\(isAnime)"
+                return "episode showId=\(showId) s=\(seasonNumber) e=\(episodeNumber) title=\(showTitle ?? "unknown") isAnime=\(isAnime)"
             }
         }()
         Logger.shared.log("PlayerViewController.load: isAnimeHint=\(isAnimeHint ?? false) mediaInfo=\(mediaInfoLabel)", type: "Stream")

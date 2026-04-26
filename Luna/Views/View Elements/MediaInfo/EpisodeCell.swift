@@ -76,7 +76,7 @@ struct EpisodeCell: View {
         .modifier(TVEpisodeCardFocusModifier(cornerRadius: isImmersiveHorizontal ? 24 : 16, isSelected: isSelected))
         .modifier(TVEpisodeHoverBindingModifier(isFocused: $isFocusedOnTV))
         .onLongPressGesture(minimumDuration: 0.8) {
-            #if os(tvOS)
+            #if !os(tvOS)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             if isWatched {
                 ProgressManager.shared.markEpisodeAsUnwatched(
@@ -94,7 +94,9 @@ struct EpisodeCell: View {
             refreshProgressState()
             #endif
         }
+        #if os(tvOS)
         .onPlayPauseCommand(perform: onTap)
+        #endif
         .contextMenu {
             episodeContextMenu
         }
