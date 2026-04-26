@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Eclipse.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-26T11:10:07Z",
-      "date": "2026-04-26T11:10:07Z",
-      "size": 64493728,
-      "versionDescription": "build fix "
+      "versionDate": "2026-04-26T19:34:10Z",
+      "date": "2026-04-26T19:34:10Z",
+      "size": 64523701,
+      "versionDescription": "Update MediaDetailView.swift "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Update MediaDetailView.swift ",
+      "date": "2026-04-26T19:34:10Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "build fix ",
@@ -63,11 +68,6 @@
       "title": "Release 1.0.1",
       "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
       "date": "2026-04-24T14:58:38Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "Reset Auto Mode sheets and lower iPad detail layouts ",
-      "date": "2026-04-24T14:36:02Z"
     }
   ]
 }
