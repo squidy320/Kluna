@@ -338,8 +338,9 @@ final class HomeViewModel: ObservableObject {
                     let spotlight = results.remove(at: randomIndex)
                     results.insert(spotlight, at: 0)
 
+                    let finalResults = results
                     await MainActor.run {
-                        self.widgetData["featured"] = results
+                        self.widgetData["featured"] = finalResults
                         self.widgetData["featured_genreName"] = [] // Store genre name via key convention
                         self.featuredGenreName = "Trending Anime"
                     }

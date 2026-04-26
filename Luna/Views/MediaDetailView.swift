@@ -933,30 +933,32 @@ struct MediaDetailView: View {
             Button(action: {
                 searchInServices()
             }) {
-                if isTvOS {
-                    VStack(spacing: 4) {
-                        Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
-                            .font(.system(size: 22, weight: .semibold))
-                        Text(canPlayFromDetail ? "Play" : "No Source")
-                            .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                Group {
+                    if isTvOS {
+                        VStack(spacing: 4) {
+                            Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
+                                .font(.system(size: 22, weight: .semibold))
+                            Text(canPlayFromDetail ? "Play" : "No Source")
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: buttonHeight)
+                    } else {
+                        HStack(spacing: 8) {
+                            Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
+                                .font(.system(size: 17, weight: .semibold))
+                            
+                            Text(canPlayFromDetail ? playButtonText : "No Services")
+                                .font(.system(size: 17, weight: .semibold))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: buttonHeight)
+                        .padding(.horizontal, 25)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: buttonHeight)
-                } else {
-                    HStack(spacing: 8) {
-                        Image(systemName: canPlayFromDetail ? "play.fill" : "exclamationmark.triangle")
-                            .font(.system(size: 17, weight: .semibold))
-                        
-                        Text(canPlayFromDetail ? playButtonText : "No Services")
-                            .font(.system(size: 17, weight: .semibold))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: buttonHeight)
-                    .padding(.horizontal, 25)
                 }
                 .applyLiquidGlassBackground(
                     cornerRadius: cornerRadius,
