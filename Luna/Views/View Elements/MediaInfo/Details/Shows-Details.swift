@@ -427,8 +427,10 @@ struct TVShowSeasonsSection<InsertedContent: View>: View {
                     .modifier(TVGlassFocusModifier(cornerRadius: isTvOS ? 14 : 10, allowsFocus: !isDownloadingAll))
                 }
 
-                if !isTvOS, let tvShow = tvShow, isGroupedBySeasons && useSeasonMenu {
-                    seasonMenu(for: tvShow)
+                if !isTvOS, isGroupedBySeasons, useSeasonMenu {
+                    if let tvShow = tvShow {
+                        seasonMenu(for: tvShow)
+                    }
                 }
             }
             .padding(.horizontal)
