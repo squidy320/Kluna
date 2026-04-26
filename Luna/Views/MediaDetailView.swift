@@ -189,7 +189,6 @@ struct MediaDetailView: View {
     }
     
     var body: some View {
-        let _ = Logger.shared.log("MediaDetailView body evaluate: id=\(searchResult.id) type=\(searchResult.mediaType) isLoading=\(isLoading) hasLoaded=\(hasLoadedContent) error=\(errorMessage != nil) movieDetail=\(movieDetail != nil) tvDetail=\(tvShowDetail != nil) selectedSeason=\(selectedSeason?.seasonNumber.description ?? "nil") seasonDetailEpisodes=\(seasonDetail?.episodes.count ?? 0) selectedEpisode=\(selectedEpisodeForSearch.map { "S\($0.seasonNumber)E\($0.episodeNumber)" } ?? "nil") sheets=play:\(showingSearchResults),download:\(showingDownloadSheet)", type: "CrashProbe")
         ZStack {
             LunaTheme.shared.backgroundBase
                 .ignoresSafeArea(.all)
@@ -1857,33 +1856,7 @@ struct MediaDetailView: View {
         // Check view-level cache first for instant back-navigation
         if let cached = MediaDetailCacheStore.shared.get(key: detailCacheKey) {
             Logger.shared.log("MediaDetail cache hit: key=\(detailCacheKey) type=\(searchResult.mediaType)", type: "CrashProbe")
-            // Defer state update to next run loop tick so SwiftUI properly re-renders
-            Task { @MainActor in
-                Logger.shared.log("MediaDetail cache apply begin: key=\(detailCacheKey) movie=\(cached.movieDetail != nil) tv=\(cached.tvShowDetail != nil) cachedSeasons=\(cached.tvShowDetail?.seasons.count ?? 0) cachedEpisodes=\(cached.anilistEpisodes?.count ?? 0)", type: "CrashProbe")
-                self.movieDetail = cached.movieDetail
-                self.tvShowDetail = cached.tvShowDetail
-                self.selectedSeason = cached.selectedSeason
-                self.synopsis = cached.synopsis
-                self.romajiTitle = cached.romajiTitle
-                self.logoURL = cached.logoURL
-                self.isAnimeShow = cached.isAnimeShow
-                self.anilistEpisodes = cached.anilistEpisodes
-                self.animeSeasonTitles = cached.animeSeasonTitles
-                self.castMembers = cached.castMembers
-                self.selectedSpecialEpisodeContext = nil
-                self.isLoading = false
-                self.hasLoadedContent = true
-                Logger.shared.log("MediaDetail cache state applied: key=\(detailCacheKey) tvSeasons=\(cached.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(cached.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(cached.anilistEpisodes?.count ?? 0)", type: "CrashProbe")
-                if cached.isAnimeShow, !self.searchResult.isMovie {
-                    self.startAnimeSpecialsLoad(
-                        tmdbShowId: self.searchResult.id,
-                        fallbackPosterURL: cached.tvShowDetail?.fullPosterURL
-                    )
-                } else {
-                    self.animeSpecialEntries = []
-                    self.isLoadingAnimeSpecials = false
-                }
-            }
+            self.applyCachedState(cached, key: detailCacheKey)
             return
         }
         Logger.shared.log("MediaDetail cache miss: key=\(detailCacheKey)", type: "CrashProbe")
@@ -1895,6 +1868,36 @@ struct MediaDetailView: View {
         
         detailLoadTask = Task {
             await performMediaDetailsLoad(detailCacheKey: detailCacheKey)
+        }
+    }
+
+    @MainActor
+    private func applyCachedState(_ cached: MediaDetailCacheStore.CachedDetail, key detailCacheKey: String) {
+        Logger.shared.log("MediaDetail cache apply begin: key=\(detailCacheKey) movie=\(cached.movieDetail != nil) tv=\(cached.tvShowDetail != nil) cachedSeasons=\(cached.tvShowDetail?.seasons.count ?? 0) cachedEpisodes=\(cached.anilistEpisodes?.count ?? 0)", type: "CrashProbe")
+        self.movieDetail = cached.movieDetail
+        self.tvShowDetail = cached.tvShowDetail
+        self.selectedSeason = cached.selectedSeason
+        self.synopsis = cached.synopsis
+        self.romajiTitle = cached.romajiTitle
+        self.logoURL = cached.logoURL
+        self.isAnimeShow = cached.isAnimeShow
+        self.anilistEpisodes = cached.anilistEpisodes
+        self.animeSeasonTitles = cached.animeSeasonTitles
+        self.castMembers = cached.castMembers
+        self.contentRating = cached.contentRating
+        self.trailers = cached.trailers
+        self.selectedSpecialEpisodeContext = nil
+        self.isLoading = false
+        self.hasLoadedContent = true
+        Logger.shared.log("MediaDetail cache state applied: key=\(detailCacheKey) tvSeasons=\(cached.tvShowDetail?.seasons.count ?? 0) selectedSeason=\(cached.selectedSeason?.seasonNumber.description ?? "nil") anilistEpisodes=\(cached.anilistEpisodes?.count ?? 0)", type: "CrashProbe")
+        if cached.isAnimeShow, !self.searchResult.isMovie {
+            self.startAnimeSpecialsLoad(
+                tmdbShowId: self.searchResult.id,
+                fallbackPosterURL: cached.tvShowDetail?.fullPosterURL
+            )
+        } else {
+            self.animeSpecialEntries = []
+            self.isLoadingAnimeSpecials = false
         }
     }
 
@@ -1984,7 +1987,7 @@ struct MediaDetailView: View {
                 ?? releases.first(where: { $0.releaseDates.contains(where: { !$0.certification.isEmpty }) })?.releaseDates.first(where: { !$0.certification.isEmpty })?.certification
         }
 
-        if let logo = tmdbService.getBestLogo(from: images, preferredLanguage: selectedLanguage) {
+        if let images = images, let logo = tmdbService.getBestLogo(from: images, preferredLanguage: selectedLanguage) {
             self.logoURL = logo.fullURL
         }
         
@@ -2252,9 +2255,14 @@ struct MediaDetailView: View {
         
         // AUTO-EPISODE SELECTION: Find next unwatched episode
         let showId = detail.id
-        let watchedEntries = ProgressManager.shared.progressList.episodeProgress
-            .filter { $0.showId == showId }
-            .sorted(by: { $0.seasonNumber == $1.seasonNumber ? $0.episodeNumber < $1.episodeNumber : $0.seasonNumber < $1.seasonNumber })
+        let allProgress = ProgressManager.shared.progressList.episodeProgress
+        let filteredProgress = allProgress.filter { $0.showId == showId }
+        let watchedEntries = filteredProgress.sorted(by: { 
+            if $0.seasonNumber != $1.seasonNumber {
+                return $0.seasonNumber < $1.seasonNumber
+            }
+            return $0.episodeNumber < $1.episodeNumber
+        })
         
         var autoSeason: TMDBSeason?
         var autoEpisode: TMDBEpisode?
@@ -2264,7 +2272,11 @@ struct MediaDetailView: View {
             let nextSeason = lastWatched.seasonNumber
             let nextEpNum = lastWatched.episodeNumber + 1
             
-            if let found = allEpisodes.first(where: { $0.seasonNumber == nextSeason && $0.number == nextEpNum }) {
+            if let found = allEpisodes.first(where: { ep in
+                let sameSeason = ep.seasonNumber == nextSeason
+                let sameEp = ep.number == nextEpNum
+                return sameSeason && sameEp
+            }) {
                 autoEpisode = TMDBEpisode(id: detail.id * 1000 + nextSeason * 100 + found.number, name: found.title, overview: found.description, stillPath: found.stillPath, episodeNumber: found.number, seasonNumber: found.seasonNumber, airDate: found.airDate, runtime: nil, voteAverage: 0, voteCount: 0)
                 autoSeason = aniSeasons.first(where: { $0.seasonNumber == nextSeason })
             } else if let firstOfNextSeason = allEpisodes.first(where: { $0.seasonNumber > nextSeason }) {
@@ -2272,7 +2284,11 @@ struct MediaDetailView: View {
                 autoSeason = aniSeasons.first(where: { $0.seasonNumber == firstOfNextSeason.seasonNumber })
             }
         } else if let partiallyWatched = watchedEntries.first(where: { $0.progress > 0 && $0.progress <= 0.85 }) {
-            if let found = allEpisodes.first(where: { $0.seasonNumber == partiallyWatched.seasonNumber && $0.number == partiallyWatched.episodeNumber }) {
+            if let found = allEpisodes.first(where: { ep in
+                let sameSeason = ep.seasonNumber == partiallyWatched.seasonNumber
+                let sameEp = ep.number == partiallyWatched.episodeNumber
+                return sameSeason && sameEp
+            }) {
                 autoEpisode = TMDBEpisode(id: detail.id * 1000 + found.seasonNumber * 100 + found.number, name: found.title, overview: found.description, stillPath: found.stillPath, episodeNumber: found.number, seasonNumber: found.seasonNumber, airDate: found.airDate, runtime: nil, voteAverage: 0, voteCount: 0)
                 autoSeason = aniSeasons.first(where: { $0.seasonNumber == found.seasonNumber })
             }
@@ -2284,10 +2300,14 @@ struct MediaDetailView: View {
             Logger.shared.log("MediaDetailView: auto-selected next episode S\(autoEpisode.seasonNumber)E\(autoEpisode.episodeNumber)", type: "CrashProbe")
         } else if let firstSeason = aniSeasons.first {
             self.selectedSeason = firstSeason
-            self.selectedEpisodeForSearch = nil // Or default to E01 if we want to be aggressive
+            // Only clear if not already set by a previous operation (though applyTVShowState clears it initially)
+            if self.selectedEpisodeForSearch == nil {
+                self.selectedEpisodeForSearch = nil 
+            }
             Logger.shared.log("MediaDetailView: selected first AniList season tmdbId=\(detail.id) season=\(firstSeason.seasonNumber) episodeCount=\(firstSeason.episodeCount)", type: "CrashProbe")
         } else {
             self.selectedSeason = nil
+            self.selectedEpisodeForSearch = nil
             Logger.shared.log("MediaDetailView: AniList data had no seasons to select tmdbId=\(detail.id)", type: "CrashProbe")
         }
     }
@@ -2301,9 +2321,14 @@ struct MediaDetailView: View {
         self.animeSeasonTitles = nil
         
         let showId = detail.id
-        let watchedEntries = ProgressManager.shared.progressList.episodeProgress
-            .filter { $0.showId == showId }
-            .sorted(by: { $0.seasonNumber == $1.seasonNumber ? $0.episodeNumber < $1.episodeNumber : $0.seasonNumber < $1.seasonNumber })
+        let allProgress = ProgressManager.shared.progressList.episodeProgress
+        let filteredProgress = allProgress.filter { $0.showId == showId }
+        let watchedEntries = filteredProgress.sorted(by: { 
+            if $0.seasonNumber != $1.seasonNumber {
+                return $0.seasonNumber < $1.seasonNumber
+            }
+            return $0.episodeNumber < $1.episodeNumber
+        })
         
         var autoSeason: TMDBSeason?
         
