@@ -226,7 +226,9 @@ struct TrackersSettingsView: View {
     }
 
     private func beginTrackerLogin(_ service: TrackerService) {
+        Logger.shared.log("TrackersSettingsView: Begin login for \(service.rawValue)", type: "Tracker")
 #if os(tvOS)
+        Logger.shared.log("TrackersSettingsView: Using tvOS auth flow for \(service.rawValue)", type: "Tracker")
         selectedTracker = service
         tvAuthInput = ""
         trackerManager.authError = nil
@@ -235,8 +237,10 @@ struct TrackersSettingsView: View {
 #else
         switch service {
         case .anilist:
+            Logger.shared.log("TrackersSettingsView: Using standard AniList auth flow", type: "Tracker")
             trackerManager.startAniListAuth()
         case .trakt:
+            Logger.shared.log("TrackersSettingsView: Using standard Trakt auth flow", type: "Tracker")
             trackerManager.startTraktAuth()
         }
 #endif

@@ -1304,6 +1304,36 @@ struct ModulesSearchResultsSheet: View {
                             }
                         }
                         
+                        Button(action: {
+                            Task { @MainActor in
+                                let logs = await Logger.shared.getLogsAsync()
+                                // Simple way to present logs on tvOS
+                                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                                   let rootVC = windowScene.windows.first?.rootViewController,
+                                   let topmostVC = rootVC.topmostViewController() as UIViewController? {
+                                    let vc = UIViewController()
+                                    vc.view.backgroundColor = .black
+                                    let tv = UITextView()
+                                    tv.isEditable = false
+                                    tv.text = logs
+                                    tv.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+                                    tv.textColor = .white
+                                    tv.backgroundColor = .black
+                                    tv.translatesAutoresizingMaskIntoConstraints = false
+                                    vc.view.addSubview(tv)
+                                    NSLayoutConstraint.activate([
+                                        tv.topAnchor.constraint(equalTo: vc.view.topAnchor),
+                                        tv.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor),
+                                        tv.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor),
+                                        tv.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor)
+                                    ])
+                                    topmostVC.present(vc, animated: true)
+                                }
+                            }
+                        }) {
+                            Image(systemName: "doc.text")
+                        }
+                        
                         Button("Done") {
                             presentationMode.wrappedValue.dismiss()
                         }
@@ -2599,6 +2629,7 @@ struct ModulesSearchResultsSheet: View {
                     playerMediaInfo = .episode(showId: tmdbId, seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber, showTitle: mediaTitle, showPosterURL: posterURL, isAnime: isAnimeContent)
                 }
                 
+                Logger.shared.log("ServicesResultsSheet: Attempting to present PlayerViewController for url=\(streamURL.absoluteString) title=\(mediaTitle) tmdbId=\(tmdbId)", type: "Player")
                 let pvc = PlayerViewController(
                     url: streamURL,
                     preset: preset ?? PlayerPreset(id: .sdrRec709, title: "Default", summary: "", stream: nil, commands: []),
@@ -2606,6 +2637,7 @@ struct ModulesSearchResultsSheet: View {
                     subtitles: subtitleArray,
                     mediaInfo: playerMediaInfo
                 )
+                Logger.shared.log("ServicesResultsSheet: PlayerViewController initialized successfully", type: "Player")
                 let isAnimeHint = isAnimeContent || animeSeasonTitle != nil || TrackerManager.shared.cachedAniListId(for: tmdbId) != nil
                 pvc.isAnimeHint = isAnimeHint
                 pvc.originalTMDBSeasonNumber = effectivePlaybackContext?.resolvedTMDBSeasonNumber ?? originalTMDBSeasonNumber
@@ -2656,6 +2688,7 @@ struct ModulesSearchResultsSheet: View {
                     playerMediaInfo = .episode(showId: tmdbId, seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber, showTitle: mediaTitle, showPosterURL: posterURL, isAnime: isAnimeContent)
                 }
                 
+                Logger.shared.log("ServicesResultsSheet: Attempting to present PlayerViewController for url=\(streamURL.absoluteString) title=\(mediaTitle) tmdbId=\(tmdbId)", type: "Player")
                 let pvc = PlayerViewController(
                     url: streamURL,
                     preset: preset ?? PlayerPreset(id: .sdrRec709, title: "Default", summary: "", stream: nil, commands: []),
@@ -2663,6 +2696,7 @@ struct ModulesSearchResultsSheet: View {
                     subtitles: subtitleArray,
                     mediaInfo: playerMediaInfo
                 )
+                Logger.shared.log("ServicesResultsSheet: PlayerViewController initialized successfully", type: "Player")
                 let isAnimeHint = isAnimeContent || animeSeasonTitle != nil || TrackerManager.shared.cachedAniListId(for: tmdbId) != nil
                 pvc.isAnimeHint = isAnimeHint
                 pvc.originalTMDBSeasonNumber = effectivePlaybackContext?.resolvedTMDBSeasonNumber ?? originalTMDBSeasonNumber

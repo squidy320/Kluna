@@ -225,13 +225,6 @@ struct EpisodeCell: View {
                 if isImmersiveHorizontal {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .fill(Color.white.opacity(isFocusedOnTV ? 0.12 : 0.06))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .stroke(
-                                    isFocusedOnTV ? Color.white.opacity(0.18) : Color.clear,
-                                    lineWidth: isFocusedOnTV ? 2 : 0
-                                )
-                        )
                 }
             }
         )
@@ -301,12 +294,7 @@ struct EpisodeCell: View {
                     }
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
-                    .applyLiquidGlassBackground(
-                        cornerRadius: 16,
-                        fallbackFill: Color.gray.opacity(0.2),
-                        fallbackMaterial: .thinMaterial,
-                        glassTint: Color.gray.opacity(0.15)
-                    )
+                    .background(Color.white.opacity(0.1))
                     .clipShape(Capsule())
                 }
                 
@@ -329,11 +317,6 @@ struct EpisodeCell: View {
             }
         }
         .padding(12)
-        .applyLiquidGlassBackground(cornerRadius: 16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
-        )
     }
     
     private var episodeContextMenu: some View {
