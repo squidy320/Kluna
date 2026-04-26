@@ -2266,8 +2266,6 @@ struct MediaDetailView: View {
         Logger.shared.log("TV detail fetch complete: tmdbId=\(searchResult.id)", type: "CrashProbe")
     }
 
-    }
-
 }
 
 struct SpecialEpisodeListContext: Identifiable {
