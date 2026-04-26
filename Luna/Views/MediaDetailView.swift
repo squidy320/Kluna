@@ -2140,6 +2140,8 @@ struct MediaDetailView: View {
         }
         
         if let images, let logo = tmdbService.getBestLogo(from: images, preferredLanguage: selectedLanguage) {
+            self.logoURL = logo.fullURL
+        }
 
         self.isLoading = false
         self.hasLoadedContent = true
