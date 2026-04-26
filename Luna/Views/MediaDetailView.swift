@@ -2255,7 +2255,7 @@ struct MediaDetailView: View {
         
         // AUTO-EPISODE SELECTION: Find next unwatched episode
         let showId = detail.id
-        let allProgress = ProgressManager.shared.progressList.episodeProgress
+        let allProgress = ProgressManager.shared.getProgressData().episodeProgress
         let filteredProgress = allProgress.filter { $0.showId == showId }
         let watchedEntries = filteredProgress.sorted(by: { 
             if $0.seasonNumber != $1.seasonNumber {
@@ -2321,7 +2321,7 @@ struct MediaDetailView: View {
         self.animeSeasonTitles = nil
         
         let showId = detail.id
-        let allProgress = ProgressManager.shared.progressList.episodeProgress
+        let allProgress = ProgressManager.shared.getProgressData().episodeProgress
         let filteredProgress = allProgress.filter { $0.showId == showId }
         let watchedEntries = filteredProgress.sorted(by: { 
             if $0.seasonNumber != $1.seasonNumber {
