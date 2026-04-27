@@ -1314,7 +1314,9 @@ struct ModulesSearchResultsSheet: View {
                                     let vc = UIViewController()
                                     vc.view.backgroundColor = .black
                                     let tv = UITextView()
+#if !os(tvOS)
                                     tv.isEditable = false
+#endif
                                     tv.text = logs
                                     tv.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
                                     tv.textColor = .white
