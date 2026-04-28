@@ -2582,8 +2582,6 @@ struct ModulesSearchResultsSheet: View {
             
             let serviceURL = service.metadata.baseUrl
             var finalHeaders: [String: String] = [
-                "Origin": serviceURL,
-                "Referer": serviceURL,
                 "User-Agent": URLSession.randomUserAgent
             ]
             
@@ -2770,8 +2768,6 @@ struct ModulesSearchResultsSheet: View {
         
         let serviceURL = service.metadata.baseUrl
         var finalHeaders: [String: String] = [
-            "Origin": serviceURL,
-            "Referer": serviceURL,
             "User-Agent": URLSession.randomUserAgent
         ]
         
