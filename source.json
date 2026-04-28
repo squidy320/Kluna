@@ -12,13 +12,18 @@
       "localizedDescription": "Automated SideStore distribution for Eclipse.",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
       "version": "1.0.1",
-      "versionDate": "2026-04-27T00:03:21Z",
-      "date": "2026-04-27T00:03:21Z",
-      "size": 64520954,
-      "versionDescription": "Update ServicesResultsSheet.swift "
+      "versionDate": "2026-04-28T00:18:44Z",
+      "date": "2026-04-28T00:18:44Z",
+      "size": 64520476,
+      "versionDescription": "playing tvos fix "
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "playing tvos fix ",
+      "date": "2026-04-28T00:18:44Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "Update ServicesResultsSheet.swift ",
@@ -63,11 +68,6 @@
       "title": "Release 1.0.1",
       "caption": "more ",
       "date": "2026-04-25T16:37:12Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "Constrain iPad episode section height ",
-      "date": "2026-04-24T15:57:02Z"
     }
   ]
 }
