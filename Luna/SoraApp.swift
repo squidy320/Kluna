@@ -76,7 +76,7 @@ struct SoraApp: App {
                         .onDisappear { showSplash = false }
                 }
             }
-            .onChange(of: splashFinished) { finished in
+            .onChange(of: splashFinished) { _, finished in
                 if finished {
                     // Give the dismiss animation time to play, then remove the splash layer
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

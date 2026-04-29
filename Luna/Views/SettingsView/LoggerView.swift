@@ -432,7 +432,11 @@ struct QRCodeView: View {
             .padding(.top)
         }
         .padding(40)
+#if os(tvOS)
+        .background(Color.black.opacity(0.8))
+#else
         .background(Color(UIColor.systemBackground))
+#endif
         .cornerRadius(20)
     }
     

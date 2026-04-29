@@ -876,10 +876,19 @@ struct ContinueWatchingCard: View {
             }
         }
         .background(
-            NavigationLink(destination: MediaDetailView(searchResult: detailSearchResult), isActive: $showingDetails) {
-                EmptyView()
+            Group {
+                if #available(iOS 16.0, tvOS 16.0, *) {
+                    EmptyView()
+                        .navigationDestination(isPresented: $showingDetails) {
+                            MediaDetailView(searchResult: detailSearchResult)
+                        }
+                } else {
+                    NavigationLink(destination: MediaDetailView(searchResult: detailSearchResult), isActive: $showingDetails) {
+                        EmptyView()
+                    }
+                    .hidden()
+                }
             }
-            .hidden()
         )
     }
 
