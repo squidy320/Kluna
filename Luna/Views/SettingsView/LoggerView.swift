@@ -61,6 +61,8 @@ struct LoggerView: View {
     @State private var searchText = ""
     @State private var shareItem: ShareSheetItem?
     @State private var exportErrorMessage: String?
+    @State private var exportURL: URL?
+    @State private var isExporting = false
     
     private var filteredLogs: [LogEntry] {
         var logs = loggerManager.logs
@@ -110,6 +112,22 @@ struct LoggerView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
+#if os(tvOS)
+                    Button(action: {
+                        Task {
+                            isExporting = true
+                            do {
+                                let url = try await Logger.shared.uploadLogs()
+                                exportURL = url
+                            } catch {
+                                exportErrorMessage = "Failed to upload logs."
+                            }
+                            isExporting = false
+                        }
+                    }) {
+                        Label("Export Logs (QR)", systemImage: "qrcode")
+                    }
+#else
                     Button(action: {
                         Task {
                             do {
@@ -122,6 +140,7 @@ struct LoggerView: View {
                     }) {
                         Label("Export Logs", systemImage: "square.and.arrow.up")
                     }
+#endif
                     Button(action: {
                         loggerManager.clearLogs()
                     }) {
@@ -132,6 +151,25 @@ struct LoggerView: View {
                 }
             }
         }
+        .overlay {
+            if isExporting {
+                ProgressView("Uploading logs...")
+                    .padding()
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(10)
+            }
+        }
+        .sheet(item: $shareItem) { item in
+            ActivityView(items: item.items)
+        }
+        .sheet(isPresented: Binding(
+            get: { exportURL != nil },
+            set: { if !$0 { exportURL = nil } }
+        )) {
+            if let url = exportURL {
+                QRCodeView(url: url)
+            }
+        }
         .alert("Export Failed", isPresented: Binding(
             get: { exportErrorMessage != nil },
             set: { _ in exportErrorMessage = nil }
@@ -139,9 +177,6 @@ struct LoggerView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(exportErrorMessage ?? "")
-        }
-        .sheet(item: $shareItem) { item in
-            ActivityView(items: item.items)
         }
     }
 }

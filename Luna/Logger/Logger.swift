@@ -190,6 +190,32 @@ class Logger: @unchecked Sendable {
         try data.write(to: url, options: .atomic)
         return url
     }
+
+    func uploadLogs() async throws -> URL {
+        let logs = await getLogsAsync()
+        let content = logs.isEmpty ? "No logs available." : logs
+        guard let data = content.data(using: .utf8) else {
+            throw ExportError.encodingFailed
+        }
+
+        var request = URLRequest(url: URL(string: "https://clbin.com")!)
+        request.httpMethod = "POST"
+        request.httpBody = data
+        request.setValue("text/plain", forHTTPHeaderField: "Content-Type")
+
+        let (responseData, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            throw ExportError.encodingFailed
+        }
+
+        guard let responseString = String(data: responseData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let url = URL(string: responseString) else {
+            throw ExportError.encodingFailed
+        }
+
+        return url
+    }
     
     private func debugLog(_ entry: LogEntry) {
 #if DEBUG

@@ -1304,38 +1304,6 @@ struct ModulesSearchResultsSheet: View {
                             }
                         }
                         
-                        Button(action: {
-                            Task { @MainActor in
-                                let logs = await Logger.shared.getLogsAsync()
-                                // Simple way to present logs on tvOS
-                                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                                   let rootVC = windowScene.windows.first?.rootViewController,
-                                   let topmostVC = rootVC.topmostViewController() as UIViewController? {
-                                    let vc = UIViewController()
-                                    vc.view.backgroundColor = .black
-                                    let tv = UITextView()
-#if !os(tvOS)
-                                    tv.isEditable = false
-#endif
-                                    tv.text = logs
-                                    tv.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-                                    tv.textColor = .white
-                                    tv.backgroundColor = .black
-                                    tv.translatesAutoresizingMaskIntoConstraints = false
-                                    vc.view.addSubview(tv)
-                                    NSLayoutConstraint.activate([
-                                        tv.topAnchor.constraint(equalTo: vc.view.topAnchor),
-                                        tv.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor),
-                                        tv.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor),
-                                        tv.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor)
-                                    ])
-                                    topmostVC.present(vc, animated: true)
-                                }
-                            }
-                        }) {
-                            Image(systemName: "doc.text")
-                        }
-                        
                         Button("Done") {
                             presentationMode.wrappedValue.dismiss()
                         }
