@@ -1,73 +1,57 @@
 {
   "name": "Eclipse",
-  "identifier": "me.cranci.solar",
+  "identifier": "me.cranci.solar.source",
+  "sourceURL": "https://raw.githubusercontent.com/squidy320/Kluna/main/source.json",
   "subtitle": "SideStore source for Eclipse",
   "description": "Automated releases for Eclipse.",
+  "iconURL": "https://raw.githubusercontent.com/squidy320/Kluna/main/Luna/Assets.xcassets/AppIcon.appiconset/Default.png",
+  "website": "https://github.com/squidy320/Kluna",
+  "tintColor": "#6D8CFF",
   "apps": [
     {
       "name": "Eclipse",
       "bundleIdentifier": "me.cranci.solar",
       "developerName": "Squidy",
-      "iconURL": "",
-      "localizedDescription": "Automated SideStore distribution for Eclipse.",
-      "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
+      "subtitle": "Anime, manga, downloads, and playback tools.",
+      "localizedDescription": "Eclipse is a fork of Luna with expanded anime handling, AniList and Trakt sync, catalogs, downloads, Stremio addon support, manga mode, light novel support, and playback improvements.",
+      "iconURL": "https://raw.githubusercontent.com/squidy320/Kluna/main/Luna/Assets.xcassets/AppIcon.appiconset/Default.png",
+      "tintColor": "#6D8CFF",
+      "category": "entertainment",
+      "versions": [
+        {
+          "version": "1.0.1",
+          "date": "2026-04-28",
+          "localizedDescription": "playing tvos fix ",
+          "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
+          "size": 64520476,
+          "minOSVersion": "15.0"
+        }
+      ],
       "version": "1.0.1",
       "versionDate": "2026-04-28T00:18:44Z",
-      "date": "2026-04-28T00:18:44Z",
-      "size": 64520476,
-      "versionDescription": "playing tvos fix "
+      "versionDescription": "playing tvos fix ",
+      "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
+      "size": 64520476
     }
   ],
   "news": [
     {
       "title": "Release 1.0.1",
+      "identifier": "release-1.0.1-20260428",
       "caption": "playing tvos fix ",
       "date": "2026-04-28T00:18:44Z"
     },
     {
       "title": "Release 1.0.1",
+      "identifier": "release-1.0.1-20260427",
       "caption": "Update ServicesResultsSheet.swift ",
       "date": "2026-04-27T00:03:21Z"
     },
     {
       "title": "Release 1.0.1",
+      "identifier": "release-1.0.1-20260426",
       "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
       "date": "2026-04-26T23:22:53Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
-      "date": "2026-04-26T20:13:01Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "Update MediaDetailView.swift ",
-      "date": "2026-04-26T19:34:10Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "build fix ",
-      "date": "2026-04-26T11:10:07Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "fix anilist ",
-      "date": "2026-04-25T23:19:29Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "more TvOS fixes ",
-      "date": "2026-04-25T22:55:36Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "Update ServicesView.swift ",
-      "date": "2026-04-25T21:51:34Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "caption": "more ",
-      "date": "2026-04-25T16:37:12Z"
     }
   ]
 }
