@@ -28,14 +28,19 @@
         }
       ],
       "version": "1.0.1",
-      "versionDate": "2026-04-30T20:35:59Z",
-      "versionDescription": "tvOS log sharing ",
+      "versionDate": "2026-04-30T23:02:52Z",
+      "versionDescription": "Update PlayerViewController.swift ",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
-      "size": 64529938,
-      "date": "2026-04-30T20:35:59Z"
+      "size": 64522994,
+      "date": "2026-04-30T23:02:52Z"
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Update PlayerViewController.swift ",
+      "date": "2026-04-30T23:02:52Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "tvOS log sharing ",
@@ -82,12 +87,6 @@
       "identifier": "release-1.0.1-20260427",
       "caption": "Update ServicesResultsSheet.swift ",
       "date": "2026-04-27T00:03:21Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "identifier": "release-1.0.1-20260426",
-      "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
-      "date": "2026-04-26T23:22:53Z"
     }
   ]
 }
