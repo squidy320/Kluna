@@ -936,6 +936,14 @@ struct ContinueWatchingCard: View {
                 async let imagesTask = tmdbService.getTVShowImages(id: item.tmdbId, preferredLanguage: selectedLanguage)
                 async let romajiTask = tmdbService.getRomajiTitle(for: "tv", id: item.tmdbId)
 
+                // Also fetch episode details for the thumbnail
+                var episodeThumbnail: String? = nil
+                if let season = item.seasonNumber, let episode = item.episodeNumber {
+                    if let epDetails = try? await tmdbService.getEpisodeDetails(showId: item.tmdbId, seasonNumber: season, episodeNumber: episode) {
+                        episodeThumbnail = epDetails.fullStillURL
+                    }
+                }
+
                 let (details, images, romaji) = try await (detailsTask, imagesTask, romajiTask)
 
                 // Anime detection: same logic as MediaDetailView
@@ -946,7 +954,7 @@ struct ContinueWatchingCard: View {
                 // Set visual details immediately
                 await MainActor.run {
                     self.title = details.name
-                    self.backdropURL = details.fullBackdropURL ?? details.fullPosterURL ?? item.posterURL
+                    self.backdropURL = episodeThumbnail ?? details.fullBackdropURL ?? details.fullPosterURL ?? item.posterURL
                     if let logo = tmdbService.getBestLogo(from: images, preferredLanguage: selectedLanguage) {
                         self.logoURL = logo.fullURL
                     }
