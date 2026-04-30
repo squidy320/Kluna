@@ -224,6 +224,29 @@ class TMDBService: ObservableObject {
             throw TMDBError.networkError(error)
         }
     }
+
+    // MARK: - Get Episode Details
+    func getEpisodeDetails(showId: Int, seasonNumber: Int, episodeNumber: Int) async throws -> TMDBEpisode {
+        let cacheKey = "episode_\(showId)_\(seasonNumber)_\(episodeNumber)"
+        if let cached: TMDBEpisode = detailCache.get(key: cacheKey) {
+            return cached
+        }
+
+        let urlString = "\(baseURL)/tv/\(showId)/season/\(seasonNumber)/episode/\(episodeNumber)?api_key=\(apiKey)&language=\(currentLanguage)"
+        
+        guard let url = URL(string: urlString) else {
+            throw TMDBError.invalidURL
+        }
+        
+        do {
+            let (data, _) = try await throttledData(from: url)
+            let episode = try JSONDecoder().decode(TMDBEpisode.self, from: data)
+            detailCache.set(key: cacheKey, value: episode)
+            return episode
+        } catch {
+            throw TMDBError.networkError(error)
+        }
+    }
     
     // MARK: - Get Movie Alternative Titles
     func getMovieAlternativeTitles(id: Int) async throws -> TMDBAlternativeTitles {
