@@ -32,7 +32,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         return v
     }()
     
-    private let primaryRenderView: MetalVideoView = {
+    private let primaryRenderView: UIView = {
         let v = MetalVideoView()
         v.translatesAutoresizingMaskIntoConstraints = false
         v.backgroundColor = .black
@@ -691,7 +691,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     }
 
     private func updatePiPButtonVisibility() {
-        let pipSupported = PiPController.isPictureInPictureSupported
+        let pipSupported = pipController?.isPictureInPictureSupported ?? false
         // VLC PiP is disabled until VideoLAN adds native support
         pipButton.isHidden = !pipSupported || isVLCPlayer
     }
@@ -1908,7 +1908,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
                     ProgressHighlight(
                         start: seg.startTime,
                         end: seg.endTime,
-                        color: seg.type == .op ? .blue : (seg.type == .ed ? .orange : .yellow),
+                        color: seg.type == .intro ? .blue : (seg.type == .outro ? .orange : .yellow),
                         label: seg.type.displayLabel
                     )
                 }
