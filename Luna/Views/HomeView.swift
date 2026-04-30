@@ -346,7 +346,29 @@ struct HomeView: View {
     @ViewBuilder
     private var contentSections: some View {
         LazyVStack(spacing: 0) {
-            ForEach(Array(homeViewModel.visibleCatalogs.enumerated()), id: \.element.id) { index, catalog in
+            let catalogs = enabledCatalogs.filter { catalog in
+                switch catalog.displayStyle {
+                case .standard:
+                    if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
+                        return true
+                    }
+                    return false
+                case .network:
+                    return WidgetNetwork.curated.contains { !( homeViewModel.widgetData["network_\($0.id)"] ?? []).isEmpty }
+                case .genre:
+                    return WidgetGenre.curated.contains { !(homeViewModel.widgetData["genre_\($0.id)"] ?? []).isEmpty }
+                case .company:
+                    return WidgetCompany.curated.contains { !(homeViewModel.widgetData["company_\($0.id)"] ?? []).isEmpty }
+                case .ranked:
+                    if let items = homeViewModel.widgetData[catalog.id], !items.isEmpty { return true }
+                    if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty { return true }
+                    return false
+                case .featured:
+                    return !(homeViewModel.widgetData["featured"] ?? []).isEmpty
+                }
+            }
+
+            ForEach(Array(catalogs.enumerated()), id: \.element.id) { index, catalog in
                 Group {
                     switch catalog.displayStyle {
                     case .standard:
@@ -409,7 +431,7 @@ struct HomeView: View {
                 .id(catalog.id)
                 .drawingGroup()
                 
-                if index < homeViewModel.visibleCatalogs.count - 1 {
+                if index < catalogs.count - 1 {
                     SectionDivider()
                 }
             }
