@@ -4,10 +4,18 @@
 //
 //  Created by Pratik on 08/01/23.
 //
-//  Thanks to pratikg29 for this code inside his open source project "https://github.com/pratikg29/Custom-Slider-Control?ref=iosexample.com"
+//  Thanks to pratikg29 for this code inside his open source project "https://github.com/pratikg29/Custom-Slider-Control"
 //  I did edit some of the code for my liking (added a buffer indicator, etc.)
 
 import SwiftUI
+
+struct ProgressHighlight: Identifiable {
+    let id = UUID()
+    let start: Double
+    let end: Double
+    let color: Color
+    let label: String
+}
 
 struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
     @Binding var value: T
@@ -17,15 +25,13 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
     let textColor: Color
     let emptyColor: Color
     let height: CGFloat
-    /// Normalized 0-1 skip segment ranges to render as yellow overlays.
-    let segments: [(start: Double, end: Double)]
+    let highlights: [ProgressHighlight]
     let onEditingChanged: (Bool) -> Void
     
     @State private var localRealProgress: T = 0
     @State private var localTempProgress: T = 0
     @GestureState private var isActive: Bool = false
     @State private var progressDuration: T = 0
-
     
     init(
         value: Binding<T>,
@@ -35,7 +41,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
         textColor: Color,
         emptyColor: Color,
         height: CGFloat,
-        segments: [(start: Double, end: Double)] = [],
+        highlights: [ProgressHighlight] = [],
         onEditingChanged: @escaping (Bool) -> Void
     ) {
         self._value = value
@@ -45,7 +51,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
         self.textColor = textColor
         self.emptyColor = emptyColor
         self.height = height
-        self.segments = segments
+        self.highlights = highlights
         self.onEditingChanged = onEditingChanged
     }
     
@@ -55,23 +61,37 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                 Color.clear
                     .allowsHitTesting(false)
                 VStack(spacing: 8) {
-                    ZStack(alignment: .leading) {
-                        // Background capsule
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-
-                        // Yellow skip-segment overlays
-                        ForEach(Array(segments.enumerated()), id: \.offset) { _, seg in
-                            let segStart = CGFloat(max(0, min(seg.start, 1)))
-                            let segEnd = CGFloat(max(0, min(seg.end, 1)))
-                            let segWidth = max((segEnd - segStart) * bounds.size.width, 2)
-                            Rectangle()
-                                .fill(Color.yellow.opacity(0.55))
-                                .frame(width: segWidth)
-                                .offset(x: segStart * bounds.size.width)
+                    ZStack(alignment: .center) {
+                        ZStack(alignment: .center) {
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                            
+                            if !highlights.isEmpty {
+                                Canvas { context, size in
+                                    let lower = Double(inRange.lowerBound)
+                                    let upper = Double(inRange.upperBound)
+                                    let range = max(upper - lower, 0.000001)
+                                    
+                                    for highlight in highlights {
+                                        let clampedStart = max(lower, min(highlight.start, upper))
+                                        let clampedEnd = max(lower, min(highlight.end, upper))
+                                        guard clampedEnd > clampedStart else { continue }
+                                        
+                                        let startRatio = (clampedStart - lower) / range
+                                        let endRatio = (clampedEnd - lower) / range
+                                        
+                                        let x = size.width * CGFloat(startRatio)
+                                        let width = size.width * CGFloat(endRatio - startRatio)
+                                        let rect = CGRect(x: x, y: 0, width: width, height: size.height)
+                                        context.fill(Path(rect), with: .color(highlight.color.opacity(0.7)))
+                                    }
+                                }
+                                .frame(width: bounds.size.width)
+                                .mask(Capsule())
+                            }
                         }
-
-                        // Progress fill
+                        .clipShape(Capsule())
+                        
                         Capsule()
                             .fill(isActive ? activeFillColor : fillColor)
                             .mask({
@@ -88,7 +108,6 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                                 }
                             })
                     }
-                    .clipShape(Capsule())
                     
                     HStack {
                         Text(timeString(from: progressDuration))
@@ -103,7 +122,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
             }
             .frame(width: bounds.size.width, height: bounds.size.height, alignment: .center)
             .contentShape(Rectangle())
-            #if !os(tvOS)
+#if !os(tvOS)
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
                     .updating($isActive) { _, state, _ in
@@ -120,7 +139,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                         localTempProgress = 0
                     }
             )
-            #endif
+#endif
             .onChangeComp(of: isActive) { _, newValue in
                 value = max(min(getPrgValue(), inRange.upperBound), inRange.lowerBound)
                 onEditingChanged(newValue)
@@ -138,7 +157,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
         }
         .frame(height: isActive ? height * 1.25 : height, alignment: .center)
     }
-        
+    
     private var animation: Animation {
         if isActive {
             return .spring()
@@ -149,31 +168,13 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
     
     private func getPrgPercentage(_ value: T) -> T {
         let range = inRange.upperBound - inRange.lowerBound
-        let rangeDouble = Double(range)
-        if !rangeDouble.isFinite || abs(rangeDouble) <= .ulpOfOne {
-            Logger.shared.log("[MusicProgressSlider.math] invalid range in getPrgPercentage range=\(rangeDouble)", type: "Error")
-            return 0
-        }
-
         let correctedStartValue = value - inRange.lowerBound
         let percentage = correctedStartValue / range
-        let clamped = max(min(percentage, 1), 0)
-        let clampedDouble = Double(clamped)
-        if !clampedDouble.isFinite {
-            Logger.shared.log("[MusicProgressSlider.math] non-finite clamped percentage value=\(Double(value)) range=\(rangeDouble)", type: "Error")
-            return 0
-        }
-        return clamped
+        return percentage
     }
     
     private func getPrgValue() -> T {
-        let candidate = ((localRealProgress + localTempProgress) * (inRange.upperBound - inRange.lowerBound)) + inRange.lowerBound
-        let candidateDouble = Double(candidate)
-        if !candidateDouble.isFinite {
-            Logger.shared.log("[MusicProgressSlider.math] non-finite candidate localReal=\(Double(localRealProgress)) localTemp=\(Double(localTempProgress)) rangeEnd=\(Double(inRange.upperBound))", type: "Error")
-            return inRange.lowerBound
-        }
-        return candidate
+        return ((localRealProgress + localTempProgress) * (inRange.upperBound - inRange.lowerBound)) + inRange.lowerBound
     }
     
     private func timeString(from value: T) -> String {

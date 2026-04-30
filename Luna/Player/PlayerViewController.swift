@@ -32,6 +32,13 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         return v
     }()
     
+    private let primaryRenderView: MetalVideoView = {
+        let v = MetalVideoView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor = .black
+        return v
+    }()
+
     private let displayLayer = AVSampleBufferDisplayLayer()
     
     private func createSymbolButton(symbolName: String, pointSize: CGFloat = 18, weight: UIImage.SymbolWeight = .semibold, backgroundColor: UIColor? = nil) -> UIButton {
@@ -305,7 +312,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     class ProgressModel: ObservableObject {
         @Published var position: Double = 0
         @Published var duration: Double = 1
-        @Published var skipSegments: [(start: Double, end: Double)] = []
+        @Published var highlights: [ProgressHighlight] = []
     }
     private var progressModel = ProgressModel()
 
@@ -326,7 +333,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
             r.delegate = self
             return r
         } else {
-            let r = MPVSoftwareRenderer(displayLayer: displayLayer)
+            let r = MPVSoftwareRenderer(primaryRenderView: primaryRenderView, pipDisplayLayer: displayLayer)
             r.delegate = self
             return r
         }
@@ -1001,12 +1008,13 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     
     private func setupLayout() {
         view.addSubview(videoContainer)
+        videoContainer.addSubview(primaryRenderView)
         
         // Keep the sample-buffer layer attached for MPV playback and VLC PiP handoff
         displayLayer.frame = videoContainer.bounds
         // Keep full video visible; avoid cropping for downloaded media
         displayLayer.videoGravity = .resizeAspect
-        displayLayer.isOpaque = (vlcRenderer == nil)
+        displayLayer.isOpaque = false
 #if compiler(>=6.0)
         if #available(iOS 26.0, tvOS 26.0, *) {
             displayLayer.preferredDynamicRange = .automatic
@@ -1022,7 +1030,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
             displayLayer.wantsExtendedDynamicRangeContent = true
         }
 #endif
-        displayLayer.backgroundColor = (vlcRenderer == nil) ? UIColor.black.cgColor : UIColor.clear.cgColor
+        displayLayer.backgroundColor = UIColor.clear.cgColor
         videoContainer.layer.addSublayer(displayLayer)
         
         // Add VLC rendering view FIRST (before all UI elements) so it renders behind controls
@@ -1074,6 +1082,11 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
             videoContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             videoContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
+            primaryRenderView.topAnchor.constraint(equalTo: videoContainer.topAnchor),
+            primaryRenderView.leadingAnchor.constraint(equalTo: videoContainer.leadingAnchor),
+            primaryRenderView.trailingAnchor.constraint(equalTo: videoContainer.trailingAnchor),
+            primaryRenderView.bottomAnchor.constraint(equalTo: videoContainer.bottomAnchor),
+
             progressContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 12),
             progressContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
             progressContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
@@ -1891,10 +1904,13 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
             // Store segments and normalize for progress bar
             await MainActor.run {
                 self.skipSegments = segments
-                let liveDuration = self.cachedDuration
-                guard liveDuration > 0 else { return }
-                self.progressModel.skipSegments = segments.map { seg in
-                    (start: seg.startTime / liveDuration, end: seg.endTime / liveDuration)
+                self.progressModel.highlights = segments.map { seg in
+                    ProgressHighlight(
+                        start: seg.startTime,
+                        end: seg.endTime,
+                        color: seg.type == .op ? .blue : (seg.type == .ed ? .orange : .yellow),
+                        label: seg.type.displayLabel
+                    )
                 }
 #if !os(tvOS)
                 if skip85sEnabled && skip85sAlwaysVisible {
@@ -1970,13 +1986,17 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     private func updateSkipState(position: Double, duration: Double) {
         guard !skipSegments.isEmpty, duration > 0 else { return }
 
-        // Deferred normalization: if fetchSkipData completed before duration was available,
-        // progressModel.skipSegments will still be empty. Populate it now.
-        if progressModel.skipSegments.isEmpty {
-            progressModel.skipSegments = skipSegments.map { seg in
-                (start: seg.startTime / duration, end: seg.endTime / duration)
+        // Deferred highlight population: if fetchSkipData completed before duration was available,
+        // and for some reason highlights are empty, ensure they are synced.
+        if progressModel.highlights.isEmpty && !skipSegments.isEmpty {
+            progressModel.highlights = skipSegments.map { seg in
+                ProgressHighlight(
+                    start: seg.startTime,
+                    end: seg.endTime,
+                    color: seg.type == .op ? .blue : (seg.type == .ed ? .orange : .yellow),
+                    label: seg.type.displayLabel
+                )
             }
-            Logger.shared.log("SkipData: Deferred normalization applied with duration=\(String(format: "%.1f", duration))", type: "Skip")
         }
 
         // Find if current position is inside any skip segment
@@ -2822,7 +2842,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
                     textColor: .white.opacity(0.7),
                     emptyColor: .white.opacity(0.3),
                     height: 33,
-                    segments: model.skipSegments,
+                    highlights: model.highlights,
                     onEditingChanged: onEditingChanged
                 )
             }

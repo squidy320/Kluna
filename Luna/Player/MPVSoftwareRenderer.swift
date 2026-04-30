@@ -1,6 +1,6 @@
 //
 //  MPVSoftwareRenderer.swift
-//  test
+//  Luna
 //
 //  Created by Francesco on 28/09/25.
 //
@@ -10,12 +10,14 @@ import Libmpv
 import CoreMedia
 import CoreVideo
 import AVFoundation
+import QuartzCore
 
 protocol MPVSoftwareRendererDelegate: AnyObject {
     func renderer(_ renderer: MPVSoftwareRenderer, didUpdatePosition position: Double, duration: Double)
     func renderer(_ renderer: MPVSoftwareRenderer, didChangePause isPaused: Bool)
     func renderer(_ renderer: MPVSoftwareRenderer, didChangeLoading isLoading: Bool)
     func renderer(_ renderer: MPVSoftwareRenderer, didBecomeReadyToSeek: Bool)
+    func rendererDidChangeTracks(_ renderer: MPVSoftwareRenderer)
     func renderer(_ renderer: MPVSoftwareRenderer, getSubtitleForTime time: Double) -> NSAttributedString?
     func renderer(_ renderer: MPVSoftwareRenderer, getSubtitleStyle: Void) -> SubtitleStyle
 }
@@ -31,23 +33,9 @@ struct SubtitleStyle {
         foregroundColor: .white,
         strokeColor: .black,
         strokeWidth: 1.0,
-        fontSize: 38.0,
+        fontSize: 18.0,
         isVisible: false
     )
-}
-
-private struct SubtitleRenderKey: Equatable {
-    let text: String
-    let fontSize: CGFloat
-    let foreground: String
-    let stroke: String
-    let strokeWidth: CGFloat
-}
-
-private struct SubtitleRenderCache {
-    let key: SubtitleRenderKey
-    let image: CGImage
-    let size: CGSize
 }
 
 final class MPVSoftwareRenderer {
@@ -57,7 +45,9 @@ final class MPVSoftwareRenderer {
         case renderContextCreation(Int32)
     }
     
-    private let displayLayer: AVSampleBufferDisplayLayer
+    private weak var primaryRenderView: UIView?
+    private let pipDisplayLayer: AVSampleBufferDisplayLayer
+    
     private let renderQueue = DispatchQueue(label: "mpv.software.render", qos: .userInitiated)
     private let eventQueue = DispatchQueue(label: "mpv.software.events", qos: .utility)
     private let stateQueue = DispatchQueue(label: "mpv.software.state", attributes: .concurrent)
@@ -68,8 +58,9 @@ final class MPVSoftwareRenderer {
     private var renderParams = [mpv_render_param](repeating: mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil), count: 5)
     
     private var mpv: OpaquePointer?
-    private var renderContext: OpaquePointer?
+    private var pipRenderContext: OpaquePointer?
     private var videoSize: CGSize = .zero
+    
     private var pixelBufferPool: CVPixelBufferPool?
     private var pixelBufferPoolAuxAttributes: CFDictionary?
     private var formatDescription: CMVideoFormatDescription?
@@ -91,24 +82,18 @@ final class MPVSoftwareRenderer {
     private let bgraFormatCString: [CChar] = Array("bgra\0".utf8CString)
     
     weak var delegate: MPVSoftwareRendererDelegate?
-    private var cachedDuration: Double = 0
-    private var cachedPosition: Double = 0
+    
     private var isPaused: Bool = true
     private var isLoading: Bool = false
-    private var isRenderScheduled = false
-    private var lastRenderTime: CFTimeInterval = 0
-    private var minRenderInterval: CFTimeInterval
-    private var isReadyToSeek: Bool = false
-    private var lastSubtitleCheckTime: Double = -1.0
-    private var cachedSubtitleText: NSAttributedString?
-    private var subtitleRenderCache: SubtitleRenderCache?
-    private var lastRenderDimensions: CGSize = .zero
-    private let subtitleUpdateInterval: Double = 0.5
+    private var cachedDuration: Double = 0
+    private var cachedPosition: Double = 0
     
-    var isPausedState: Bool {
-        return isPaused
-    }
-
+    private var pipDisplayLink: CADisplayLink?
+    private var pipDisplayLinkProxy: PiPDisplayLinkProxy?
+    private var pipDisplayLinkRequested = false
+    private var pipFramePumpScheduled = false
+    private var lastRenderDimensions: CGSize = .zero
+    
     private struct MPVTrackInfo {
         let id: Int
         let type: String
@@ -117,36 +102,25 @@ final class MPVSoftwareRenderer {
         let selected: Bool
     }
 
-    private func languageName(for code: String) -> String {
-        switch code.lowercased() {
-        case "jpn", "ja", "jp": return "Japanese"
-        case "eng", "en", "us", "uk": return "English"
-        case "spa", "es", "esp": return "Spanish"
-        case "fre", "fra", "fr": return "French"
-        case "ger", "deu", "de": return "German"
-        case "ita", "it": return "Italian"
-        case "por", "pt": return "Portuguese"
-        case "rus", "ru": return "Russian"
-        case "chi", "zho", "zh": return "Chinese"
-        case "kor", "ko": return "Korean"
-        default: return ""
+    private final class PiPDisplayLinkProxy: NSObject {
+        weak var owner: MPVSoftwareRenderer?
+        
+        init(owner: MPVSoftwareRenderer) {
+            self.owner = owner
+        }
+        
+        @objc func onDisplayLinkTick() {
+            owner?.pumpPiPFrame()
         }
     }
     
-    init(displayLayer: AVSampleBufferDisplayLayer) {
-        guard
-            let screen = UIApplication.shared.connectedScenes
-                .compactMap({ ($0 as? UIWindowScene)?.screen })
-                .first
-        else {
-            fatalError("⚠️ No active screen found — app may not have a visible window yet.")
-        }
-        
-        self.displayLayer = displayLayer
-        let maxFPS = screen.maximumFramesPerSecond
-        let cappedFPS = min(maxFPS, 60)
-        self.minRenderInterval = 1.0 / CFTimeInterval(cappedFPS)
-        
+    var isPausedState: Bool {
+        return isPaused
+    }
+    
+    init(primaryRenderView: UIView, pipDisplayLayer: AVSampleBufferDisplayLayer) {
+        self.primaryRenderView = primaryRenderView
+        self.pipDisplayLayer = pipDisplayLayer
         renderQueue.setSpecific(key: renderQueueKey, value: ())
     }
     
@@ -159,23 +133,27 @@ final class MPVSoftwareRenderer {
         guard let handle = mpv_create() else {
             throw RendererError.mpvCreationFailed
         }
+        
         mpv = handle
-        setOption(name: "terminal", value: "yes")
-        setOption(name: "msg-level", value: "status")
-        setOption(name: "keep-open", value: "yes")
+        setOption(name: "vo", value: "gpu-next")
+        setOption(name: "gpu-api", value: "vulkan")
+        setOption(name: "hwdec", value: "videotoolbox")
+        setOption(name: "gpu-context", value: "moltenvk")
+        
         setOption(name: "idle", value: "yes")
-        setOption(name: "vo", value: "libmpv")
-        setOption(name: "hwdec", value: "videotoolbox-copy")
-        setOption(name: "gpu-api", value: "metal")
-        setOption(name: "gpu-context", value: "metal")
-        setOption(name: "demuxer-thread", value: "yes")
         setOption(name: "ytdl", value: "yes")
-        setOption(name: "profile", value: "fast")
-        setOption(name: "vd-lavc-threads", value: "8")
-        setOption(name: "cache", value: "yes")
-        setOption(name: "demuxer-max-bytes", value: "150M")
-        setOption(name: "demuxer-readahead-secs", value: "20")
+        setOption(name: "sub-ass", value: "yes")
+        setOption(name: "hr-seek", value: "yes")
+        setOption(name: "terminal", value: "yes")
+        setOption(name: "keep-open", value: "yes")
+        setOption(name: "interpolation", value: "no")
         setOption(name: "subs-fallback", value: "yes")
+        setOption(name: "msg-level", value: "all=warn")
+        setOption(name: "demuxer-thread", value: "yes")
+        setOption(name: "sub-ass-override", value: "yes")
+        setOption(name: "video-sync", value: "display-resample")
+        setOption(name: "audio-normalize-downmix", value: "yes")
+        configureWindowEmbedding()
         
         let initStatus = mpv_initialize(handle)
         guard initStatus >= 0 else {
@@ -183,8 +161,6 @@ final class MPVSoftwareRenderer {
         }
         
         mpv_request_log_messages(handle, "warn")
-        
-        try createRenderContext()
         observeProperties()
         installWakeupHandler()
         isRunning = true
@@ -193,19 +169,14 @@ final class MPVSoftwareRenderer {
     func stop() {
         if isStopping { return }
         if !isRunning, mpv == nil { return }
+        
         isRunning = false
         isStopping = true
-        
         var handleForShutdown: OpaquePointer?
         
         renderQueue.sync { [weak self] in
             guard let self else { return }
-            
-            if let ctx = self.renderContext {
-                mpv_render_context_set_update_callback(ctx, nil, nil)
-                mpv_render_context_free(ctx)
-                self.renderContext = nil
-            }
+            self.stopPiPRenderingLocked()
             
             handleForShutdown = self.mpv
             if let handle = handleForShutdown {
@@ -246,15 +217,36 @@ final class MPVSoftwareRenderer {
         
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            
             if #available(iOS 18.0, *) {
-                self.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
+                self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
             } else {
-                self.displayLayer.flushAndRemoveImage()
+                self.pipDisplayLayer.flushAndRemoveImage()
             }
         }
         
         isStopping = false
+    }
+    
+    func startPiPRendering() {
+        renderQueue.async { [weak self] in
+            guard let self, self.isRunning, !self.isStopping else { return }
+            if self.pipRenderContext == nil {
+                do {
+                    try self.createPiPRenderContext()
+                    self.shouldClearPixelBuffer = true
+                } catch {
+                    Logger.shared.log("Failed to create PiP SW render context: \(error)", type: "Error")
+                    return
+                }
+            }
+            self.startPiPDisplayLinkLocked()
+        }
+    }
+    
+    func stopPiPRendering() {
+        renderQueue.async { [weak self] in
+            self?.stopPiPRenderingLocked()
+        }
     }
     
     func load(url: URL, with preset: PlayerPreset, headers: [String: String]? = nil) {
@@ -265,7 +257,6 @@ final class MPVSoftwareRenderer {
         renderQueue.async { [weak self] in
             guard let self else { return }
             self.isLoading = true
-            self.isReadyToSeek = false
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.delegate?.renderer(self, didChangeLoading: true)
@@ -280,12 +271,7 @@ final class MPVSoftwareRenderer {
             self.command(handle, ["stop"])
             self.updateHTTPHeaders(headers)
             
-            var finalURL = url
-            if !url.isFileURL {
-                finalURL = url
-            }
-            
-            let target = finalURL.isFileURL ? finalURL.path : finalURL.absoluteString
+            let target = url.isFileURL ? url.path : url.absoluteString
             self.command(handle, ["loadfile", target, "replace"])
         }
     }
@@ -311,6 +297,31 @@ final class MPVSoftwareRenderer {
                 mpv_set_option_string(handle, namePointer, valuePointer)
             }
         }
+    }
+    
+    private func setOption(name: String, int64Value: Int64) {
+        guard let handle = mpv else { return }
+        var mutableValue = int64Value
+        let status = name.withCString { namePointer in
+            withUnsafeMutablePointer(to: &mutableValue) { valuePointer in
+                mpv_set_option(handle, namePointer, MPV_FORMAT_INT64, valuePointer)
+            }
+        }
+        if status < 0 {
+            Logger.shared.log("Failed to set option \(name)=\(int64Value) (\(status))", type: "Warn")
+        }
+    }
+    
+    private func configureWindowEmbedding() {
+        guard let primaryRenderView else {
+            Logger.shared.log("Primary render view is missing, mpv window embedding disabled", type: "Warn")
+            return
+        }
+        
+        let renderTarget = primaryRenderView.layer
+        let pointerValue = UInt(bitPattern: Unmanaged.passUnretained(renderTarget).toOpaque())
+        let wid = Int64(bitPattern: UInt64(pointerValue))
+        setOption(name: "wid", int64Value: wid)
     }
     
     private func setProperty(name: String, value: String) {
@@ -342,14 +353,12 @@ final class MPVSoftwareRenderer {
         }
         
         let headerString = headers
-            .map { key, value in
-                "\(key): \(value)"
-            }
+            .map { key, value in "\(key): \(value)" }
             .joined(separator: "\r\n")
         setProperty(name: "http-header-fields", value: headerString)
     }
     
-    private func createRenderContext() throws {
+    private func createPiPRenderContext() throws {
         guard let handle = mpv else { return }
         
         var apiType = MPV_RENDER_API_TYPE_SW
@@ -361,19 +370,19 @@ final class MPVSoftwareRenderer {
             
             return params.withUnsafeMutableBufferPointer { pointer -> Int32 in
                 pointer.baseAddress?.withMemoryRebound(to: mpv_render_param.self, capacity: pointer.count) { parameters in
-                    return mpv_render_context_create(&renderContext, handle, parameters)
+                    mpv_render_context_create(&pipRenderContext, handle, parameters)
                 } ?? -1
             }
         }
         
-        guard status >= 0, renderContext != nil else {
+        guard status >= 0, pipRenderContext != nil else {
             throw RendererError.renderContextCreation(status)
         }
         
-        mpv_render_context_set_update_callback(renderContext, { context in
-            guard let context = context else { return }
+        mpv_render_context_set_update_callback(pipRenderContext, { context in
+            guard let context else { return }
             let instance = Unmanaged<MPVSoftwareRenderer>.fromOpaque(context).takeUnretainedValue()
-            instance.scheduleRender()
+            instance.requestPiPDisplayLink()
         }, Unmanaged.passUnretained(self).toOpaque())
     }
     
@@ -384,7 +393,8 @@ final class MPVSoftwareRenderer {
             ("dheight", MPV_FORMAT_INT64),
             ("duration", MPV_FORMAT_DOUBLE),
             ("time-pos", MPV_FORMAT_DOUBLE),
-            ("pause", MPV_FORMAT_FLAG)
+            ("pause", MPV_FORMAT_FLAG),
+            ("track-list", MPV_FORMAT_NONE)
         ]
         
         for (name, format) in properties {
@@ -410,50 +420,61 @@ final class MPVSoftwareRenderer {
         }
     }
     
-    private func scheduleRender() {
+    private func requestPiPDisplayLink() {
+        renderQueue.async { [weak self] in
+            guard let self, self.pipRenderContext != nil else { return }
+            self.pipDisplayLinkRequested = true
+            self.startPiPDisplayLinkLocked()
+        }
+    }
+    
+    private func startPiPDisplayLinkLocked() {
+        guard pipDisplayLink == nil else { return }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard self.pipDisplayLink == nil else { return }
+            
+            let proxy = PiPDisplayLinkProxy(owner: self)
+            let displayLink = CADisplayLink(target: proxy, selector: #selector(PiPDisplayLinkProxy.onDisplayLinkTick))
+            displayLink.preferredFramesPerSecond = 30
+            displayLink.add(to: .main, forMode: .common)
+            
+            self.pipDisplayLinkProxy = proxy
+            self.pipDisplayLink = displayLink
+        }
+    }
+    
+    private func stopPiPDisplayLinkLocked() {
+        DispatchQueue.main.async { [weak self] in
+            self?.pipDisplayLink?.invalidate()
+            self?.pipDisplayLink = nil
+            self?.pipDisplayLinkProxy = nil
+        }
+    }
+    
+    private func pumpPiPFrame() {
         renderQueue.async { [weak self] in
             guard let self, self.isRunning, !self.isStopping else { return }
+            guard let context = self.pipRenderContext else { return }
+            guard self.pipDisplayLinkRequested || self.pipFramePumpScheduled else { return }
             
-            let currentTime = CACurrentMediaTime()
-            let timeSinceLastRender = currentTime - self.lastRenderTime
-            if timeSinceLastRender < self.minRenderInterval {
-                let remaining = self.minRenderInterval - timeSinceLastRender
-                if self.isRenderScheduled { return }
-                self.isRenderScheduled = true
-                
-                self.renderQueue.asyncAfter(deadline: .now() + remaining) { [weak self] in
-                    guard let self else { return }
-                    self.lastRenderTime = CACurrentMediaTime()
-                    self.performRenderUpdate()
-                    self.isRenderScheduled = false
-                }
-                return
-            }
-            
-            self.isRenderScheduled = true
-            self.lastRenderTime = currentTime
-            self.performRenderUpdate()
-            self.isRenderScheduled = false
+            self.pipFramePumpScheduled = true
+            self.performPiPRenderUpdate(with: context)
+            self.pipFramePumpScheduled = false
         }
     }
     
-    private func performRenderUpdate() {
-        guard let context = renderContext else { return }
+    private func performPiPRenderUpdate(with context: OpaquePointer) {
         let status = mpv_render_context_update(context)
-        
-        let updateFlags = UInt32(status)
-        
-        if updateFlags & MPV_RENDER_UPDATE_FRAME.rawValue != 0 {
-            renderFrame()
-        }
-        
-        if status > 0 {
-            scheduleRender()
+        let updateFlags = UInt64(truncatingIfNeeded: status)
+        if updateFlags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue) != 0 {
+            pipDisplayLinkRequested = false
+            renderFrame(with: context)
         }
     }
     
-    private func renderFrame() {
-        guard let context = renderContext else { return }
+    private func renderFrame(with context: OpaquePointer) {
         let videoSize = currentVideoSize()
         guard videoSize.width > 0, videoSize.height > 0 else { return }
         
@@ -461,12 +482,13 @@ final class MPVSoftwareRenderer {
         let width = Int(targetSize.width)
         let height = Int(targetSize.height)
         guard width > 0, height > 0 else { return }
+        
         if lastRenderDimensions != targetSize {
             lastRenderDimensions = targetSize
             if targetSize != videoSize {
-                Logger.shared.log("Rendering scaled output at \(width)x\(height) (source \(Int(videoSize.width))x\(Int(videoSize.height)))", type: "Info")
+                Logger.shared.log("Rendering PiP output at \(width)x\(height) (source \(Int(videoSize.width))x\(Int(videoSize.height)))", type: "Info")
             } else {
-                Logger.shared.log("Rendering output at native size \(width)x\(height)", type: "Info")
+                Logger.shared.log("Rendering PiP output at native size \(width)x\(height)", type: "Info")
             }
         }
         
@@ -498,7 +520,7 @@ final class MPVSoftwareRenderer {
         }
         
         guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
-            Logger.shared.log("Failed to create pixel buffer for rendering (status: \(status))", type: "Error")
+            Logger.shared.log("Failed to create pixel buffer for PiP rendering (status: \(status))", type: "Error")
             return
         }
         
@@ -524,19 +546,18 @@ final class MPVSoftwareRenderer {
         let stride = Int32(CVPixelBufferGetBytesPerRow(buffer))
         let expectedMinStride = Int32(width * 4)
         if stride < expectedMinStride {
-            Logger.shared.log("Unexpected pixel buffer stride \(stride) < expected \(expectedMinStride) — skipping render to avoid memory corruption", type: "Error")
+            Logger.shared.log("Unexpected pixel buffer stride \(stride) < expected \(expectedMinStride) - skipping render to avoid memory corruption", type: "Error")
             CVPixelBufferUnlockBaseAddress(buffer, [])
             return
         }
         
-        let pointerValue = baseAddress
         dimensionsArray.withUnsafeMutableBufferPointer { dimsPointer in
             bgraFormatCString.withUnsafeBufferPointer { formatPointer in
                 withUnsafePointer(to: stride) { stridePointer in
                     renderParams[0] = mpv_render_param(type: MPV_RENDER_PARAM_SW_SIZE, data: UnsafeMutableRawPointer(dimsPointer.baseAddress))
                     renderParams[1] = mpv_render_param(type: MPV_RENDER_PARAM_SW_FORMAT, data: UnsafeMutableRawPointer(mutating: formatPointer.baseAddress))
                     renderParams[2] = mpv_render_param(type: MPV_RENDER_PARAM_SW_STRIDE, data: UnsafeMutableRawPointer(mutating: stridePointer))
-                    renderParams[3] = mpv_render_param(type: MPV_RENDER_PARAM_SW_POINTER, data: pointerValue)
+                    renderParams[3] = mpv_render_param(type: MPV_RENDER_PARAM_SW_POINTER, data: baseAddress)
                     renderParams[4] = mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
                     
                     let rc = mpv_render_context_render(context, &renderParams)
@@ -548,27 +569,6 @@ final class MPVSoftwareRenderer {
         }
         
         CVPixelBufferUnlockBaseAddress(buffer, [])
-        
-        if let style = delegate?.renderer(self, getSubtitleStyle: ()), style.isVisible {
-            let currentTime = cachedPosition
-            let timeDelta = abs(currentTime - lastSubtitleCheckTime)
-            
-            if timeDelta >= subtitleUpdateInterval {
-                lastSubtitleCheckTime = currentTime
-                cachedSubtitleText = delegate?.renderer(self, getSubtitleForTime: currentTime)
-            }
-            
-            if let attributedText = cachedSubtitleText, attributedText.length > 0 {
-                burnSubtitles(into: buffer, attributedText: attributedText, style: style)
-            } else {
-                subtitleRenderCache = nil
-            }
-        } else {
-            subtitleRenderCache = nil
-            lastSubtitleCheckTime = -1.0
-            cachedSubtitleText = nil
-        }
-        
         enqueue(buffer: buffer)
         
         if preAllocatedBuffers.count < 2 {
@@ -586,7 +586,7 @@ final class MPVSoftwareRenderer {
                 .compactMap({ ($0 as? UIWindowScene)?.screen })
                 .first
         else {
-            fatalError("⚠️ No active screen found — app may not have a visible window yet.")
+            return videoSize
         }
         
         var scale = screen.scale
@@ -596,6 +596,7 @@ final class MPVSoftwareRenderer {
         if maxWidth <= 0 || maxHeight <= 0 {
             return videoSize
         }
+        
         let widthRatio = videoSize.width / maxWidth
         let heightRatio = videoSize.height / maxHeight
         let ratio = max(widthRatio, heightRatio, 1)
@@ -604,198 +605,9 @@ final class MPVSoftwareRenderer {
         return CGSize(width: CGFloat(targetWidth), height: CGFloat(targetHeight))
     }
     
-    private func burnSubtitles(into pixelBuffer: CVPixelBuffer, attributedText: NSAttributedString, style: SubtitleStyle) {
-        let bufferWidth = CVPixelBufferGetWidth(pixelBuffer)
-        let bufferHeight = CVPixelBufferGetHeight(pixelBuffer)
-        
-        guard bufferWidth > 0, bufferHeight > 0 else {
-            Logger.shared.log("Invalid bufer dimensions for subtitle: \(bufferWidth)x\(bufferHeight)", type: "Error")
-            return
-        }
-        
-        let highRes = bufferWidth >= 3840 || bufferHeight >= 2160
-        let renderScale: CGFloat = highRes ? 0.5 : 1.0
-        let effectiveWidth = Int(CGFloat(bufferWidth) * renderScale)
-        let effectiveHeight = Int(CGFloat(bufferHeight) * renderScale)
-        
-        guard let subtitleImage = makeSubtitleImage(from: attributedText, style: style, maxWidth: CGFloat(effectiveWidth) * 0.9) else {
-            return
-        }
-        
-        CVPixelBufferLockBaseAddress(pixelBuffer, [])
-        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
-        
-        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
-            Logger.shared.log("Failed to get base addres s for subtitle rendering", type: "Error")
-            return
-        }
-        
-        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        
-        guard let context = CGContext(
-            data: baseAddress,
-            width: bufferWidth,
-            height: bufferHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        ) else {
-            Logger.shared.log("Failed to create CGContext for subtitle rendering", type: "Error")
-            return
-        }
-        
-        context.saveGState()
-        context.interpolationQuality = .high
-        context.setAllowsAntialiasing(true)
-        context.setShouldAntialias(true)
-        
-        let imageSize = subtitleImage.size
-        let bottomMargin = max(CGFloat(effectiveHeight) * 0.08, style.fontSize * 1.4)
-        let horizontalMargin = max(CGFloat(effectiveWidth) * 0.02, style.fontSize * 0.8)
-        let availableWidth = max(CGFloat(effectiveWidth) - horizontalMargin * 2.0, 1.0)
-        let scale = min(1.0, availableWidth / imageSize.width)
-        
-        let renderWidth = imageSize.width * scale
-        let renderHeight = imageSize.height * scale
-        
-        var xPosition = (CGFloat(effectiveWidth) - renderWidth) / 2.0
-        if xPosition < horizontalMargin {
-            xPosition = horizontalMargin
-        }
-        if xPosition + renderWidth > CGFloat(effectiveWidth) - horizontalMargin {
-            xPosition = max(horizontalMargin, CGFloat(effectiveWidth) - horizontalMargin - renderWidth)
-        }
-        
-        let topLimit = CGFloat(effectiveHeight) - renderHeight - bottomMargin
-        var yPosition = bottomMargin
-        if topLimit < bottomMargin {
-            yPosition = max(topLimit, 0)
-        }
-        let renderRect = CGRect(x: xPosition, y: yPosition, width: renderWidth, height: renderHeight)
-        
-        context.draw(subtitleImage.image, in: renderRect)
-        context.restoreGState()
-    }
-    
-    private func makeSubtitleImage(from attributedText: NSAttributedString, style: SubtitleStyle, maxWidth: CGFloat) -> (image: CGImage, size: CGSize)? {
-        guard maxWidth > 0, attributedText.length > 0 else { return nil }
-        
-        let key = SubtitleRenderKey(
-            text: attributedText.string,
-            fontSize: style.fontSize,
-            foreground: colorKey(style.foregroundColor),
-            stroke: colorKey(style.strokeColor),
-            strokeWidth: style.strokeWidth
-        )
-        if let cache = subtitleRenderCache, cache.key == key {
-            return (cache.image, cache.size)
-        }
-        
-        return autoreleasepool {
-            let mutable = NSMutableAttributedString(attributedString: attributedText)
-            let fullRange = NSRange(location: 0, length: mutable.length)
-            
-            mutable.enumerateAttribute(.font, in: fullRange, options: []) { value, range, _ in
-                if let font = value as? UIFont {
-                    let descriptor = font.fontDescriptor
-                    let newFont = UIFont(descriptor: descriptor, size: style.fontSize)
-                    mutable.addAttribute(.font, value: newFont, range: range)
-                } else {
-                    mutable.addAttribute(.font, value: UIFont.systemFont(ofSize: style.fontSize, weight: .semibold), range: range)
-                }
-            }
-            
-            mutable.addAttribute(.foregroundColor, value: style.foregroundColor, range: fullRange)
-            
-            if style.strokeWidth > 0 && style.strokeColor.cgColor.alpha > 0 {
-                mutable.addAttribute(.strokeColor, value: style.strokeColor, range: fullRange)
-                mutable.addAttribute(.strokeWidth, value: -style.strokeWidth * 2.0, range: fullRange)
-            } else {
-                mutable.removeAttribute(.strokeColor, range: fullRange)
-                mutable.removeAttribute(.strokeWidth, range: fullRange)
-            }
-            
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.alignment = .center
-            paragraphStyle.lineBreakMode = .byWordWrapping
-            paragraphStyle.lineHeightMultiple = 1.05
-            mutable.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
-            
-            let constraint = CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude)
-            var boundingRect = mutable.boundingRect(with: constraint, options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
-            boundingRect.origin = .zero
-            boundingRect.size.width = ceil(boundingRect.width)
-            boundingRect.size.height = ceil(boundingRect.height)
-            
-            guard boundingRect.width > 0, boundingRect.height > 0 else { return nil }
-            
-            let strokeRadius = max(style.strokeWidth, 0)
-            let padding = strokeRadius > 0 ? strokeRadius * 2.0 : 2.0
-            let paddedSize = CGSize(width: boundingRect.width + padding * 2.0, height: boundingRect.height + padding * 2.0)
-            let textRect = CGRect(origin: CGPoint(x: padding, y: padding), size: boundingRect.size)
-            
-            UIGraphicsBeginImageContextWithOptions(paddedSize, false, 0)
-            defer { UIGraphicsEndImageContext() }
-            
-            if strokeRadius > 0, let ctx = UIGraphicsGetCurrentContext() {
-                ctx.saveGState()
-                let offsets: [CGPoint] = [
-                    CGPoint(x: -strokeRadius, y: 0),
-                    CGPoint(x: strokeRadius, y: 0),
-                    CGPoint(x: 0, y: -strokeRadius),
-                    CGPoint(x: 0, y: strokeRadius),
-                    CGPoint(x: -strokeRadius, y: -strokeRadius),
-                    CGPoint(x: strokeRadius, y: strokeRadius),
-                    CGPoint(x: -strokeRadius, y: strokeRadius),
-                    CGPoint(x: strokeRadius, y: -strokeRadius)
-                ]
-                let strokeText = NSMutableAttributedString(attributedString: mutable)
-                strokeText.addAttribute(.foregroundColor, value: style.strokeColor, range: fullRange)
-                strokeText.removeAttribute(.strokeColor, range: fullRange)
-                strokeText.removeAttribute(.strokeWidth, range: fullRange)
-                for offset in offsets {
-                    let offsetRect = textRect.offsetBy(dx: offset.x, dy: offset.y)
-                    strokeText.draw(with: offsetRect, options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
-                }
-                ctx.restoreGState()
-            }
-            
-            mutable.draw(with: textRect, options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
-            
-            guard let image = UIGraphicsGetImageFromCurrentImageContext()?.cgImage else {
-                Logger.shared.log("Failed to create CGImage for subtitles", type: "Error")
-                return nil
-            }
-            
-            let cache = SubtitleRenderCache(key: key, image: image, size: paddedSize)
-            subtitleRenderCache = cache
-            return (image, paddedSize)
-        }
-    }
-    
-    private func colorKey(_ color: UIColor) -> String {
-        let rgbSpace = CGColorSpaceCreateDeviceRGB()
-        let cgColor = color.cgColor
-        let converted = cgColor.converted(to: rgbSpace, intent: .defaultIntent, options: nil) ?? cgColor
-        guard let components = converted.components else {
-            return "unknown"
-        }
-        
-        let r = components.count > 0 ? components[0] : 0
-        let g = components.count > 1 ? components[1] : r
-        let b = components.count > 2 ? components[2] : r
-        let a = components.count > 3 ? components[3] : cgColor.alpha
-        
-        return String(format: "%.4f-%.4f-%.4f-%.4f", r, g, b, a)
-    }
-    
     private func createPixelBufferPool(width: Int, height: Int) {
-        let pixelFormat = kCVPixelFormatType_32BGRA
-        
         let attrs: [CFString: Any] = [
-            kCVPixelBufferPixelFormatTypeKey: pixelFormat,
+            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
             kCVPixelBufferWidthKey: width,
             kCVPixelBufferHeightKey: height,
             kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
@@ -822,7 +634,6 @@ final class MPVSoftwareRenderer {
                 self.poolWidth = width
                 self.poolHeight = height
             }
-            
             renderQueue.async { [weak self] in
                 self?.preAllocateBuffers()
             }
@@ -839,7 +650,6 @@ final class MPVSoftwareRenderer {
             self.poolWidth = 0
             self.poolHeight = 0
         }
-        
         createPixelBufferPool(width: width, height: height)
     }
     
@@ -855,11 +665,9 @@ final class MPVSoftwareRenderer {
         
         let targetCount = min(maxPreAllocatedBuffers, 5)
         let currentCount = preAllocatedBuffers.count
-        
         guard currentCount < targetCount else { return }
         
         let bufferCount = min(targetCount - currentCount, 2)
-        
         for _ in 0..<bufferCount {
             var buffer: CVPixelBuffer?
             let status = CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(
@@ -869,7 +677,7 @@ final class MPVSoftwareRenderer {
                 &buffer
             )
             
-            if status == kCVReturnSuccess, let buffer = buffer {
+            if status == kCVReturnSuccess, let buffer {
                 if preAllocatedBuffers.count < maxPreAllocatedBuffers {
                     preAllocatedBuffers.append(buffer)
                 }
@@ -884,20 +692,13 @@ final class MPVSoftwareRenderer {
     
     private func enqueue(buffer: CVPixelBuffer) {
         let needsFlush = updateFormatDescriptionIfNeeded(for: buffer)
-        var shouldNotifyLoadingEnd = false
-        renderQueueSync {
-            if self.isLoading {
-                self.isLoading = false
-                shouldNotifyLoadingEnd = true
-            }
-        }
         var capturedFormatDescription: CMVideoFormatDescription?
         renderQueueSync {
             capturedFormatDescription = self.formatDescription
         }
         
         guard let formatDescription = capturedFormatDescription else {
-            Logger.shared.log("Missing formatDescription when creating sample buffer — skipping frame", type: "Error")
+            Logger.shared.log("Missing formatDescription when creating sample buffer - skipping frame", type: "Error")
             return
         }
         
@@ -917,12 +718,7 @@ final class MPVSoftwareRenderer {
         )
         
         guard result == noErr, let sample = sampleBuffer else {
-            Logger.shared.log("Failed to create sample buffer (error: \(result), -12743 = invalid format)", type: "Error")
-            
-            let width = CVPixelBufferGetWidth(buffer)
-            let height = CVPixelBufferGetHeight(buffer)
-            let pixelFormat = CVPixelBufferGetPixelFormatType(buffer)
-            Logger.shared.log("Buffer info: \(width)x\(height), format: \(pixelFormat)", type: "Error")
+            Logger.shared.log("Failed to create sample buffer (error: \(result))", type: "Error")
             return
         }
         
@@ -932,63 +728,57 @@ final class MPVSoftwareRenderer {
             let (status, error): (AVQueuedSampleBufferRenderingStatus?, Error?) = {
                 if #available(iOS 18.0, *) {
                     return (
-                        self.displayLayer.sampleBufferRenderer.status,
-                        self.displayLayer.sampleBufferRenderer.error
+                        self.pipDisplayLayer.sampleBufferRenderer.status,
+                        self.pipDisplayLayer.sampleBufferRenderer.error
                     )
                 } else {
                     return (
-                        self.displayLayer.status,
-                        self.displayLayer.error
+                        self.pipDisplayLayer.status,
+                        self.pipDisplayLayer.error
                     )
                 }
             }()
             
             if status == .failed {
-                if let error = error {
-                    Logger.shared.log("Display layer in failed state: \(error.localizedDescription)", type: "Error")
+                if let error {
+                    Logger.shared.log("PiP display layer in failed state: \(error.localizedDescription)", type: "Error")
                 }
                 if #available(iOS 18.0, *) {
-                    self.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
+                    self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
                 } else {
-                    self.displayLayer.flushAndRemoveImage()
+                    self.pipDisplayLayer.flushAndRemoveImage()
                 }
             }
             
             if needsFlush {
                 if #available(iOS 18.0, *) {
-                    self.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
+                    self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
                 } else {
-                    self.displayLayer.flushAndRemoveImage()
+                    self.pipDisplayLayer.flushAndRemoveImage()
                 }
                 self.didFlushForFormatChange = true
             } else if self.didFlushForFormatChange {
                 if #available(iOS 18.0, *) {
-                    self.displayLayer.sampleBufferRenderer.flush(removingDisplayedImage: false, completionHandler: nil)
+                    self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: false, completionHandler: nil)
                 } else {
-                    self.displayLayer.flush()
+                    self.pipDisplayLayer.flush()
                 }
                 self.didFlushForFormatChange = false
             }
             
-            if self.displayLayer.controlTimebase == nil {
+            if self.pipDisplayLayer.controlTimebase == nil {
                 var timebase: CMTimebase?
                 if CMTimebaseCreateWithSourceClock(allocator: kCFAllocatorDefault, sourceClock: CMClockGetHostTimeClock(), timebaseOut: &timebase) == noErr, let timebase {
                     CMTimebaseSetRate(timebase, rate: 1.0)
                     CMTimebaseSetTime(timebase, time: presentationTime)
-                    self.displayLayer.controlTimebase = timebase
-                } else {
-                    Logger.shared.log("Failed to create control timebase", type: "Error")
+                    self.pipDisplayLayer.controlTimebase = timebase
                 }
             }
             
-            if shouldNotifyLoadingEnd {
-                self.delegate?.renderer(self, didChangeLoading: false)
-            }
-            
             if #available(iOS 18.0, *) {
-                self.displayLayer.sampleBufferRenderer.enqueue(sample)
+                self.pipDisplayLayer.sampleBufferRenderer.enqueue(sample)
             } else {
-                self.displayLayer.enqueue(sample)
+                self.pipDisplayLayer.enqueue(sample)
             }
         }
     }
@@ -1017,17 +807,15 @@ final class MPVSoftwareRenderer {
             
             if needsRecreate {
                 var newDescription: CMVideoFormatDescription?
-                
                 let status = CMVideoFormatDescriptionCreateForImageBuffer(
                     allocator: kCFAllocatorDefault,
                     imageBuffer: buffer,
                     formatDescriptionOut: &newDescription
                 )
                 
-                if status == noErr, let newDescription = newDescription {
+                if status == noErr, let newDescription {
                     formatDescription = newDescription
                     didChange = true
-                    Logger.shared.log("Created new format description: \(width)x\(height), format: \(pixelFormat)", type: "Info")
                 } else {
                     Logger.shared.log("Failed to create format description (status: \(status))", type: "Error")
                 }
@@ -1045,9 +833,7 @@ final class MPVSoftwareRenderer {
     }
     
     private func currentVideoSize() -> CGSize {
-        stateQueue.sync {
-            videoSize
-        }
+        stateQueue.sync { videoSize }
     }
     
     private func updateVideoSize(width: Int, height: Int) {
@@ -1057,9 +843,38 @@ final class MPVSoftwareRenderer {
         }
         renderQueue.async { [weak self] in
             guard let self else { return }
-            
-            if self.poolWidth != width || self.poolHeight != height {
+            if self.pipRenderContext != nil && (self.poolWidth != width || self.poolHeight != height) {
                 self.recreatePixelBufferPool(width: max(width, 0), height: max(height, 0))
+            }
+        }
+    }
+    
+    private func stopPiPRenderingLocked() {
+        stopPiPDisplayLinkLocked()
+        
+        if let ctx = pipRenderContext {
+            mpv_render_context_set_update_callback(ctx, nil, nil)
+            mpv_render_context_free(ctx)
+            pipRenderContext = nil
+        }
+        
+        pipDisplayLinkRequested = false
+        pipFramePumpScheduled = false
+        preAllocatedBuffers.removeAll()
+        pixelBufferPool = nil
+        pixelBufferPoolAuxAttributes = nil
+        formatDescription = nil
+        didFlushForFormatChange = false
+        poolWidth = 0
+        poolHeight = 0
+        lastRenderDimensions = .zero
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if #available(iOS 18.0, *) {
+                self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
+            } else {
+                self.pipDisplayLayer.flushAndRemoveImage()
             }
         }
     }
@@ -1100,17 +915,23 @@ final class MPVSoftwareRenderer {
         case MPV_EVENT_VIDEO_RECONFIG:
             refreshVideoState()
         case MPV_EVENT_FILE_LOADED:
-            if !isReadyToSeek {
-                isReadyToSeek = true
-                DispatchQueue.main.async { [weak self] in
-                    guard let self else { return }
-                    self.delegate?.renderer(self, didBecomeReadyToSeek: true)
-                }
+            isLoading = false
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.delegate?.renderer(self, didChangeLoading: false)
+                self.delegate?.renderer(self, didBecomeReadyToSeek: true)
             }
         case MPV_EVENT_PROPERTY_CHANGE:
             if let property = event.data?.assumingMemoryBound(to: mpv_event_property.self).pointee.name {
                 let name = String(cString: property)
                 refreshProperty(named: name)
+                
+                if name == "track-list" {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        self.delegate?.rendererDidChangeTracks(self)
+                    }
+                }
             }
         case MPV_EVENT_SHUTDOWN:
             Logger.shared.log("mpv shutdown", type: "Warn")
@@ -1180,6 +1001,22 @@ final class MPVSoftwareRenderer {
             }
         }
         return result
+    }
+
+    private func languageName(for code: String) -> String {
+        switch code.lowercased() {
+        case "jpn", "ja", "jp": return "Japanese"
+        case "eng", "en", "us", "uk": return "English"
+        case "spa", "es", "esp": return "Spanish"
+        case "fre", "fra", "fr": return "French"
+        case "ger", "deu", "de": return "German"
+        case "ita", "it": return "Italian"
+        case "por", "pt": return "Portuguese"
+        case "rus", "ru": return "Russian"
+        case "chi", "zho", "zh": return "Chinese"
+        case "kor", "ko": return "Korean"
+        default: return ""
+        }
     }
 
     private func fetchTrackList() -> [MPVTrackInfo] {
@@ -1286,8 +1123,8 @@ final class MPVSoftwareRenderer {
     @discardableResult
     private func getProperty<T>(handle: OpaquePointer, name: String, format: mpv_format, value: inout T) -> Int32 {
         return name.withCString { pointer in
-            return withUnsafeMutablePointer(to: &value) { mutablePointer in
-                return mpv_get_property(handle, pointer, format, mutablePointer)
+            withUnsafeMutablePointer(to: &value) { mutablePointer in
+                mpv_get_property(handle, pointer, format, mutablePointer)
             }
         }
     }
@@ -1300,6 +1137,7 @@ final class MPVSoftwareRenderer {
             cStrings.append(strdup(s))
         }
         cStrings.append(nil)
+        
         defer {
             for ptr in cStrings where ptr != nil {
                 free(ptr)
@@ -1308,12 +1146,13 @@ final class MPVSoftwareRenderer {
         
         return cStrings.withUnsafeMutableBufferPointer { buffer in
             return buffer.baseAddress!.withMemoryRebound(to: UnsafePointer<CChar>?.self, capacity: buffer.count) { rebound in
-                return body(UnsafeMutablePointer(mutating: rebound))
+                body(UnsafeMutablePointer(mutating: rebound))
             }
         }
     }
     
     // MARK: - Playback Controls
+    
     func play() {
         setProperty(name: "pause", value: "no")
     }
@@ -1347,8 +1186,9 @@ final class MPVSoftwareRenderer {
         getProperty(handle: handle, name: "speed", format: MPV_FORMAT_DOUBLE, value: &speed)
         return speed
     }
-
+    
     // MARK: - Audio and Subtitle Tracks
+    
     func getAudioTracksDetailed() -> [(Int, String, String)] {
         let tracks = fetchTrackList().filter { $0.type == "audio" }
         return tracks.map { ($0.id, $0.title, $0.lang) }
@@ -1390,5 +1230,44 @@ final class MPVSoftwareRenderer {
 
     func disableSubtitles() {
         setProperty(name: "sid", value: "no")
+    }
+    
+    func setSubtitleVisible(_ visible: Bool) {
+        setProperty(name: "sub-visibility", value: visible ? "yes" : "no")
+    }
+    
+    func addSubtitleTrack(urlString: String) {
+        guard let handle = mpv, !urlString.isEmpty else { return }
+        renderQueue.async { [weak self] in
+            guard let self else { return }
+            self.command(handle, ["sub-add", urlString, "select"])
+            Logger.shared.log("sub-add: \(urlString)", type: "Info")
+        }
+    }
+    
+    func clearCurrentSubtitleTrack() {
+        guard let handle = mpv else { return }
+        renderQueue.async { [weak self] in
+            guard let self else { return }
+            self.command(handle, ["sub-remove"])
+        }
+    }
+    
+    func applySubtitleStyle(_ style: SubtitleStyle) {
+        setProperty(name: "sub-font-size", value: String(format: "%.2f", style.fontSize))
+        setProperty(name: "sub-color", value: style.foregroundColor.mpvColorString)
+        setProperty(name: "sub-border-color", value: style.strokeColor.mpvColorString)
+        setProperty(name: "sub-border-size", value: String(format: "%.2f", max(style.strokeWidth, 0)))
+    }
+}
+
+private extension UIColor {
+    var mpvColorString: String {
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(format: "%.3f/%.3f/%.3f/%.3f", r, g, b, a)
     }
 }
