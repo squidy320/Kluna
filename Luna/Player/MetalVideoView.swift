@@ -11,7 +11,7 @@ import QuartzCore
 public final class MetalVideoView: UIView {
     override public class var layerClass: AnyClass { CAMetalLayer.self }
     
-    var metalLayer: CAMetalLayer {
+    public var metalLayer: CAMetalLayer {
         return layer as! CAMetalLayer
     }
     

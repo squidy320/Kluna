@@ -39,6 +39,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         return v
     }()
 
+
     private let displayLayer = AVSampleBufferDisplayLayer()
     
     private func createSymbolButton(symbolName: String, pointSize: CGFloat = 18, weight: UIImage.SymbolWeight = .semibold, backgroundColor: UIColor? = nil) -> UIButton {
@@ -300,12 +301,14 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     }()
 #endif
     
-    private let progressContainer: UIView = {
-        let v = UIView()
+    private let primaryRenderView: MetalVideoView = {
+        let v = MetalVideoView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .clear
+        v.backgroundColor = .black
         return v
     }()
+
+
     private var progressHostingController: UIHostingController<AnyView>?
     private var lastHostedDuration: Double = 0
     
