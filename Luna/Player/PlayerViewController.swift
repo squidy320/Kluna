@@ -1993,7 +1993,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
                 ProgressHighlight(
                     start: seg.startTime,
                     end: seg.endTime,
-                    color: seg.type == .op ? .blue : (seg.type == .ed ? .orange : .yellow),
+                    color: seg.type == .intro ? .blue : (seg.type == .outro ? .orange : .yellow),
                     label: seg.type.displayLabel
                 )
             }
