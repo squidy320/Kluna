@@ -15,7 +15,16 @@ struct StretchyHeaderView: View {
     let minHeaderHeight: CGFloat
     let onAmbientColorExtracted: ((Color) -> Void)?
     
-    @ObservedObject var homeViewModel: HomeViewModel
+    @ObservedObject var homeViewModel: HomeViewModel?
+    
+    init(backdropURL: String?, isMovie: Bool, headerHeight: CGFloat, minHeaderHeight: CGFloat, onAmbientColorExtracted: ((Color) -> Void)?, homeViewModel: HomeViewModel? = nil) {
+        self.backdropURL = backdropURL
+        self.isMovie = isMovie
+        self.headerHeight = headerHeight
+        self.minHeaderHeight = minHeaderHeight
+        self.onAmbientColorExtracted = onAmbientColorExtracted
+        self.homeViewModel = homeViewModel
+    }
     
     @State private var localAmbientColor: Color = Color.black
     @State private var backdropImage: UIImage?
@@ -39,7 +48,8 @@ struct StretchyHeaderView: View {
                                 backdropImage = result.image
                                 let extractedColor = Color.ambientColor(from: result.image)
                                 localAmbientColor = extractedColor
-                                homeViewModel.updateAmbientColorThrottled(extractedColor)
+                                onAmbientColorExtracted?(extractedColor)
+                                homeViewModel?.updateAmbientColorThrottled(extractedColor)
                             }
                             .resizable()
                             .aspectRatio(contentMode: .fill),
@@ -73,7 +83,8 @@ struct StretchyHeaderView: View {
                             backdropImage = value.image
                             let extractedColor = Color.ambientColor(from: value.image)
                             localAmbientColor = extractedColor
-                            homeViewModel.updateAmbientColorThrottled(extractedColor)
+                            onAmbientColorExtracted?(extractedColor)
+                            homeViewModel?.updateAmbientColorThrottled(extractedColor)
                         }
                     case .failure:
                         break
