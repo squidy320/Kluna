@@ -84,6 +84,41 @@ struct LoggerView: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
                 .lunaHideListRowSeparator()
+            
+#if os(tvOS)
+            Section {
+                Button(action: {
+                    Task {
+                        isExporting = true
+                        do {
+                            let url = try await Logger.shared.uploadLogs()
+                            exportURL = url
+                        } catch {
+                            exportErrorMessage = "Failed to upload logs."
+                        }
+                        isExporting = false
+                    }
+                }) {
+                    HStack {
+                        Label("Export Logs (QR)", systemImage: "qrcode")
+                            .font(.headline)
+                        Spacer()
+                        if isExporting {
+                            ProgressView()
+                        }
+                    }
+                }
+                
+                Button(action: {
+                    loggerManager.clearLogs()
+                }) {
+                    Label("Clear All Logs", systemImage: "trash")
+                        .foregroundColor(.red)
+                }
+            } header: {
+                Text("Actions")
+            }
+#endif
 
             if filteredLogs.isEmpty {
                 VStack(spacing: 16) {
@@ -409,42 +444,48 @@ struct QRCodeView: View {
     var body: some View {
         VStack(spacing: 24) {
             Text("Scan to Export Logs")
-                .font(.headline)
+                .font(isTvOS ? .title2 : .headline)
+                .foregroundColor(.white)
             
             if let image = generateQRCode(from: url.absoluteString) {
                 Image(uiImage: image)
                     .interpolation(.none)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 400, height: 400)
+                    .frame(width: isTvOS ? 600 : 350, height: isTvOS ? 600 : 350)
+                    .padding(20)
                     .background(Color.white)
                     .cornerRadius(12)
-                    .padding()
+                    .shadow(color: .black.opacity(0.3), radius: 20)
             }
             
             Text(url.absoluteString)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(.white.opacity(0.6))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: isTvOS ? 800 : 300)
             
             Button("Done") {
                 dismiss()
             }
             .padding(.top)
         }
-        .padding(40)
-#if os(tvOS)
-        .background(Color.black.opacity(0.8))
-#else
-        .background(Color(UIColor.systemBackground))
-#endif
-        .cornerRadius(20)
+        .padding(isTvOS ? 60 : 40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.9))
+        .ignoresSafeArea()
     }
     
     func generateQRCode(from string: String) -> UIImage? {
         filter.message = Data(string.utf8)
+        filter.correctionLevel = "Q" // High error correction (25%) for easier scanning from TV screens
         
         if let outputImage = filter.outputImage {
-            if let cgImage = context.createCGImage(outputImage, from: outputImage.extent) {
+            // Apply a scale transform to ensure the generated image is not too tiny
+            let scale = 10.0
+            let transformedImage = outputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            
+            if let cgImage = context.createCGImage(transformedImage, from: transformedImage.extent) {
                 return UIImage(cgImage: cgImage)
             }
         }

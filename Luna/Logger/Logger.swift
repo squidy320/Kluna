@@ -198,7 +198,7 @@ class Logger: @unchecked Sendable {
             throw ExportError.encodingFailed
         }
 
-        var request = URLRequest(url: URL(string: "https://clbin.com")!)
+        var request = URLRequest(url: URL(string: "https://paste.rs")!)
         request.httpMethod = "POST"
         request.httpBody = data
         request.setValue("text/plain", forHTTPHeaderField: "Content-Type")
