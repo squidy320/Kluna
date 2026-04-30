@@ -28,14 +28,19 @@
         }
       ],
       "version": "1.0.1",
-      "versionDate": "2026-04-30T19:58:41Z",
-      "versionDescription": "quick fix ",
+      "versionDate": "2026-04-30T20:35:59Z",
+      "versionDescription": "tvOS log sharing ",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
-      "size": 64529012,
-      "date": "2026-04-30T19:58:41Z"
+      "size": 64529938,
+      "date": "2026-04-30T20:35:59Z"
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "tvOS log sharing ",
+      "date": "2026-04-30T20:35:59Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "quick fix ",
