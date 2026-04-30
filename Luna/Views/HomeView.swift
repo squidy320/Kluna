@@ -149,7 +149,7 @@ struct HomeView: View {
     @ViewBuilder
     private var mainScrollView: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 0) {
+            VStack(spacing: 0) {
                 heroSection
                 continueWatchingSection
                 contentSections
@@ -345,7 +345,7 @@ struct HomeView: View {
     
     @ViewBuilder
     private var contentSections: some View {
-        LazyVStack(spacing: 0) {
+        VStack(spacing: 0) {
             let catalogs = enabledCatalogs.filter { catalog in
                 switch catalog.displayStyle {
                 case .standard:
@@ -429,7 +429,6 @@ struct HomeView: View {
                     }
                 }
                 .id(catalog.id)
-                .drawingGroup()
                 
                 if index < catalogs.count - 1 {
                     SectionDivider()
@@ -479,7 +478,7 @@ struct MediaSection: View {
             .padding(.horizontal, isTvOS ? 40 : 16)
             
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: gap) {
+                HStack(spacing: gap) {
                     ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                         MediaCard(
                             result: item,
@@ -489,7 +488,6 @@ struct MediaSection: View {
                 }
                 .padding(.horizontal, isTvOS ? 40 : 16)
             }
-            .modifier(ScrollClipModifier())
             .buttonStyle(.borderless)
         }
         .padding(.top, isTvOS ? 40 : 24)
