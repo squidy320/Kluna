@@ -28,14 +28,19 @@
         }
       ],
       "version": "1.0.1",
-      "versionDate": "2026-04-30T19:22:21Z",
-      "versionDescription": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
+      "versionDate": "2026-04-30T19:58:41Z",
+      "versionDescription": "quick fix ",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
-      "size": 64529719,
-      "date": "2026-04-30T19:22:21Z"
+      "size": 64529012,
+      "date": "2026-04-30T19:58:41Z"
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "quick fix ",
+      "date": "2026-04-30T19:58:41Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "Merge branch 'main' of https://github.com/squidy320/Kluna ",
