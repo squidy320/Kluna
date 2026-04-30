@@ -33,7 +33,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     }()
     
     private let primaryRenderView: UIView = {
-        let v = MetalVideoView()
+        let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
         v.backgroundColor = .black
         return v
