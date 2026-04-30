@@ -98,7 +98,7 @@ struct EpisodeProgressEntry: Codable, Identifiable {
 }
 
 // Continue watching item
-struct ContinueWatchingItem: Identifiable {
+struct ContinueWatchingItem: Identifiable, Equatable {
     let id: String
     let tmdbId: Int
     let isMovie: Bool

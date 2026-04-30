@@ -15,6 +15,8 @@ struct StretchyHeaderView: View {
     let minHeaderHeight: CGFloat
     let onAmbientColorExtracted: ((Color) -> Void)?
     
+    @ObservedObject var homeViewModel: HomeViewModel
+    
     @State private var localAmbientColor: Color = Color.black
     @State private var backdropImage: UIImage?
     
@@ -37,7 +39,7 @@ struct StretchyHeaderView: View {
                                 backdropImage = result.image
                                 let extractedColor = Color.ambientColor(from: result.image)
                                 localAmbientColor = extractedColor
-                                onAmbientColorExtracted?(extractedColor)
+                                homeViewModel.updateAmbientColorThrottled(extractedColor)
                             }
                             .resizable()
                             .aspectRatio(contentMode: .fill),
@@ -71,7 +73,7 @@ struct StretchyHeaderView: View {
                             backdropImage = value.image
                             let extractedColor = Color.ambientColor(from: value.image)
                             localAmbientColor = extractedColor
-                            onAmbientColorExtracted?(extractedColor)
+                            homeViewModel.updateAmbientColorThrottled(extractedColor)
                         }
                     case .failure:
                         break

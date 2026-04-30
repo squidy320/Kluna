@@ -22,7 +22,7 @@ struct TMDBSearchResponse: Codable {
 }
 
 // MARK: - Search Result
-struct TMDBSearchResult: Codable, Identifiable {
+struct TMDBSearchResult: Codable, Identifiable, Equatable {
     let id: Int
     let mediaType: String
     let title: String?

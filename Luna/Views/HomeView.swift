@@ -188,9 +188,8 @@ struct HomeView: View {
                 isMovie: homeViewModel.heroContent?.mediaType == "movie",
                 headerHeight: heroHeight,
                 minHeaderHeight: 300,
-                onAmbientColorExtracted: { color in
-                    homeViewModel.ambientColor = color
-                }
+                onAmbientColorExtracted: nil,
+                homeViewModel: homeViewModel
             )
             
             heroGradientOverlay
@@ -347,88 +346,70 @@ struct HomeView: View {
     @ViewBuilder
     private var contentSections: some View {
         LazyVStack(spacing: 0) {
-            let catalogs = enabledCatalogs.filter { catalog in
-                switch catalog.displayStyle {
-                case .standard:
-                    if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
-                        return true
-                    }
-                    return false
-                case .network:
-                    return WidgetNetwork.curated.contains { !( homeViewModel.widgetData["network_\($0.id)"] ?? []).isEmpty }
-                case .genre:
-                    return WidgetGenre.curated.contains { !(homeViewModel.widgetData["genre_\($0.id)"] ?? []).isEmpty }
-                case .company:
-                    return WidgetCompany.curated.contains { !(homeViewModel.widgetData["company_\($0.id)"] ?? []).isEmpty }
-                case .ranked:
-                    if let items = homeViewModel.widgetData[catalog.id], !items.isEmpty { return true }
-                    if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty { return true }
-                    return false
-                case .featured:
-                    return !(homeViewModel.widgetData["featured"] ?? []).isEmpty
-                }
-            }
-            
-            ForEach(Array(catalogs.enumerated()), id: \.element.id) { index, catalog in
-                switch catalog.displayStyle {
-                case .standard:
-                    if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
-                        let limitedItems = Array(items.prefix(15))
-                        let displayItems = catalog.id == "trending"
-                            ? limitedItems.filter { $0.stableIdentity != homeViewModel.heroContent?.stableIdentity }
-                            : limitedItems
+            ForEach(Array(homeViewModel.visibleCatalogs.enumerated()), id: \.element.id) { index, catalog in
+                Group {
+                    switch catalog.displayStyle {
+                    case .standard:
+                        if let items = homeViewModel.catalogResults[catalog.id], !items.isEmpty {
+                            let limitedItems = Array(items.prefix(15))
+                            let displayItems = catalog.id == "trending"
+                                ? limitedItems.filter { $0.stableIdentity != homeViewModel.heroContent?.stableIdentity }
+                                : limitedItems
+                            
+                            let displayTitle: String = {
+                                if catalog.id == "becauseYouWatched" && !homeViewModel.becauseYouWatchedTitle.isEmpty {
+                                    return "Because You Watched \(homeViewModel.becauseYouWatchedTitle)"
+                                }
+                                return catalog.name
+                            }()
+                            
+                            MediaSection(
+                                title: displayTitle,
+                                items: displayItems
+                            )
+                        }
                         
-                        let displayTitle: String = {
-                            if catalog.id == "becauseYouWatched" && !homeViewModel.becauseYouWatchedTitle.isEmpty {
-                                return "Because You Watched \(homeViewModel.becauseYouWatchedTitle)"
-                            }
-                            return catalog.name
-                        }()
+                    case .network:
+                        NetworkSectionWidget(
+                            widgetData: homeViewModel.widgetData,
+                            tmdbService: tmdbService
+                        )
                         
-                        MediaSection(
-                            title: displayTitle,
-                            items: displayItems
+                    case .genre:
+                        GenreSectionWidget(
+                            widgetData: homeViewModel.widgetData,
+                            tmdbService: tmdbService
+                        )
+                        
+                    case .company:
+                        CompanySectionWidget(
+                            widgetData: homeViewModel.widgetData,
+                            tmdbService: tmdbService
+                        )
+                        
+                    case .ranked:
+                        let items = homeViewModel.widgetData[catalog.id]
+                            ?? homeViewModel.catalogResults[catalog.id]
+                            ?? []
+                        RankedListWidget(
+                            catalogId: catalog.id,
+                            title: catalog.name,
+                            items: Array(items.prefix(10)),
+                            tmdbService: tmdbService
+                        )
+                        
+                    case .featured:
+                        FeaturedSpotlightWidget(
+                            widgetData: homeViewModel.widgetData,
+                            genreName: homeViewModel.featuredGenreName,
+                            tmdbService: tmdbService
                         )
                     }
-                    
-                case .network:
-                    NetworkSectionWidget(
-                        widgetData: homeViewModel.widgetData,
-                        tmdbService: tmdbService
-                    )
-                    
-                case .genre:
-                    GenreSectionWidget(
-                        widgetData: homeViewModel.widgetData,
-                        tmdbService: tmdbService
-                    )
-                    
-                case .company:
-                    CompanySectionWidget(
-                        widgetData: homeViewModel.widgetData,
-                        tmdbService: tmdbService
-                    )
-                    
-                case .ranked:
-                    let items = homeViewModel.widgetData[catalog.id]
-                        ?? homeViewModel.catalogResults[catalog.id]
-                        ?? []
-                    RankedListWidget(
-                        catalogId: catalog.id,
-                        title: catalog.name,
-                        items: Array(items.prefix(10)),
-                        tmdbService: tmdbService
-                    )
-                    
-                case .featured:
-                    FeaturedSpotlightWidget(
-                        widgetData: homeViewModel.widgetData,
-                        genreName: homeViewModel.featuredGenreName,
-                        tmdbService: tmdbService
-                    )
                 }
+                .id(catalog.id)
+                .drawingGroup()
                 
-                if index < catalogs.count - 1 {
+                if index < homeViewModel.visibleCatalogs.count - 1 {
                     SectionDivider()
                 }
             }
@@ -531,7 +512,13 @@ struct SectionDivider: View {
     }
 }
 
-struct MediaCard: View {
+struct MediaCard: View, Equatable {
+    static func == (lhs: MediaCard, rhs: MediaCard) -> Bool {
+        lhs.result.id == rhs.result.id &&
+        lhs.result.mediaType == rhs.result.mediaType &&
+        lhs.heroID == rhs.heroID
+    }
+
     let result: TMDBSearchResult
     let heroID: String
     @State private var isHovering: Bool = false
@@ -655,7 +642,13 @@ struct ContinueWatchingSection: View {
     }
 }
 
-struct ContinueWatchingCard: View {
+struct ContinueWatchingCard: View, Equatable {
+    static func == (lhs: ContinueWatchingCard, rhs: ContinueWatchingCard) -> Bool {
+        lhs.item.id == rhs.item.id &&
+        lhs.item.progress == rhs.item.progress &&
+        lhs.item.lastUpdated == rhs.item.lastUpdated
+    }
+
     let item: ContinueWatchingItem
     let tmdbService: TMDBService
     let onDataChanged: () -> Void

@@ -9,17 +9,75 @@ import Foundation
 import SwiftUI
 
 final class HomeViewModel: ObservableObject {
-    @Published var catalogResults: [String: [TMDBSearchResult]] = [:]
+    @Published var catalogResults: [String: [TMDBSearchResult]] = [:] {
+        didSet { scheduleUpdate() }
+    }
     @Published var isLoading = true
     @Published var errorMessage: String?
     @Published var heroContent: TMDBSearchResult?
     @Published var ambientColor: Color = Color.black
     @Published var hasLoadedContent = false
-    @Published var widgetData: [String: [TMDBSearchResult]] = [:]
-    @Published var becauseYouWatchedTitle: String = ""
+    @Published var widgetData: [String: [TMDBSearchResult]] = [:] {
+        didSet { scheduleUpdate() }
+    }
+    @Published var becauseYouWatchedTitle: String = "" {
+        didSet { scheduleUpdate() }
+    }
+    @Published var visibleCatalogs: [Catalog] = []
+    
+    private let catalogManager = CatalogManager.shared
+    private var updateTask: Task<Void, Never>?
+    private var colorUpdateTask: Task<Void, Never>?
     
     init() {
-        // Init body can be simplified if needed
+    }
+    
+    func updateAmbientColorThrottled(_ color: Color) {
+        colorUpdateTask?.cancel()
+        colorUpdateTask = Task {
+            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+            if !Task.isCancelled {
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        self.ambientColor = color
+                    }
+                }
+            }
+        }
+    }
+    
+    private func scheduleUpdate() {
+        updateTask?.cancel()
+        updateTask = Task {
+            try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
+            if !Task.isCancelled {
+                updateVisibleCatalogs()
+            }
+        }
+    }
+    
+    func updateVisibleCatalogs() {
+        let enabled = catalogManager.getEnabledCatalogs()
+        let visible = enabled.filter { catalog in
+            switch catalog.displayStyle {
+            case .standard:
+                return !(catalogResults[catalog.id] ?? []).isEmpty
+            case .network:
+                return WidgetNetwork.curated.contains { !(widgetData["network_\($0.id)"] ?? []).isEmpty }
+            case .genre:
+                return WidgetGenre.curated.contains { !(widgetData["genre_\($0.id)"] ?? []).isEmpty }
+            case .company:
+                return WidgetCompany.curated.contains { !(widgetData["company_\($0.id)"] ?? []).isEmpty }
+            case .ranked:
+                return !(widgetData[catalog.id] ?? []).isEmpty || !(catalogResults[catalog.id] ?? []).isEmpty
+            case .featured:
+                return !(widgetData["featured"] ?? []).isEmpty
+            }
+        }
+        
+        DispatchQueue.main.async {
+            self.visibleCatalogs = visible
+        }
     }
     
     func loadContent(
@@ -212,6 +270,7 @@ final class HomeViewModel: ObservableObject {
                     
                     self.isLoading = false
                     self.hasLoadedContent = true
+                    self.updateVisibleCatalogs()
                 }
                 
                 // Generate "Just For You" recommendations after catalogs are populated
