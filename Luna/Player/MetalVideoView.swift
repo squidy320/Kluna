@@ -8,10 +8,10 @@
 import UIKit
 import QuartzCore
 
-public final class MetalVideoView: UIView {
-    override public class var layerClass: AnyClass { CAMetalLayer.self }
+final class MetalVideoView: UIView {
+    override class var layerClass: AnyClass { CAMetalLayer.self }
     
-    public var metalLayer: CAMetalLayer {
+    var metalLayer: CAMetalLayer {
         return layer as! CAMetalLayer
     }
     
