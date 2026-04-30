@@ -307,13 +307,6 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         v.backgroundColor = .clear
         return v
     }()
-    
-    private let primaryRenderView: MetalVideoView = {
-        let v = MetalVideoView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .black
-        return v
-    }()
 
 
     private var progressHostingController: UIHostingController<AnyView>?
