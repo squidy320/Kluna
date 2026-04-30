@@ -301,6 +301,13 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     }()
 #endif
     
+    private let progressContainer: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor = .clear
+        return v
+    }()
+    
     private let primaryRenderView: MetalVideoView = {
         let v = MetalVideoView()
         v.translatesAutoresizingMaskIntoConstraints = false
