@@ -1122,6 +1122,7 @@
 				13F072AA2E4B2D9200EF90EB /* CircularProgressBar.swift in Sources */,
 				13F072B52E4B2D9200EF90EB /* URLSession.swift in Sources */,
 				1324E7BC2E940BD70036B5F5 /* MPVSoftwareRenderer.swift in Sources */,
+				1324E7C32E940BD70036B5F5 /* MetalVideoView.swift in Sources */,
 				13E1EDE12ED9E66000087629 /* readerManagerView.swift in Sources */,
 				1324E7BF2E940BD70036B5F5 /* MusicProgressSlider.swift in Sources */,
 				13E1EDD92ED9E65F00087629 /* pageData.swift in Sources */,
