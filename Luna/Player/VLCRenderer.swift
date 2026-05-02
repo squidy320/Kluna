@@ -168,6 +168,7 @@ final class VLCRenderer: NSObject {
             NotificationCenter.default.removeObserver(self)
 
             if let player = self.mediaPlayer {
+                player.drawable = nil
                 player.stop()
                 self.mediaPlayer = nil
             }

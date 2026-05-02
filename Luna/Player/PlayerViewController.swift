@@ -2032,7 +2032,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
     }
 
     private func updateNextEpisodeState(position: Double, duration: Double) {
-        guard isVLCPlayer, duration > 0 else { return }
+        guard duration > 0 else { return }
         guard case .episode(_, _, _, _, _, _) = mediaInfo else { return }
 
         let enabled: Bool
@@ -3259,7 +3259,7 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
             }
 
 #if !os(tvOS)
-            if self.isVLCPlayer {
+            if self.isVLCPlayer || !self.isVLCPlayer {
                 self.updateSkipState(position: safePosition, duration: safeDuration)
                 self.updateNextEpisodeState(position: safePosition, duration: safeDuration)
             }
