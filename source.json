@@ -28,14 +28,19 @@
         }
       ],
       "version": "1.0.1",
-      "versionDate": "2026-04-30T23:53:42Z",
-      "versionDescription": "Update PlayerViewController.swift ",
+      "versionDate": "2026-05-02T23:38:31Z",
+      "versionDescription": "Update project.pbxproj ",
       "downloadURL": "https://github.com/squidy320/Kluna/releases/latest/download/Eclipse.ipa",
-      "size": 64522832,
-      "date": "2026-04-30T23:53:42Z"
+      "size": 64523301,
+      "date": "2026-05-02T23:38:31Z"
     }
   ],
   "news": [
+    {
+      "title": "Release 1.0.1",
+      "caption": "Update project.pbxproj ",
+      "date": "2026-05-02T23:38:31Z"
+    },
     {
       "title": "Release 1.0.1",
       "caption": "Update PlayerViewController.swift ",
@@ -80,12 +85,6 @@
       "title": "Release 1.0.1",
       "caption": "Update SoraApp.swift ",
       "date": "2026-04-29T23:39:21Z"
-    },
-    {
-      "title": "Release 1.0.1",
-      "identifier": "release-1.0.1-20260428",
-      "caption": "playing tvos fix ",
-      "date": "2026-04-28T00:18:44Z"
     }
   ]
 }
