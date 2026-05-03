@@ -106,8 +106,11 @@ class ModuleManager: ObservableObject {
         }
     }
     func getDocumentsDirectory() -> URL {
-        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        return paths[0]
+#if os(tvOS)
+        return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+#else
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+#endif
     }
     func loadModules()
     {

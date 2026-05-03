@@ -136,7 +136,11 @@ final class ProgressManager: ObservableObject {
     private var debounceTask: Task<Void, Never>?
     private let accessQueue = DispatchQueue(label: "com.luna.progress-manager", attributes: .concurrent)
 
+#if os(tvOS)
+    private static let documentsDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+#else
     private static let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+#endif
     @Published private(set) var movieProgressList: [MovieProgressEntry] = []
     @Published private(set) var episodeProgressList: [EpisodeProgressEntry] = []
 
