@@ -15,11 +15,21 @@ final class StremioAddonStore {
     private init() {
         container = NSPersistentContainer(name: "ServiceModels")
 
+        let storeURL: URL
+#if os(tvOS)
+        let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        storeURL = cachesDirectory.appendingPathComponent("StremioAddonStore.sqlite")
+#else
+        let docsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        storeURL = docsDirectory.appendingPathComponent("StremioAddonStore.sqlite")
+#endif
+
         guard let description = container?.persistentStoreDescriptions.first else {
             Logger.shared.log("Stremio: Missing store description", type: "Storage")
             return
         }
 
+        description.url = storeURL
         description.type = NSSQLiteStoreType
         description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
 

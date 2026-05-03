@@ -231,12 +231,16 @@ struct TrackersSettingsView: View {
         trackerManager.authError = nil
         trackerManager.isAuthenticating = false
         
+#if os(tvOS)
+        showingTVAuthSheet = true
+#else
         switch service {
         case .anilist:
             trackerManager.startAniListAuth()
         case .trakt:
             trackerManager.startTraktAuth()
         }
+#endif
     }
 
 #if os(tvOS)
@@ -255,21 +259,23 @@ struct TrackersSettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let authURL = currentTVAuthURL {
-                        Button {
-                            openURL(authURL)
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "link")
-                                    .font(.system(size: 22, weight: .semibold))
+                        VStack(spacing: 20) {
+                            QRCodeView(url: authURL)
+                                .padding(16)
+                                .background(Color.white)
+                                .cornerRadius(12)
+                            
+                            Button {
+                                openURL(authURL)
+                            } label: {
                                 Text("Open Login Page")
                                     .font(.system(size: 24, weight: .semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(minHeight: 64)
+                                    .applyLiquidGlassBackground(cornerRadius: 18)
                             }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: 64)
-                            .applyLiquidGlassBackground(cornerRadius: 18)
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
