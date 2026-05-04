@@ -816,13 +816,9 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         
         setupActions()
         setupHoldGesture()
-        if isVLCPlayer {
-            setupDoubleTapSkipGestures()
-        }
+        setupDoubleTapSkipGestures()
     #if !os(tvOS)
-        if isVLCPlayer {
-            setupBrightnessControls()
-        }
+        setupBrightnessControls()
     #endif
 
         if !isVLCPlayer {
@@ -1065,19 +1061,15 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         videoContainer.addSubview(speedIndicatorLabel)
         videoContainer.addSubview(vlcSubtitleOverlayLabel)
         videoContainer.addSubview(subtitleButton)
-        if isVLCPlayer {
-            videoContainer.addSubview(speedButton)
-            videoContainer.addSubview(audioButton)
-        }
+        videoContainer.addSubview(speedButton)
+        videoContainer.addSubview(audioButton)
     #if !os(tvOS)
         videoContainer.addSubview(brightnessContainer)
         brightnessContainer.contentView.addSubview(brightnessSlider)
         brightnessContainer.contentView.addSubview(brightnessIcon)
-        if isVLCPlayer {
-            videoContainer.addSubview(skipButton)
-            videoContainer.addSubview(nextEpisodeButton)
-            videoContainer.addSubview(skip85sButton)
-        }
+        videoContainer.addSubview(skipButton)
+        videoContainer.addSubview(nextEpisodeButton)
+        videoContainer.addSubview(skip85sButton)
     #endif
 
         NSLayoutConstraint.activate([
@@ -1157,19 +1149,17 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
 
         vlcSubtitleOverlayBottomConstraint = vlcSubtitleOverlayLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: vlcSubtitleOverlayBottomConstant)
         vlcSubtitleOverlayBottomConstraint?.isActive = true
-        if isVLCPlayer {
-            NSLayoutConstraint.activate([
-                speedButton.trailingAnchor.constraint(equalTo: subtitleButton.leadingAnchor, constant: -8),
-                speedButton.centerYAnchor.constraint(equalTo: subtitleButton.centerYAnchor),
-                speedButton.widthAnchor.constraint(equalToConstant: 32),
-                speedButton.heightAnchor.constraint(equalToConstant: 32),
+        NSLayoutConstraint.activate([
+            speedButton.trailingAnchor.constraint(equalTo: subtitleButton.leadingAnchor, constant: -8),
+            speedButton.centerYAnchor.constraint(equalTo: subtitleButton.centerYAnchor),
+            speedButton.widthAnchor.constraint(equalToConstant: 32),
+            speedButton.heightAnchor.constraint(equalToConstant: 32),
 
-                audioButton.trailingAnchor.constraint(equalTo: speedButton.leadingAnchor, constant: -8),
-                audioButton.centerYAnchor.constraint(equalTo: subtitleButton.centerYAnchor),
-                audioButton.widthAnchor.constraint(equalToConstant: 32),
-                audioButton.heightAnchor.constraint(equalToConstant: 32)
-            ])
-        }
+            audioButton.trailingAnchor.constraint(equalTo: speedButton.leadingAnchor, constant: -8),
+            audioButton.centerYAnchor.constraint(equalTo: subtitleButton.centerYAnchor),
+            audioButton.widthAnchor.constraint(equalToConstant: 32),
+            audioButton.heightAnchor.constraint(equalToConstant: 32)
+        ])
 #if !os(tvOS)
         NSLayoutConstraint.activate([
             brightnessContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 12),
@@ -1187,18 +1177,16 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
             brightnessIcon.heightAnchor.constraint(equalToConstant: 20),
             brightnessIcon.widthAnchor.constraint(equalToConstant: 20)
         ])
-        if isVLCPlayer {
-            NSLayoutConstraint.activate([
-                skipButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
-                skipButton.bottomAnchor.constraint(equalTo: subtitleButton.topAnchor, constant: -12),
+        NSLayoutConstraint.activate([
+            skipButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
+            skipButton.bottomAnchor.constraint(equalTo: subtitleButton.topAnchor, constant: -12),
 
-                nextEpisodeButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
-                nextEpisodeButton.bottomAnchor.constraint(equalTo: skipButton.topAnchor, constant: -10),
+            nextEpisodeButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
+            nextEpisodeButton.bottomAnchor.constraint(equalTo: skipButton.topAnchor, constant: -10),
 
-                skip85sButton.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
-                skip85sButton.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -12),
-            ])
-        }
+            skip85sButton.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+            skip85sButton.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -12),
+        ])
 #endif
         
         // CRITICAL: After all UI elements are added, ensure VLC view is at the very back
@@ -1230,15 +1218,11 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
         skipBackwardButton.addTarget(self, action: #selector(skipBackwardTapped), for: .touchUpInside)
         skipForwardButton.addTarget(self, action: #selector(skipForwardTapped), for: .touchUpInside)
 #if !os(tvOS)
-        if isVLCPlayer {
-            skipButton.addTarget(self, action: #selector(skipButtonTapped), for: .touchUpInside)
-            nextEpisodeButton.addTarget(self, action: #selector(nextEpisodeButtonTapped), for: .touchUpInside)
-            skip85sButton.addTarget(self, action: #selector(skip85sButtonTapped), for: .touchUpInside)
-        }
+        skipButton.addTarget(self, action: #selector(skipButtonTapped), for: .touchUpInside)
+        nextEpisodeButton.addTarget(self, action: #selector(nextEpisodeButtonTapped), for: .touchUpInside)
+        skip85sButton.addTarget(self, action: #selector(skip85sButtonTapped), for: .touchUpInside)
 #endif
-        if isVLCPlayer {
-            subtitleButton.addTarget(self, action: #selector(subtitleButtonTapped), for: .touchUpInside)
-        }
+        subtitleButton.addTarget(self, action: #selector(subtitleButtonTapped), for: .touchUpInside)
         
         // Ensure buttons work with VLC
         if vlcRenderer != nil {
@@ -3057,11 +3041,9 @@ final class PlayerViewController: UIViewController, UIGestureRecognizerDelegate 
                 if !self.subtitleButton.isHidden {
                     self.subtitleButton.alpha = 1.0
                 }
-                if self.isVLCPlayer {
-                    self.speedButton.alpha = 1.0
-                    if !self.audioButton.isHidden {
-                        self.audioButton.alpha = 1.0
-                    }
+                self.speedButton.alpha = 1.0
+                if !self.audioButton.isHidden {
+                    self.audioButton.alpha = 1.0
                 }
 #if !os(tvOS)
                 if self.isBrightnessControlEnabled {

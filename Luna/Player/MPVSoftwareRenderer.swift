@@ -903,7 +903,7 @@ final class MPVSoftwareRenderer {
                 guard let handle = self.mpv else { return }
                 guard let eventPointer = mpv_wait_event(handle, 0) else { return }
                 let event = eventPointer.pointee
-                if event.event_id == MPV_EVENT_NONE { continue }
+                if event.event_id == MPV_EVENT_NONE { break }
                 self.handleEvent(event)
                 if event.event_id == MPV_EVENT_SHUTDOWN { break }
             }
